@@ -238,8 +238,9 @@ export default function ShipmentDetail() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b text-muted-foreground">
-                  <th className="text-left px-5 py-3 font-medium">NOA #</th>
+                 <th className="text-left px-5 py-3 font-medium">NOA #</th>
                   <th className="text-left px-5 py-3 font-medium">Date Received</th>
+                  <th className="text-left px-5 py-3 font-medium">Received At</th>
                   <th className="text-right px-5 py-3 font-medium">Colli</th>
                   <th className="text-right px-5 py-3 font-medium">Weight (kg)</th>
                   <th className="text-left px-5 py-3 font-medium">Source</th>
@@ -250,7 +251,8 @@ export default function ShipmentDetail() {
                 {noaEntries.map((n: any) => (
                   <tr key={n.id} className="border-b last:border-0">
                     <td className="px-5 py-3 font-medium">NOA {n.noa_number}</td>
-                    <td className="px-5 py-3 text-muted-foreground">{new Date(n.received_at).toLocaleString('en-GB')}</td>
+                    <td className="px-5 py-3 text-muted-foreground">{new Date(n.created_at).toLocaleString('en-GB')}</td>
+                    <td className="px-5 py-3 text-muted-foreground">{n.received_at ? new Date(n.received_at).toLocaleString('en-GB') : '—'}</td>
                     <td className="px-5 py-3 text-right tabular-nums">{n.colli}</td>
                     <td className="px-5 py-3 text-right tabular-nums">{Number(n.weight).toLocaleString()}</td>
                     <td className="px-5 py-3 text-muted-foreground">{n.source || 'Manual'}</td>
@@ -269,7 +271,7 @@ export default function ShipmentDetail() {
               <tfoot>
                 <tr className="bg-muted/30 font-medium border-t">
                   <td className="px-5 py-3">Total</td>
-                  <td className="px-5 py-3"></td>
+                  <td className="px-5 py-3" colSpan={2}></td>
                   <td className="px-5 py-3 text-right tabular-nums">
                     {noaEntries.reduce((sum: number, n: any) => sum + n.colli, 0)} / {shipment.colli_expected ?? '?'}
                   </td>
