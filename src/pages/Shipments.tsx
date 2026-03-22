@@ -30,9 +30,10 @@ const subFilterConfig: { key: SubFilter; label: string; match: (s: any) => boole
 ];
 
 export default function Shipments() {
-  const { data: shipments = [], isLoading } = useShipments();
-  const { data: allClearances = [] } = useAllClearances();
-  const { data: allInspections = [] } = useAllInspections();
+  const { data: shipments = [], isLoading, isError, error } = useShipments();
+  const shipmentIds = useMemo(() => shipments.map((s: any) => s.id), [shipments]);
+  const { data: allClearances = [] } = useAllClearances(shipmentIds);
+  const { data: allInspections = [] } = useAllInspections(shipmentIds);
   const [tab, setTab] = useState<Tab>('active');
   const [search, setSearch] = useState('');
   const [subFilter, setSubFilter] = useState<SubFilter>('all');
@@ -95,6 +96,11 @@ export default function Shipments() {
 
   if (isLoading) {
     return <div className="flex items-center justify-center py-24"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>;
+  }
+
+  if (isError) {
+    console.error('Shipments page failed to load shipments:', error);
+    return <div className="rounded-xl border bg-card p-6 text-sm text-destructive">Failed to load shipments. Check the console for query details.</div>;
   }
 
   return (
