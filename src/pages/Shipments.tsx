@@ -1,11 +1,11 @@
 import { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { Search, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
-import { useShipments } from '@/hooks/use-shipment-data';
+import { Search, ChevronLeft, ChevronRight, Loader2, Lock, CheckCircle2, AlertTriangle } from 'lucide-react';
+import { useShipments, useAllClearances, useAllInspections } from '@/hooks/use-shipment-data';
 import { StatusBadge } from '@/components/StatusBadge';
 
 type Tab = 'active' | 'archive';
-type SubFilter = 'all' | 'awaiting-noa' | 'noa-received' | 'in-stock' | 'in-transit';
+type SubFilter = 'all' | 'awaiting-noa' | 'partial-noa' | 'noa-complete' | 'in-transit' | 'in-stock' | 'outbound';
 
 const PER_PAGE = 25;
 
@@ -21,21 +21,48 @@ function waitingTime(dateStr: string): string {
 
 const subFilterConfig: { key: SubFilter; label: string; match: (s: any) => boolean }[] = [
   { key: 'all', label: 'All', match: () => true },
-  { key: 'awaiting-noa', label: 'Awaiting NOA', match: s => s.status === 'Created' },
-  { key: 'noa-received', label: 'NOA Received', match: s => s.status === 'NOA Received' || s.status === 'Arrived' },
-  { key: 'in-stock', label: 'In Stock', match: s => s.status === 'In Stock' },
+  { key: 'awaiting-noa', label: 'Awaiting NOA', match: s => s.status === 'Created' || s.status === 'Awaiting NOA' },
+  { key: 'partial-noa', label: 'Partial NOA', match: s => s.status === 'Partial NOA' },
+  { key: 'noa-complete', label: 'NOA Complete', match: s => s.status === 'NOA Complete' },
   { key: 'in-transit', label: 'In Transit', match: s => s.status === 'In Transit' },
+  { key: 'in-stock', label: 'In Stock', match: s => s.status === 'In Stock' },
+  { key: 'outbound', label: 'Outbound', match: s => s.status === 'Outbound' },
 ];
 
 export default function Shipments() {
   const { data: shipments = [], isLoading } = useShipments();
+  const { data: allClearances = [] } = useAllClearances();
+  const { data: allInspections = [] } = useAllInspections();
   const [tab, setTab] = useState<Tab>('active');
   const [search, setSearch] = useState('');
   const [subFilter, setSubFilter] = useState<SubFilter>('all');
   const [page, setPage] = useState(1);
 
-  const activeShipments = useMemo(() => shipments.filter((s: any) => s.status !== 'Delivered'), [shipments]);
-  const archiveShipments = useMemo(() => shipments.filter((s: any) => s.status === 'Delivered'), [shipments]);
+  // Build lookup maps
+  const clearanceMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const c of allClearances) {
+      // Take the "best" status per shipment
+      const current = map[c.shipment_id];
+      if (c.status === 'cleared' || (!current && c.status)) {
+        map[c.shipment_id] = c.status;
+      }
+    }
+    return map;
+  }, [allClearances]);
+
+  const inspectionMap = useMemo(() => {
+    const map: Record<string, boolean> = {};
+    for (const i of allInspections) {
+      if (i.status === 'under_inspection' || i.status === 'removed') {
+        map[i.shipment_id] = true;
+      }
+    }
+    return map;
+  }, [allInspections]);
+
+  const activeShipments = useMemo(() => shipments.filter((s: any) => s.status !== 'Outbound'), [shipments]);
+  const archiveShipments = useMemo(() => shipments.filter((s: any) => s.status === 'Outbound'), [shipments]);
 
   const filtered = useMemo(() => {
     const base = tab === 'active' ? activeShipments : archiveShipments;
@@ -99,7 +126,7 @@ export default function Shipments() {
           onClick={() => handleTabChange('archive')}
           className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px ${tab === 'archive' ? 'border-accent text-accent' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
         >
-          Archive
+          Completed
           <span className="ml-1.5 text-xs bg-muted px-1.5 py-0.5 rounded-full tabular-nums">{archiveShipments.length}</span>
         </button>
       </div>
@@ -138,22 +165,40 @@ export default function Shipments() {
               </tr>
             </thead>
             <tbody>
-              {paginated.map((s: any) => (
-                <tr key={s.id} className="border-b last:border-0 hover:bg-muted/50 transition-colors">
-                  <td className="px-5 py-3">
-                    <Link to={`/shipments/${s.id}`} className="font-mono font-medium text-accent hover:underline">{s.mawb}</Link>
-                  </td>
-                  <td className="px-5 py-3 hidden sm:table-cell">{s.subklanten?.name || '—'}</td>
-                  <td className="px-5 py-3 text-right tabular-nums hidden md:table-cell">{s.colli_expected}</td>
-                  <td className="px-5 py-3 text-right tabular-nums hidden md:table-cell">{s.parcels}</td>
-                  <td className="px-5 py-3 text-right tabular-nums hidden lg:table-cell">{Number(s.chargeable_weight).toLocaleString()} kg</td>
-                  <td className="px-5 py-3 hidden lg:table-cell">{s.warehouse_id}</td>
-                  <td className="px-5 py-3"><StatusBadge status={s.status} /></td>
-                  <td className="px-5 py-3 hidden xl:table-cell text-muted-foreground tabular-nums">
-                    {tab === 'active' ? waitingTime(s.updated_at) : new Date(s.created_at).toLocaleDateString('en-GB')}
-                  </td>
-                </tr>
-              ))}
+              {paginated.map((s: any) => {
+                const clrStatus = clearanceMap[s.id];
+                const hasOpenInspection = inspectionMap[s.id];
+                return (
+                  <tr key={s.id} className="border-b last:border-0 hover:bg-muted/50 transition-colors">
+                    <td className="px-5 py-3">
+                      <Link to={`/shipments/${s.id}`} className="font-mono font-medium text-accent hover:underline">{s.mawb}</Link>
+                    </td>
+                    <td className="px-5 py-3 hidden sm:table-cell">{s.subklanten?.name || '—'}</td>
+                    <td className="px-5 py-3 text-right tabular-nums hidden md:table-cell">{s.colli_expected}</td>
+                    <td className="px-5 py-3 text-right tabular-nums hidden md:table-cell">{s.parcels}</td>
+                    <td className="px-5 py-3 text-right tabular-nums hidden lg:table-cell">{Number(s.chargeable_weight).toLocaleString()} kg</td>
+                    <td className="px-5 py-3 hidden lg:table-cell">{s.warehouse_id}</td>
+                    <td className="px-5 py-3">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <StatusBadge status={s.status} />
+                        {clrStatus === 'cleared' ? (
+                          <span title="Customs cleared"><CheckCircle2 className="h-3.5 w-3.5 text-[hsl(var(--status-delivered))]" /></span>
+                        ) : (
+                          <span title="Not cleared"><Lock className="h-3.5 w-3.5 text-muted-foreground" /></span>
+                        )}
+                        {hasOpenInspection && (
+                          <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold px-1.5 py-0.5 rounded bg-[hsl(var(--status-needs-action)/0.15)] text-[hsl(var(--status-needs-action))]">
+                            <AlertTriangle className="h-3 w-3" /> Inspection
+                          </span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-5 py-3 hidden xl:table-cell text-muted-foreground tabular-nums">
+                      {tab === 'active' ? waitingTime(s.updated_at) : new Date(s.created_at).toLocaleDateString('en-GB')}
+                    </td>
+                  </tr>
+                );
+              })}
               {paginated.length === 0 && (
                 <tr><td colSpan={8} className="px-5 py-12 text-center text-muted-foreground">No shipments found</td></tr>
               )}

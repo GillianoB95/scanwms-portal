@@ -1,5 +1,5 @@
-export type ShipmentStatus = 'Created' | 'NOA Received' | 'Arrived' | 'In Stock' | 'In Transit' | 'Delivered';
-export type PalletStatus = 'Palletized' | 'Loaded' | 'Delivered';
+export type ShipmentStatus = 'Created' | 'Awaiting NOA' | 'Partial NOA' | 'NOA Complete' | 'In Transit' | 'In Stock' | 'Outbound';
+export type PalletStatus = 'Palletized' | 'Loaded' | 'Outbound';
 
 export interface Shipment {
   id: string;
@@ -82,169 +82,38 @@ export const subklanten = [
   { id: 'sk4', name: 'DPD Benelux' },
 ];
 
-export const shipments: Shipment[] = [
-  { id: '1', mawb: '235-84729301', subklant: 'PostNL Express', subklantId: 'sk1', pieces: 48, parcels: 312, chargeableWeight: 2840, warehouse: 'AMS-01', status: 'Delivered', transportType: 'AIR', createdAt: '2025-03-18', lastStatusUpdate: '2025-03-20 11:30', colliExpected: 48, colliNoa: 48 },
-  { id: '2', mawb: '074-19283746', subklant: 'DHL Parcel', subklantId: 'sk2', pieces: 22, parcels: 156, chargeableWeight: 1420, warehouse: 'AMS-02', status: 'In Transit', transportType: 'AIR', createdAt: '2025-03-19', lastStatusUpdate: '2025-03-21 08:00', colliExpected: 22, colliNoa: 22 },
-  { id: '3', mawb: '180-55738291', subklant: 'GLS Netherlands', subklantId: 'sk3', pieces: 35, parcels: 244, chargeableWeight: 1980, warehouse: 'AMS-01', status: 'In Stock', transportType: 'AIR', createdAt: '2025-03-20', lastStatusUpdate: '2025-03-20 10:00', colliExpected: 35, colliNoa: 33 },
-  { id: '4', mawb: '607-33847291', subklant: 'PostNL Express', subklantId: 'sk1', pieces: 15, parcels: 89, chargeableWeight: 760, warehouse: 'AMS-02', status: 'Arrived', transportType: 'AIR', createdAt: '2025-03-20', lastStatusUpdate: '2025-03-20 07:00', colliExpected: 15, colliNoa: null },
-  { id: '5', mawb: '176-92847130', subklant: 'DPD Benelux', subklantId: 'sk4', pieces: 60, parcels: 420, chargeableWeight: 3200, warehouse: 'AMS-01', status: 'NOA Received', transportType: 'AIR', createdAt: '2025-03-21', lastStatusUpdate: '2025-03-21 18:00', colliExpected: 60, colliNoa: 58 },
-  { id: '6', mawb: '235-10293847', subklant: 'PostNL Express', subklantId: 'sk1', pieces: 28, parcels: 195, chargeableWeight: 1650, warehouse: 'AMS-01', status: 'Created', transportType: 'AIR', createdAt: '2025-03-22', lastStatusUpdate: '2025-03-22 09:00', colliExpected: 28, colliNoa: null },
-  { id: '7', mawb: '412-66291047', subklant: 'DHL Parcel', subklantId: 'sk2', pieces: 40, parcels: 280, chargeableWeight: 2100, warehouse: 'AMS-01', status: 'Created', transportType: 'AIR', createdAt: '2025-03-19', lastStatusUpdate: '2025-03-19 14:00', colliExpected: 40, colliNoa: null, hasValidationErrors: true },
-  { id: '8', mawb: '074-55128930', subklant: 'GLS Netherlands', subklantId: 'sk3', pieces: 18, parcels: 126, chargeableWeight: 980, warehouse: 'AMS-02', status: 'Created', transportType: 'AIR', createdAt: '2025-03-20', lastStatusUpdate: '2025-03-20 06:30', colliExpected: 18, colliNoa: null },
-  { id: '9', mawb: '180-77384920', subklant: 'DPD Benelux', subklantId: 'sk4', pieces: 55, parcels: 385, chargeableWeight: 2950, warehouse: 'AMS-01', status: 'In Stock', transportType: 'AIR', createdAt: '2025-03-21', lastStatusUpdate: '2025-03-22 07:15', colliExpected: 55, colliNoa: 55 },
-  { id: '10', mawb: '607-99201384', subklant: 'PostNL Express', subklantId: 'sk1', pieces: 32, parcels: 224, chargeableWeight: 1780, warehouse: 'AMS-02', status: 'In Transit', transportType: 'AIR', createdAt: '2025-03-21', lastStatusUpdate: '2025-03-22 06:00', colliExpected: 32, colliNoa: 32 },
-  { id: '11', mawb: '176-44829103', subklant: 'DHL Parcel', subklantId: 'sk2', pieces: 25, parcels: 175, chargeableWeight: 1340, warehouse: 'AMS-01', status: 'NOA Received', transportType: 'AIR', createdAt: '2025-03-22', lastStatusUpdate: '2025-03-22 10:30', colliExpected: 25, colliNoa: 25 },
-  { id: '12', mawb: '235-88174029', subklant: 'GLS Netherlands', subklantId: 'sk3', pieces: 42, parcels: 294, chargeableWeight: 2240, warehouse: 'AMS-01', status: 'Delivered', transportType: 'AIR', createdAt: '2025-03-17', lastStatusUpdate: '2025-03-19 14:00', colliExpected: 42, colliNoa: 42 },
-  { id: '13', mawb: '412-33019284', subklant: 'PostNL Express', subklantId: 'sk1', pieces: 19, parcels: 133, chargeableWeight: 1020, warehouse: 'AMS-02', status: 'Arrived', transportType: 'AIR', createdAt: '2025-03-22', lastStatusUpdate: '2025-03-22 05:45', colliExpected: 19, colliNoa: null },
-  { id: '14', mawb: '074-22938471', subklant: 'DPD Benelux', subklantId: 'sk4', pieces: 70, parcels: 490, chargeableWeight: 3750, warehouse: 'AMS-01', status: 'In Stock', transportType: 'AIR', createdAt: '2025-03-21', lastStatusUpdate: '2025-03-21 16:00', colliExpected: 70, colliNoa: 68, hasValidationErrors: true },
-];
+export const shipments: Shipment[] = [];
 
-export const getStatusHistory = (shipmentId: string): StatusHistory[] => {
-  const histories: Record<string, StatusHistory[]> = {
-    '1': [
-      { status: 'Created', changedBy: 'System', changedAt: '2025-03-18 08:00', notes: 'Shipment created via portal' },
-      { status: 'NOA Received', changedBy: 'KLM Cargo', changedAt: '2025-03-18 14:30' },
-      { status: 'Arrived', changedBy: 'Warehouse AMS-01', changedAt: '2025-03-19 06:15' },
-      { status: 'In Stock', changedBy: 'Warehouse AMS-01', changedAt: '2025-03-19 09:45', notes: 'All 48 colli scanned in' },
-      { status: 'In Transit', changedBy: 'Transport Desk', changedAt: '2025-03-19 16:00' },
-      { status: 'Delivered', changedBy: 'Driver M. de Vries', changedAt: '2025-03-20 11:30' },
-    ],
-    '2': [
-      { status: 'Created', changedBy: 'System', changedAt: '2025-03-19 10:00' },
-      { status: 'NOA Received', changedBy: 'Martinair', changedAt: '2025-03-19 18:00' },
-      { status: 'Arrived', changedBy: 'Warehouse AMS-02', changedAt: '2025-03-20 07:00' },
-      { status: 'In Stock', changedBy: 'Warehouse AMS-02', changedAt: '2025-03-20 10:00' },
-      { status: 'In Transit', changedBy: 'Transport Desk', changedAt: '2025-03-21 08:00' },
-    ],
-  };
-  return histories[shipmentId] || [
-    { status: 'Created', changedBy: 'System', changedAt: '2025-03-20 09:00' },
-  ];
-};
+export const statusOrder: ShipmentStatus[] = ['Created', 'Awaiting NOA', 'Partial NOA', 'NOA Complete', 'In Transit', 'In Stock', 'Outbound'];
 
-export const getOuterboxes = (shipmentId: string): Outerbox[] => {
-  if (shipmentId === '1') {
-    return Array.from({ length: 48 }, (_, i) => ({
-      id: `ob-${i}`,
-      barcode: `AMS${String(i + 1).padStart(4, '0')}`,
-      status: 'scanned_out' as const,
-      scannedInAt: '2025-03-19 09:00',
-      scannedOutAt: '2025-03-19 16:00',
-      palletId: `p-${Math.floor(i / 12)}`,
-    }));
-  }
-  if (shipmentId === '3') {
-    return Array.from({ length: 35 }, (_, i) => ({
-      id: `ob-${i}`,
-      barcode: `AMS${String(i + 1).padStart(4, '0')}`,
-      status: i < 30 ? 'in_stock' as const : i < 33 ? 'scanned_in' as const : 'expected' as const,
-      scannedInAt: i < 33 ? '2025-03-20 10:00' : null,
-      scannedOutAt: null,
-      palletId: null,
-    }));
-  }
-  return [];
-};
-
-export const getNoaEntries = (shipmentId: string): NoaEntry[] => {
-  const entries: Record<string, NoaEntry[]> = {
-    '1': [
-      { id: 'noa-1', noaNumber: 1, receivedAt: '2025-03-18 09:00', colli: 24, weight: 1420, filePath: '/noa/1-1.pdf' },
-      { id: 'noa-2', noaNumber: 2, receivedAt: '2025-03-18 14:30', colli: 24, weight: 1420, filePath: '/noa/1-2.pdf' },
-    ],
-    '3': [
-      { id: 'noa-3', noaNumber: 1, receivedAt: '2025-03-20 09:00', colli: 20, weight: 1130, filePath: '/noa/3-1.pdf' },
-      { id: 'noa-4', noaNumber: 2, receivedAt: '2025-03-20 14:30', colli: 13, weight: 850, filePath: '/noa/3-2.pdf' },
-    ],
-    '5': [
-      { id: 'noa-5', noaNumber: 1, receivedAt: '2025-03-21 10:00', colli: 58, weight: 3100, filePath: '/noa/5-1.pdf' },
-    ],
-  };
-  return entries[shipmentId] || [];
-};
-
-export const getOutboundGroups = (shipmentId: string): OutboundGroup[] => {
-  if (shipmentId === '1') {
-    return [
-      {
-        hub: 'UPS Netherlands',
-        hubCode: 'UPS-NL',
-        totalExpected: 30,
-        totalPickedUp: 30,
-        stillInStock: 0,
-        pickups: [
-          {
-            date: '2025-03-19',
-            truckReference: 'XY-123-NL',
-            totalPieces: 24,
-            pallets: [
-              { id: 'p-0', palletNumber: 'PLT-001', pieces: 12, weight: 710, status: 'Delivered' },
-              { id: 'p-1', palletNumber: 'PLT-002', pieces: 12, weight: 695, status: 'Delivered' },
-            ],
-          },
-          {
-            date: '2025-03-20',
-            truckReference: 'AB-456-NL',
-            totalPieces: 6,
-            pallets: [
-              { id: 'p-4', palletNumber: 'PLT-005', pieces: 6, weight: 310, status: 'Delivered' },
-            ],
-          },
-        ],
-      },
-      {
-        hub: 'DHL Germany',
-        hubCode: 'DHL-DE',
-        totalExpected: 18,
-        totalPickedUp: 18,
-        stillInStock: 0,
-        pickups: [
-          {
-            date: '2025-03-19',
-            truckReference: 'CD-789-DE',
-            totalPieces: 18,
-            pallets: [
-              { id: 'p-2', palletNumber: 'PLT-003', pieces: 12, weight: 720, status: 'Delivered' },
-              { id: 'p-3', palletNumber: 'PLT-004', pieces: 6, weight: 360, status: 'Delivered' },
-            ],
-          },
-        ],
-      },
-    ];
-  }
-  return [];
-};
-
-export const getPallets = (shipmentId: string): Pallet[] => {
-  const groups = getOutboundGroups(shipmentId);
-  return groups.flatMap(g => g.pickups.flatMap(p => p.pallets));
-};
-
-export const getNotes = (shipmentId: string): Note[] => {
-  if (shipmentId === '1') {
-    return [
-      { id: 'n1', author: 'Warehouse Team', content: 'All boxes received in good condition. No damage reported.', createdAt: '2025-03-19 10:15' },
-      { id: 'n2', author: 'Transport Desk', content: 'Split across 2 trucks due to hub routing. TR-0382 and TR-0385.', createdAt: '2025-03-19 15:45' },
-    ];
-  }
-  if (shipmentId === '3') {
-    return [
-      { id: 'n1', author: 'Warehouse Team', content: '2 colli missing from NOA count. Investigating with airline.', createdAt: '2025-03-20 11:00' },
-    ];
-  }
-  return [];
-};
-
-export const statusOrder: ShipmentStatus[] = ['Created', 'NOA Received', 'Arrived', 'In Stock', 'In Transit', 'Delivered'];
-
-export const getStatusClass = (status: ShipmentStatus): string => {
-  const map: Record<ShipmentStatus, string> = {
+export const getStatusClass = (status: string): string => {
+  const map: Record<string, string> = {
     'Created': 'status-created',
-    'NOA Received': 'status-noa',
-    'Arrived': 'status-arrived',
-    'In Stock': 'status-instock',
+    'Awaiting NOA': 'status-awaiting-noa',
+    'Partial NOA': 'status-partial-noa',
+    'NOA Complete': 'status-noa-complete',
     'In Transit': 'status-intransit',
+    'In Stock': 'status-instock',
+    'Outbound': 'status-outbound',
     'Delivered': 'status-delivered',
+    // Pallet statuses
+    'Palletized': 'status-instock',
+    'Loaded': 'status-intransit',
+    // Clearance statuses
+    'pending': 'status-pending',
+    'partial': 'status-partial',
+    'cleared': 'status-cleared',
+    // Inspection statuses
+    'under_inspection': 'status-needs-action',
+    'removed': 'status-partial-noa',
+    'released': 'status-delivered',
   };
-  return map[status];
+  return map[status] || 'status-created';
 };
+
+export const getStatusHistory = (_shipmentId: string): StatusHistory[] => [];
+export const getOuterboxes = (_shipmentId: string): Outerbox[] => [];
+export const getNoaEntries = (_shipmentId: string): NoaEntry[] => [];
+export const getOutboundGroups = (_shipmentId: string): OutboundGroup[] => [];
+export const getPallets = (_shipmentId: string): Pallet[] => [];
+export const getNotes = (_shipmentId: string): Note[] => [];

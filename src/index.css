@@ -33,11 +33,14 @@
     --sidebar-hover: 213 40% 20%;
 
     --status-created: 215 14% 70%;
-    --status-noa: 45 93% 47%;
-    --status-arrived: 217 91% 60%;
-    --status-instock: 262 52% 47%;
+    --status-awaiting-noa: 45 93% 47%;
+    --status-partial-noa: 25 95% 53%;
+    --status-noa-complete: 217 91% 60%;
     --status-intransit: 25 95% 53%;
+    --status-instock: 262 52% 47%;
+    --status-outbound: 213 55% 25%;
     --status-delivered: 142 71% 45%;
+    --status-needs-action: 0 84% 60%;
 
     --sidebar-background: 213 55% 15%;
     --sidebar-foreground: 214 20% 80%;
@@ -74,23 +77,47 @@
     background-color: hsl(var(--status-created) / 0.15);
     color: hsl(var(--status-created));
   }
-  .status-noa {
-    background-color: hsl(var(--status-noa) / 0.15);
-    color: hsl(var(--status-noa));
+  .status-awaiting-noa {
+    background-color: hsl(var(--status-awaiting-noa) / 0.15);
+    color: hsl(var(--status-awaiting-noa));
   }
-  .status-arrived {
-    background-color: hsl(var(--status-arrived) / 0.15);
-    color: hsl(var(--status-arrived));
+  .status-partial-noa {
+    background-color: hsl(var(--status-partial-noa) / 0.15);
+    color: hsl(var(--status-partial-noa));
   }
-  .status-instock {
-    background-color: hsl(var(--status-instock) / 0.15);
-    color: hsl(var(--status-instock));
+  .status-noa-complete {
+    background-color: hsl(var(--status-noa-complete) / 0.15);
+    color: hsl(var(--status-noa-complete));
   }
   .status-intransit {
     background-color: hsl(var(--status-intransit) / 0.15);
     color: hsl(var(--status-intransit));
   }
+  .status-instock {
+    background-color: hsl(var(--status-instock) / 0.15);
+    color: hsl(var(--status-instock));
+  }
+  .status-outbound {
+    background-color: hsl(var(--status-outbound) / 0.15);
+    color: hsl(var(--status-outbound));
+  }
   .status-delivered {
+    background-color: hsl(var(--status-delivered) / 0.15);
+    color: hsl(var(--status-delivered));
+  }
+  .status-needs-action {
+    background-color: hsl(var(--status-needs-action) / 0.15);
+    color: hsl(var(--status-needs-action));
+  }
+  .status-pending {
+    background-color: hsl(var(--status-created) / 0.15);
+    color: hsl(var(--status-created));
+  }
+  .status-partial {
+    background-color: hsl(var(--status-partial-noa) / 0.15);
+    color: hsl(var(--status-partial-noa));
+  }
+  .status-cleared {
     background-color: hsl(var(--status-delivered) / 0.15);
     color: hsl(var(--status-delivered));
   }
