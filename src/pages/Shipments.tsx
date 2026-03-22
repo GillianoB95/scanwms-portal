@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Search, ChevronLeft, ChevronRight, Loader2, Lock, CheckCircle2, AlertTriangle } from 'lucide-react';
+import { Search, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { StatusBadge } from '@/components/StatusBadge';
 
@@ -8,16 +8,6 @@ type Tab = 'active' | 'archive';
 type SubFilter = 'all' | 'awaiting-noa' | 'partial-noa' | 'noa-complete' | 'in-transit' | 'in-stock' | 'outbound';
 
 const PER_PAGE = 25;
-
-function waitingTime(dateStr: string): string {
-  const now = new Date();
-  const then = new Date(dateStr);
-  const h = Math.floor((now.getTime() - then.getTime()) / (1000 * 60 * 60));
-  if (h < 1) return '<1h';
-  if (h < 24) return `${h}h`;
-  const d = Math.floor(h / 24);
-  return `${d}d ${h % 24}h`;
-}
 
 const subFilterConfig: { key: SubFilter; label: string; match: (s: any) => boolean }[] = [
   { key: 'all', label: 'All', match: () => true },
@@ -31,8 +21,6 @@ const subFilterConfig: { key: SubFilter; label: string; match: (s: any) => boole
 
 export default function Shipments() {
   const [shipments, setShipments] = useState<any[]>([]);
-  const [allClearances, setAllClearances] = useState<any[]>([]);
-  const [allInspections, setAllInspections] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>('active');
@@ -47,10 +35,10 @@ export default function Shipments() {
 
       const { data, error } = await supabase
         .from('shipments')
-        .select('*, subklanten(name)')
-        .order('created_at', { ascending: false });
+        .select('id, mawb, status, created_at')
+        .limit(10);
 
-      console.log('shipments data:', data, 'error:', error);
+      console.log('result:', data, error);
 
       if (error) {
         console.error('Shipments error:', error);
@@ -60,43 +48,7 @@ export default function Shipments() {
         return;
       }
 
-      const rows = data || [];
-      setShipments(rows);
-
-      const shipmentIds = rows.map((shipment: any) => shipment.id);
-
-      if (shipmentIds.length === 0) {
-        setAllClearances([]);
-        setAllInspections([]);
-        setIsLoading(false);
-        return;
-      }
-
-      const [clearancesResult, inspectionsResult] = await Promise.all([
-        supabase
-          .from('clearances')
-          .select('shipment_id, status, colli_cleared')
-          .in('shipment_id', shipmentIds),
-        supabase
-          .from('inspections')
-          .select('shipment_id, status')
-          .in('shipment_id', shipmentIds),
-      ]);
-
-      if (clearancesResult.error) {
-        console.error('Clearances error:', clearancesResult.error);
-        setAllClearances([]);
-      } else {
-        setAllClearances(clearancesResult.data || []);
-      }
-
-      if (inspectionsResult.error) {
-        console.error('Inspections error:', inspectionsResult.error);
-        setAllInspections([]);
-      } else {
-        setAllInspections(inspectionsResult.data || []);
-      }
-
+      setShipments(data || []);
       setIsLoading(false);
     };
 
@@ -106,27 +58,6 @@ export default function Shipments() {
       setIsLoading(false);
     });
   }, []);
-
-  const clearanceMap = useMemo(() => {
-    const map: Record<string, string> = {};
-    for (const c of allClearances) {
-      const current = map[c.shipment_id];
-      if (c.status === 'cleared' || (!current && c.status)) {
-        map[c.shipment_id] = c.status;
-      }
-    }
-    return map;
-  }, [allClearances]);
-
-  const inspectionMap = useMemo(() => {
-    const map: Record<string, boolean> = {};
-    for (const i of allInspections) {
-      if (i.status === 'under_inspection' || i.status === 'removed') {
-        map[i.shipment_id] = true;
-      }
-    }
-    return map;
-  }, [allInspections]);
 
   const activeShipments = useMemo(
     () => shipments.filter((s: any) => s.status !== 'Outbound' && s.status !== 'outbound'),
@@ -143,7 +74,7 @@ export default function Shipments() {
 
     if (search) {
       const q = search.toLowerCase();
-      result = result.filter((s: any) => s.mawb.toLowerCase().includes(q) || s.subklanten?.name?.toLowerCase().includes(q));
+      result = result.filter((s: any) => s.mawb.toLowerCase().includes(q));
     }
 
     if (tab === 'active' && subFilter !== 'all') {
@@ -152,7 +83,7 @@ export default function Shipments() {
     }
 
     return result.sort(
-      (a: any, b: any) => new Date(a.updated_at).getTime() - new Date(b.updated_at).getTime()
+      (a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
     );
   }, [tab, search, subFilter, activeShipments, archiveShipments]);
 
@@ -178,7 +109,7 @@ export default function Shipments() {
     <div className="space-y-5">
       <div>
         <h1 className="text-2xl font-bold">Shipments</h1>
-        <p className="text-muted-foreground text-sm mt-1">View and manage all shipments</p>
+        <p className="text-muted-foreground text-sm mt-1">Minimal query test: shipments only</p>
       </div>
 
       <div className="relative max-w-md animate-fade-in">
@@ -232,52 +163,26 @@ export default function Shipments() {
             <thead>
               <tr className="border-b text-muted-foreground">
                 <th className="text-left px-5 py-3 font-medium">MAWB</th>
-                <th className="text-left px-5 py-3 font-medium hidden sm:table-cell">Subklant</th>
-                <th className="text-right px-5 py-3 font-medium hidden md:table-cell">Pieces</th>
-                <th className="text-right px-5 py-3 font-medium hidden md:table-cell">Parcels</th>
-                <th className="text-right px-5 py-3 font-medium hidden lg:table-cell">Weight</th>
-                <th className="text-left px-5 py-3 font-medium hidden lg:table-cell">Warehouse</th>
                 <th className="text-left px-5 py-3 font-medium">Status</th>
-                <th className="text-left px-5 py-3 font-medium hidden xl:table-cell">{tab === 'active' ? 'Waiting' : 'Date'}</th>
+                <th className="text-left px-5 py-3 font-medium">Created</th>
               </tr>
             </thead>
             <tbody>
-              {paginated.map((s: any) => {
-                const clrStatus = clearanceMap[s.id];
-                const hasOpenInspection = inspectionMap[s.id];
-                return (
-                  <tr key={s.id} className="border-b last:border-0 hover:bg-muted/50 transition-colors">
-                    <td className="px-5 py-3">
-                      <Link to={`/shipments/${s.id}`} className="font-mono font-medium text-accent hover:underline">{s.mawb}</Link>
-                    </td>
-                    <td className="px-5 py-3 hidden sm:table-cell">{s.subklanten?.name || '—'}</td>
-                    <td className="px-5 py-3 text-right tabular-nums hidden md:table-cell">{s.colli_expected}</td>
-                    <td className="px-5 py-3 text-right tabular-nums hidden md:table-cell">{s.parcels}</td>
-                    <td className="px-5 py-3 text-right tabular-nums hidden lg:table-cell">{Number(s.chargeable_weight).toLocaleString()} kg</td>
-                    <td className="px-5 py-3 hidden lg:table-cell">{s.warehouse_id}</td>
-                    <td className="px-5 py-3">
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        <StatusBadge status={s.status} />
-                        {clrStatus === 'cleared' ? (
-                          <span title="Customs cleared"><CheckCircle2 className="h-3.5 w-3.5 text-[hsl(var(--status-delivered))]" /></span>
-                        ) : (
-                          <span title="Not cleared"><Lock className="h-3.5 w-3.5 text-muted-foreground" /></span>
-                        )}
-                        {hasOpenInspection && (
-                          <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold px-1.5 py-0.5 rounded bg-[hsl(var(--status-needs-action)/0.15)] text-[hsl(var(--status-needs-action))]">
-                            <AlertTriangle className="h-3 w-3" /> Inspection
-                          </span>
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-5 py-3 hidden xl:table-cell text-muted-foreground tabular-nums">
-                      {tab === 'active' ? waitingTime(s.updated_at) : new Date(s.created_at).toLocaleDateString('en-GB')}
-                    </td>
-                  </tr>
-                );
-              })}
+              {paginated.map((s: any) => (
+                <tr key={s.id} className="border-b last:border-0 hover:bg-muted/50 transition-colors">
+                  <td className="px-5 py-3">
+                    <Link to={`/shipments/${s.id}`} className="font-mono font-medium text-accent hover:underline">{s.mawb}</Link>
+                  </td>
+                  <td className="px-5 py-3">
+                    <StatusBadge status={s.status} />
+                  </td>
+                  <td className="px-5 py-3 text-muted-foreground tabular-nums">
+                    {new Date(s.created_at).toLocaleDateString('en-GB')}
+                  </td>
+                </tr>
+              ))}
               {paginated.length === 0 && (
-                <tr><td colSpan={8} className="px-5 py-12 text-center text-muted-foreground">No shipments found</td></tr>
+                <tr><td colSpan={3} className="px-5 py-12 text-center text-muted-foreground">No shipments found</td></tr>
               )}
             </tbody>
           </table>
