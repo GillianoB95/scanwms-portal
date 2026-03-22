@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Search, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { StatusBadge } from '@/components/StatusBadge';
@@ -20,6 +20,7 @@ const subFilterConfig: { key: SubFilter; label: string; match: (s: any) => boole
 ];
 
 export default function Shipments() {
+  const navigate = useNavigate();
   const [shipments, setShipments] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -36,8 +37,8 @@ export default function Shipments() {
 
       const { data, error } = await supabase
         .from('shipments')
-        .select('id, mawb, status, created_at')
-        .limit(10);
+        .select('id, mawb, status, created_at, pieces, parcels, weight, subklanten(name)')
+        .order('created_at', { ascending: false });
 
       console.log('result:', data, error);
 
@@ -122,7 +123,7 @@ export default function Shipments() {
     <div className="space-y-5">
       <div>
         <h1 className="text-2xl font-bold">Shipments</h1>
-        <p className="text-muted-foreground text-sm mt-1">Minimal query test: shipments only</p>
+        <p className="text-muted-foreground text-sm mt-1">All your shipments</p>
       </div>
 
       <div className="relative max-w-md animate-fade-in">
@@ -176,16 +177,28 @@ export default function Shipments() {
             <thead>
               <tr className="border-b text-muted-foreground">
                 <th className="text-left px-5 py-3 font-medium">MAWB</th>
+                <th className="text-left px-5 py-3 font-medium">Subklant</th>
+                <th className="text-right px-5 py-3 font-medium">Pieces</th>
+                <th className="text-right px-5 py-3 font-medium">Parcels</th>
+                <th className="text-right px-5 py-3 font-medium">Weight</th>
                 <th className="text-left px-5 py-3 font-medium">Status</th>
                 <th className="text-left px-5 py-3 font-medium">Created</th>
               </tr>
             </thead>
             <tbody>
               {paginated.map((s: any) => (
-                <tr key={s.id} className="border-b last:border-0 hover:bg-muted/50 transition-colors">
+                <tr
+                  key={s.id}
+                  onClick={() => navigate(`/shipments/${s.id}`)}
+                  className="border-b last:border-0 hover:bg-muted/50 transition-colors cursor-pointer"
+                >
                   <td className="px-5 py-3">
-                    <Link to={`/shipments/${s.id}`} className="font-mono font-medium text-accent hover:underline">{s.mawb}</Link>
+                    <span className="font-mono font-medium text-accent">{s.mawb}</span>
                   </td>
+                  <td className="px-5 py-3 text-muted-foreground">{s.subklanten?.name ?? '—'}</td>
+                  <td className="px-5 py-3 text-right tabular-nums">{s.pieces ?? '—'}</td>
+                  <td className="px-5 py-3 text-right tabular-nums">{s.parcels ?? '—'}</td>
+                  <td className="px-5 py-3 text-right tabular-nums">{s.weight != null ? `${s.weight} kg` : '—'}</td>
                   <td className="px-5 py-3">
                     <StatusBadge status={s.status} />
                   </td>
@@ -195,7 +208,7 @@ export default function Shipments() {
                 </tr>
               ))}
               {paginated.length === 0 && (
-                <tr><td colSpan={3} className="px-5 py-12 text-center text-muted-foreground">No shipments found</td></tr>
+                <tr><td colSpan={7} className="px-5 py-12 text-center text-muted-foreground">No shipments found</td></tr>
               )}
             </tbody>
           </table>
