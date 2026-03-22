@@ -123,12 +123,24 @@ export function useSubklanten() {
     queryKey: ['subklanten', customer?.id],
     queryFn: async () => {
       if (!customer) return [];
-      const { data, error } = await supabase
+      // Fetch subklanten linked to this customer
+      const { data: subs, error } = await supabase
         .from('subklanten')
         .select('*')
         .eq('customer_id', customer.id);
       if (error) throw error;
-      return data ?? [];
+      const result = subs ?? [];
+
+      // If the logged-in customer is a sub-account (has parent_customer_id),
+      // include itself as a selectable option
+      if (customer.parent_customer_id) {
+        const alreadyIncluded = result.some((s: any) => s.name === customer.name);
+        if (!alreadyIncluded) {
+          result.unshift({ id: customer.id, name: customer.name, customer_id: customer.id });
+        }
+      }
+
+      return result;
     },
     enabled: !!customer,
   });
