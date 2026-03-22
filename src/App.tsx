@@ -7,8 +7,6 @@ import { AuthProvider, useAuth } from "@/lib/auth-context";
 import { AppLayout } from "@/components/AppLayout";
 import { StaffLayout } from "@/components/StaffLayout";
 import { WarehouseLayout } from "@/components/WarehouseLayout";
-import { useStaffAuth } from "@/hooks/use-staff-auth";
-import { useWarehouseAuth } from "@/hooks/use-warehouse-auth";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import Shipments from "./pages/Shipments";
