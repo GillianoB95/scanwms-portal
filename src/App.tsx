@@ -7,8 +7,6 @@ import { AuthProvider, useAuth } from "@/lib/auth-context";
 import { AppLayout } from "@/components/AppLayout";
 import { StaffLayout } from "@/components/StaffLayout";
 import { WarehouseLayout } from "@/components/WarehouseLayout";
-import { useStaffAuth } from "@/hooks/use-staff-auth";
-import { useWarehouseAuth } from "@/hooks/use-warehouse-auth";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import Shipments from "./pages/Shipments";
@@ -32,36 +30,40 @@ import NotFound from "./pages/NotFound";
 const queryClient = new QueryClient();
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { user, loading } = useAuth();
+  const { user, role, loading } = useAuth();
   if (loading) return <div className="min-h-screen flex items-center justify-center text-muted-foreground">Loading...</div>;
   if (!user) return <Navigate to="/login" replace />;
+  if (role === 'staff' || role === 'admin') return <Navigate to="/staff" replace />;
+  if (role === 'warehouse') return <Navigate to="/warehouse" replace />;
   return <AppLayout>{children}</AppLayout>;
 }
 
 function StaffRoute({ children }: { children: React.ReactNode }) {
-  const { user, loading } = useAuth();
-  const { data: staffAuth, isLoading: staffLoading } = useStaffAuth();
+  const { user, role, loading } = useAuth();
 
-  if (loading || staffLoading) return <div className="min-h-screen flex items-center justify-center text-muted-foreground">Loading...</div>;
+  if (loading) return <div className="min-h-screen flex items-center justify-center text-muted-foreground">Loading...</div>;
   if (!user) return <Navigate to="/login" replace />;
-  if (!staffAuth?.isStaff) return <Navigate to="/dashboard" replace />;
+  if (role !== 'staff' && role !== 'admin') return <Navigate to="/dashboard" replace />;
   return <StaffLayout>{children}</StaffLayout>;
 }
 
 function WarehouseRoute({ children }: { children: React.ReactNode }) {
-  const { user, loading } = useAuth();
-  const { data: whAuth, isLoading: whLoading } = useWarehouseAuth();
+  const { user, role, loading } = useAuth();
 
-  if (loading || whLoading) return <div className="min-h-screen flex items-center justify-center text-muted-foreground">Loading...</div>;
+  if (loading) return <div className="min-h-screen flex items-center justify-center text-muted-foreground">Loading...</div>;
   if (!user) return <Navigate to="/login" replace />;
-  if (!whAuth?.isWarehouse) return <Navigate to="/dashboard" replace />;
+  if (role !== 'warehouse' && role !== 'staff' && role !== 'admin') return <Navigate to="/dashboard" replace />;
   return <WarehouseLayout>{children}</WarehouseLayout>;
 }
 
 function AuthRoute({ children }: { children: React.ReactNode }) {
-  const { user, loading } = useAuth();
+  const { user, role, loading } = useAuth();
   if (loading) return <div className="min-h-screen flex items-center justify-center text-muted-foreground">Loading...</div>;
-  if (user) return <Navigate to="/dashboard" replace />;
+  if (user) {
+    if (role === 'staff' || role === 'admin') return <Navigate to="/staff" replace />;
+    if (role === 'warehouse') return <Navigate to="/warehouse" replace />;
+    return <Navigate to="/dashboard" replace />;
+  }
   return <>{children}</>;
 }
 

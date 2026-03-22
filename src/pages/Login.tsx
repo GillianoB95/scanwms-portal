@@ -1,9 +1,12 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/lib/auth-context';
+import { supabase } from '@/lib/supabase';
 import { Package, Loader2 } from 'lucide-react';
 
 export default function Login() {
   const { login } = useAuth();
+  const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -14,7 +17,27 @@ export default function Login() {
     setError('');
     setSubmitting(true);
     const err = await login(email, password);
-    if (err) setError(err);
+    if (err) {
+      setError(err);
+      setSubmitting(false);
+      return;
+    }
+
+    // Fetch role to determine redirect
+    const { data } = await supabase
+      .from('customer_users')
+      .select('role')
+      .eq('email', email)
+      .maybeSingle();
+
+    const role = data?.role;
+    if (role === 'staff' || role === 'admin') {
+      navigate('/staff', { replace: true });
+    } else if (role === 'warehouse') {
+      navigate('/warehouse', { replace: true });
+    } else {
+      navigate('/dashboard', { replace: true });
+    }
     setSubmitting(false);
   };
 

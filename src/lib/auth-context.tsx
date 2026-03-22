@@ -11,6 +11,7 @@ interface Customer {
 interface AuthContextType {
   user: SupabaseUser | null;
   customer: Customer | null;
+  role: string | null;
   loading: boolean;
   login: (email: string, password: string) => Promise<string | null>;
   logout: () => Promise<void>;
@@ -27,18 +28,22 @@ export const useAuth = () => {
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<SupabaseUser | null>(null);
   const [customer, setCustomer] = useState<Customer | null>(null);
+  const [role, setRole] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   const fetchCustomer = async (email: string) => {
     const { data } = await supabase
       .from('customer_users')
-      .select('customer_id, customers(id, name, warehouse_id)')
+      .select('role, customer_id, customers(id, name, warehouse_id)')
       .eq('email', email)
       .single();
 
-    if (data?.customers) {
-      const c = data.customers as unknown as Customer;
-      setCustomer(c);
+    if (data) {
+      setRole(data.role ?? null);
+      if (data.customers) {
+        const c = data.customers as unknown as Customer;
+        setCustomer(c);
+      }
     }
   };
 
@@ -85,10 +90,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await supabase.auth.signOut();
     setUser(null);
     setCustomer(null);
+    setRole(null);
   };
 
   return (
-    <AuthContext.Provider value={{ user, customer, loading, login, logout }}>
+    <AuthContext.Provider value={{ user, customer, role, loading, login, logout }}>
       {children}
     </AuthContext.Provider>
   );
