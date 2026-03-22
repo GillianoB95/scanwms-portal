@@ -1,0 +1,1707 @@
+{
+  "104": {
+    "airline": "Eurowings",
+    "warehouse": "WFS",
+    "handler": "WF2"
+  },
+  "105": {
+    "airline": "Finnair",
+    "warehouse": "Swissport",
+    "handler": "SCS"
+  },
+  "106": {
+    "airline": "BWIA West Indies Airways",
+    "warehouse": "Swissport",
+    "handler": "SCS"
+  },
+  "108": {
+    "airline": "Icelandair",
+    "warehouse": "Swissport",
+    "handler": "SCS"
+  },
+  "112": {
+    "airline": "China Cargo Airlines",
+    "warehouse": "Dnata",
+    "handler": "AGS"
+  },
+  "114": {
+    "airline": "El Al Israel Airlines",
+    "warehouse": "Dnata",
+    "handler": "AGS"
+  },
+  "115": {
+    "airline": "Air Serbia",
+    "warehouse": "WFS",
+    "handler": "WFS"
+  },
+  "117": {
+    "airline": "Scandinavian Airlines System",
+    "warehouse": "WFS",
+    "handler": "WFS"
+  },
+  "118": {
+    "airline": "TAAG Linhas Aereas de Angola",
+    "warehouse": "WFS",
+    "handler": "WF2"
+  },
+  "122": {
+    "airline": "Riyadh Air",
+    "warehouse": "WFS",
+    "handler": "WF2"
+  },
+  "124": {
+    "airline": "Air Algerie",
+    "warehouse": "Swissport",
+    "handler": "SCS"
+  },
+  "125": {
+    "airline": "British Airways",
+    "warehouse": "",
+    "handler": ""
+  },
+  "126": {
+    "airline": "Garuda Indonesia",
+    "warehouse": "Swissport",
+    "handler": "SCS"
+  },
+  "128": {
+    "airline": "Hong Kong Express Airways",
+    "warehouse": "WFS",
+    "handler": "WF2"
+  },
+  "129": {
+    "airline": "Martinair",
+    "warehouse": "WFS",
+    "handler": "WF2"
+  },
+  "130": {
+    "airline": "KLM UK Ltd",
+    "warehouse": "Dnata",
+    "handler": "AGS"
+  },
+  "131": {
+    "airline": "Japan Airlines",
+    "warehouse": "WFS",
+    "handler": "WFS"
+  },
+  "132": {
+    "airline": "Compania Mexicana de Aviacion",
+    "warehouse": "WFS",
+    "handler": "WFS"
+  },
+  "136": {
+    "airline": "Cubana de Aviacion",
+    "warehouse": "WFS",
+    "handler": "WFS"
+  },
+  "139": {
+    "airline": "Aeromexico",
+    "warehouse": "Swissport",
+    "handler": "SCS"
+  },
+  "141": {
+    "airline": "Fly Dubai",
+    "warehouse": "Dnata",
+    "handler": "AGS"
+  },
+  "144": {
+    "airline": "Aero Express Del Ecuador Trans AM",
+    "warehouse": "DHL",
+    "handler": "DHL"
+  },
+  "145": {
+    "airline": "LAN Chile Cargo",
+    "warehouse": "WFS",
+    "handler": "WF2"
+  },
+  "147": {
+    "airline": "Royal Air Maroc",
+    "warehouse": "Swissport",
+    "handler": "SCS"
+  },
+  "148": {
+    "airline": "Libyan Airlines",
+    "warehouse": "WFS",
+    "handler": "WF2"
+  },
+  "155": {
+    "airline": "DHL Aviation EEMEA B.S.C(c)",
+    "warehouse": "DHL",
+    "handler": "DHL"
+  },
+  "157": {
+    "airline": "Qatar Airways",
+    "warehouse": "",
+    "handler": ""
+  },
+  "159": {
+    "airline": "My Cargo Airlines",
+    "warehouse": "WFS",
+    "handler": "WF2"
+  },
+  "160": {
+    "airline": "Cathay Pacific Airways",
+    "warehouse": "WFS",
+    "handler": "WF2"
+  },
+  "165": {
+    "airline": "Adria Airways The Airline of Slovenia",
+    "warehouse": "WFS",
+    "handler": "WF2"
+  },
+  "167": {
+    "airline": "Air Malawi Limited",
+    "warehouse": "Dnata",
+    "handler": "AGS"
+  },
+  "168": {
+    "airline": "Air Zimbabwe",
+    "warehouse": "WFS",
+    "handler": "WF2"
+  },
+  "172": {
+    "airline": "Cargolux Airlines International",
+    "warehouse": "Swissport",
+    "handler": "SCS"
+  },
+  "174": {
+    "airline": "Air Mauritanie",
+    "warehouse": "WFS",
+    "handler": "WFS"
+  },
+  "176": {
+    "airline": "Emirates",
+    "warehouse": "Dnata",
+    "handler": "AGS"
+  },
+  "179": {
+    "airline": "Aztec Airways c/o Heavyweight Air Express",
+    "warehouse": "WFS",
+    "handler": "WF2"
+  },
+  "180": {
+    "airline": "Korean Air Lines",
+    "warehouse": "Swissport",
+    "handler": "SCS"
+  },
+  "185": {
+    "airline": "Aryan cargo Express",
+    "warehouse": "WFS",
+    "handler": "WFS"
+  },
+  "186": {
+    "airline": "Air Namibia",
+    "warehouse": "WFS",
+    "handler": "WFS"
+  },
+  "187": {
+    "airline": "Aero Charter",
+    "warehouse": "WFS",
+    "handler": "WFS"
+  },
+  "191": {
+    "airline": "Meridiana FLY S.p.A.",
+    "warehouse": "WFS",
+    "handler": "WFS"
+  },
+  "192": {
+    "airline": "Surinam Airways",
+    "warehouse": "WFS",
+    "handler": "WFS"
+  },
+  "195": {
+    "airline": "Pulkovo Aviation Enterprise",
+    "warehouse": "WFS",
+    "handler": "WFS"
+  },
+  "196": {
+    "airline": "Bridges Air Cargo",
+    "warehouse": "WFS",
+    "handler": "WF2"
+  },
+  "199": {
+    "airline": "Tunisair",
+    "warehouse": "Dnata",
+    "handler": "AGS"
+  },
+  "200": {
+    "airline": "Sudan Airways",
+    "warehouse": "WFS",
+    "handler": "WFS"
+  },
+  "201": {
+    "airline": "Air Jamaica",
+    "warehouse": "WFS",
+    "handler": "WF2"
+  },
+  "204": {
+    "airline": "Global Africa Aviation",
+    "warehouse": "WFS",
+    "handler": "WFS"
+  },
+  "205": {
+    "airline": "All Nipon Airways",
+    "warehouse": "WFS",
+    "handler": "WF2"
+  },
+  "214": {
+    "airline": "Pakistan International Airlines",
+    "warehouse": "WFS",
+    "handler": "WFS"
+  },
+  "217": {
+    "airline": "Thai Airways International",
+    "warehouse": "WFS",
+    "handler": "WF2"
+  },
+  "221": {
+    "airline": "Swiftair",
+    "warehouse": "WFS",
+    "handler": "WF2"
+  },
+  "224": {
+    "airline": "PLAY Airlines",
+    "warehouse": "WFS",
+    "handler": "WF2"
+  },
+  "227": {
+    "airline": "Aerotrans Cargo Moldova",
+    "warehouse": "WFS",
+    "handler": "WFS"
+  },
+  "229": {
+    "airline": "Kuwait Airways",
+    "warehouse": "WFS",
+    "handler": "WF2"
+  },
+  "230": {
+    "airline": "COPA Airlines",
+    "warehouse": "WFS",
+    "handler": "WFS"
+  },
+  "232": {
+    "airline": "Malaysian Airline System",
+    "warehouse": "Swissport",
+    "handler": "SCS"
+  },
+  "235": {
+    "airline": "Turkish Airlines",
+    "warehouse": "Swissport",
+    "handler": "SCS"
+  },
+  "236": {
+    "airline": "British Midlands Airlines",
+    "warehouse": "Dnata",
+    "handler": "AGS"
+  },
+  "238": {
+    "airline": "Arkia Israeli Airlines",
+    "warehouse": "Dnata",
+    "handler": "AGS"
+  },
+  "239": {
+    "airline": "Air Mauritius",
+    "warehouse": "WFS",
+    "handler": "WF2"
+  },
+  "242": {
+    "airline": "Stabo Air",
+    "warehouse": "WFS",
+    "handler": "WF2"
+  },
+  "244": {
+    "airline": "Air Tahiti",
+    "warehouse": "WFS",
+    "handler": "WF2"
+  },
+  "250": {
+    "airline": "Uzbekistan Havo Yullary Uzbekistan Airways",
+    "warehouse": "WFS",
+    "handler": "WF2"
+  },
+  "254": {
+    "airline": "Jetclub",
+    "warehouse": "WFS",
+    "handler": "WFS"
+  },
+  "255": {
+    "airline": "ARIANA AFGHAN AIR AC",
+    "warehouse": "WFS",
+    "handler": "WF2"
+  },
+  "258": {
+    "airline": "Air Madagaskar",
+    "warehouse": "WFS",
+    "handler": "WF2"
+  },
+  "259": {
+    "airline": "MAGMA CO SYNERGY AVIATION  LIMITED",
+    "warehouse": "WFS",
+    "handler": "WFS"
+  },
+  "260": {
+    "airline": "Fiji Airways",
+    "warehouse": "Dnata",
+    "handler": "AGS"
+  },
+  "261": {
+    "airline": "Air Master",
+    "warehouse": "WFS",
+    "handler": "WF2"
+  },
+  "262": {
+    "airline": "Ural Airlines",
+    "warehouse": "Swissport",
+    "handler": "SCS"
+  },
+  "267": {
+    "airline": "Jersey European Airways Flybe",
+    "warehouse": "Swissport",
+    "handler": "SCS"
+  },
+  "272": {
+    "airline": "Kalitta Air",
+    "warehouse": "WFS",
+    "handler": "WF2"
+  },
+  "275": {
+    "airline": "AeroSur",
+    "warehouse": "WFS",
+    "handler": "WFS"
+  },
+  "278": {
+    "airline": "AeroLogic",
+    "warehouse": "DHL",
+    "handler": "DHL"
+  },
+  "279": {
+    "airline": "JetBlue",
+    "warehouse": "Menzies",
+    "handler": "MZ9"
+  },
+  "281": {
+    "airline": "TAROM Romanian Air Transport",
+    "warehouse": "Dnata",
+    "handler": "AGS"
+  },
+  "289": {
+    "airline": "MIAT Mongolian Airlines",
+    "warehouse": "WFS",
+    "handler": "WFS"
+  },
+  "292": {
+    "airline": "Sunwing Cargo",
+    "warehouse": "WFS",
+    "handler": "WFS"
+  },
+  "297": {
+    "airline": "China Airlines",
+    "warehouse": "WFS",
+    "handler": "WF2"
+  },
+  "300": {
+    "airline": "Fly Air",
+    "warehouse": "WFS",
+    "handler": "WF2"
+  },
+  "301": {
+    "airline": "Global Aviation",
+    "warehouse": "WFS",
+    "handler": "WFS"
+  },
+  "304": {
+    "airline": "Ceiba",
+    "warehouse": "WFS",
+    "handler": "WF2"
+  },
+  "307": {
+    "airline": "Centurion Air Cargo",
+    "warehouse": "WFS",
+    "handler": "WF2"
+  },
+  "308": {
+    "airline": "Convesia",
+    "warehouse": "WFS",
+    "handler": "WFS"
+  },
+  "311": {
+    "airline": "Alajnihah Air Transport",
+    "warehouse": "WFS",
+    "handler": "WF2"
+  },
+  "312": {
+    "airline": "Interglobe Aviation Ltd. (IndiGo)",
+    "warehouse": "Dnata",
+    "handler": "AGS"
+  },
+  "318": {
+    "airline": "Sundt Atlanta Skybridge",
+    "warehouse": "WFS",
+    "handler": "WF2"
+  },
+  "319": {
+    "airline": "Expo Air",
+    "warehouse": "WFS",
+    "handler": "WFS"
+  },
+  "321": {
+    "airline": "Starlight Airlines",
+    "warehouse": "WFS",
+    "handler": "WFS"
+  },
+  "328": {
+    "airline": "Norwegian Cargo",
+    "warehouse": "WFS",
+    "handler": "WF2"
+  },
+  "336": {
+    "airline": "Express Aircargo",
+    "warehouse": "WFS",
+    "handler": "WF2"
+  },
+  "340": {
+    "airline": "Conquest Air Cargo",
+    "warehouse": "scs",
+    "handler": "scs"
+  },
+  "342": {
+    "airline": "Polet Airlines",
+    "warehouse": "Swissport",
+    "handler": "SCS"
+  },
+  "345": {
+    "airline": "Northern Air Cargo",
+    "warehouse": "WFS",
+    "handler": "WFS"
+  },
+  "352": {
+    "airline": "Air plus Comet",
+    "warehouse": "WFS",
+    "handler": "WF2"
+  },
+  "369": {
+    "airline": "Atlas Air",
+    "warehouse": "WFS",
+    "handler": "WF2"
+  },
+  "377": {
+    "airline": "WOW Air",
+    "warehouse": "WFS",
+    "handler": "WF2"
+  },
+  "382": {
+    "airline": "Transarca International Airways",
+    "warehouse": "WFS",
+    "handler": "WFS"
+  },
+  "386": {
+    "airline": "Maxjet",
+    "warehouse": "WFS",
+    "handler": "WFS"
+  },
+  "390": {
+    "airline": "Aegean Airlines",
+    "warehouse": "WFS",
+    "handler": "WFS"
+  },
+  "395": {
+    "airline": "Corendon",
+    "warehouse": "Dnata",
+    "handler": "AGS"
+  },
+  "396": {
+    "airline": "French Bee",
+    "warehouse": "WFS",
+    "handler": "WF2"
+  },
+  "399": {
+    "airline": "UniWorld Air Cargo",
+    "warehouse": "KLM",
+    "handler": "KLM"
+  },
+  "400": {
+    "airline": "Africa S",
+    "warehouse": "WFS",
+    "handler": "WF2"
+  },
+  "403": {
+    "airline": "Polar",
+    "warehouse": "WFS",
+    "handler": "WF2"
+  },
+  "404": {
+    "airline": "Arrow Air",
+    "warehouse": "WFS",
+    "handler": "WF2"
+  },
+  "405": {
+    "airline": "Turbot Air Cargo",
+    "warehouse": "WFS",
+    "handler": "WF2"
+  },
+  "406": {
+    "airline": "UPS",
+    "warehouse": "WFS",
+    "handler": "WF2"
+  },
+  "413": {
+    "airline": "Alas Cargo",
+    "warehouse": "WFS",
+    "handler": "WFS"
+  },
+  "416": {
+    "airline": "National Airlines",
+    "warehouse": "Swissport",
+    "handler": "SCS"
+  },
+  "417": {
+    "airline": "Bringer Airlines",
+    "warehouse": "WFS",
+    "handler": "WFS"
+  },
+  "421": {
+    "airline": "Siberia Airlines",
+    "warehouse": "WFS",
+    "handler": "WFS"
+  },
+  "424": {
+    "airline": "Miami Air Lease",
+    "warehouse": "Dnata",
+    "handler": "AGS"
+  },
+  "427": {
+    "airline": "Air Caraibes",
+    "warehouse": "WFS",
+    "handler": "WF2"
+  },
+  "429": {
+    "airline": "Med-View",
+    "warehouse": "WFS",
+    "handler": "WFS"
+  },
+  "431": {
+    "airline": "Lituanica Airlines",
+    "warehouse": "Swissport",
+    "handler": "SCS"
+  },
+  "435": {
+    "airline": "Premiere Trans Aire",
+    "warehouse": "WFS",
+    "handler": "WFS"
+  },
+  "438": {
+    "airline": "Sky Airlines",
+    "warehouse": "Dnata",
+    "handler": "AGS"
+  },
+  "439": {
+    "airline": "Aigle Azur",
+    "warehouse": "WFS",
+    "handler": "WFS"
+  },
+  "440": {
+    "airline": "Senegal Airlines",
+    "warehouse": "WFS",
+    "handler": "WFS"
+  },
+  "452": {
+    "airline": "Air Arabia Maroc",
+    "warehouse": "WFS",
+    "handler": "WF2"
+  },
+  "458": {
+    "airline": "Air Ghana",
+    "warehouse": "WFS",
+    "handler": "WF2"
+  },
+  "459": {
+    "airline": "Rwandair Ltd",
+    "warehouse": "WFS",
+    "handler": "WFS"
+  },
+  "460": {
+    "airline": "Vamos",
+    "warehouse": "WFS",
+    "handler": "WF2"
+  },
+  "463": {
+    "airline": "Silkway",
+    "warehouse": "Dnata",
+    "handler": "AGS"
+  },
+  "465": {
+    "airline": "Air Astana",
+    "warehouse": "Swissport",
+    "handler": "SCS"
+  },
+  "470": {
+    "airline": "STP Airways",
+    "warehouse": "WFS",
+    "handler": "WF2"
+  },
+  "471": {
+    "airline": "Silkway Italy",
+    "warehouse": "Dnata",
+    "handler": "AGS"
+  },
+  "473": {
+    "airline": "XL Airways France",
+    "warehouse": "WFS",
+    "handler": "WFS"
+  },
+  "475": {
+    "airline": "Blue Air",
+    "warehouse": "WFS",
+    "handler": "WFS"
+  },
+  "485": {
+    "airline": "Astral Aviation",
+    "warehouse": "WFS",
+    "handler": "WF2"
+  },
+  "486": {
+    "airline": "Lion Air Cargo Tanzania",
+    "warehouse": "Swissport",
+    "handler": "SCS"
+  },
+  "488": {
+    "airline": "My Freighter Airlines",
+    "warehouse": "WFS",
+    "handler": "WFS"
+  },
+  "489": {
+    "airline": "Cargojet Airways",
+    "warehouse": "WFS",
+    "handler": "WF2"
+  },
+  "501": {
+    "airline": "Silkway West Airlines",
+    "warehouse": "Dnata",
+    "handler": "AGS"
+  },
+  "503": {
+    "airline": "Corendon",
+    "warehouse": "WFS",
+    "handler": "WFS"
+  },
+  "506": {
+    "airline": "Norse Atlantic Airways",
+    "warehouse": "WFS",
+    "handler": "WF2"
+  },
+  "512": {
+    "airline": "Alia (Royal Jordanian Airline)",
+    "warehouse": "WFS",
+    "handler": "WFS"
+  },
+  "513": {
+    "airline": "MK Airlines Limited.",
+    "warehouse": "WFS",
+    "handler": "WFS"
+  },
+  "514": {
+    "airline": "Air Arabia",
+    "warehouse": "Dnata",
+    "handler": "AGS"
+  },
+  "519": {
+    "airline": "Niger Air Cargo",
+    "warehouse": "WFS",
+    "handler": "WF2"
+  },
+  "529": {
+    "airline": "CIELOS DEL PERU",
+    "warehouse": "WFS",
+    "handler": "WFS"
+  },
+  "536": {
+    "airline": "Norse Atlantic",
+    "warehouse": "Swissport",
+    "handler": "SCS"
+  },
+  "537": {
+    "airline": "Mahan Airlines",
+    "warehouse": "WFS",
+    "handler": "WF2"
+  },
+  "539": {
+    "airline": "Transmile",
+    "warehouse": "WFS",
+    "handler": "WF2"
+  },
+  "542": {
+    "airline": "Turkmenistan Airlines",
+    "warehouse": "WFS",
+    "handler": "WF2"
+  },
+  "543": {
+    "airline": "AerCaribe",
+    "warehouse": "WFS",
+    "handler": "WFS"
+  },
+  "546": {
+    "airline": "AFRIQIYAH AIRWAYS",
+    "warehouse": "Swissport",
+    "handler": "SCS"
+  },
+  "549": {
+    "airline": "LATAM Cargo Brasil",
+    "warehouse": "WFS",
+    "handler": "WF2"
+  },
+  "550": {
+    "airline": "Air Belgium",
+    "warehouse": "WFS",
+    "handler": "WF2"
+  },
+  "551": {
+    "airline": "Euroatlantic Airways",
+    "warehouse": "WFS",
+    "handler": "WF2"
+  },
+  "552": {
+    "airline": "Silk Road Express",
+    "warehouse": "WFS",
+    "handler": "WFS"
+  },
+  "555": {
+    "airline": "Aeroflot Russian Airlines",
+    "warehouse": "WFS",
+    "handler": "WF2"
+  },
+  "556": {
+    "airline": "TTA Socieda de Transporte e Trablho Aereo",
+    "warehouse": "Swissport",
+    "handler": "SCS"
+  },
+  "558": {
+    "airline": "Europe Airpost",
+    "warehouse": "Swissport",
+    "handler": "SCS"
+  },
+  "560": {
+    "airline": "CargoLogicAir",
+    "warehouse": "WFS",
+    "handler": "WF2"
+  },
+  "564": {
+    "airline": "Sun Do’r Int. Airlines",
+    "warehouse": "WFS",
+    "handler": "WFS"
+  },
+  "566": {
+    "airline": "Ukraine International Airlines",
+    "warehouse": "WFS",
+    "handler": "WFS"
+  },
+  "572": {
+    "airline": "Air Moldova",
+    "warehouse": "Swissport",
+    "handler": "SCS"
+  },
+  "574": {
+    "airline": "Allied Air",
+    "warehouse": "WFS",
+    "handler": "WFS"
+  },
+  "575": {
+    "airline": "Coyne Airways",
+    "warehouse": "Dnata",
+    "handler": "AGS"
+  },
+  "576": {
+    "airline": "Sky Lease Cargo",
+    "warehouse": "WFS",
+    "handler": "WF2"
+  },
+  "577": {
+    "airline": "Azul Airline",
+    "warehouse": "WFS",
+    "handler": "WF2"
+  },
+  "580": {
+    "airline": "Air Bridge Cargo",
+    "warehouse": "WFS",
+    "handler": "WF2"
+  },
+  "589": {
+    "airline": "Jet Airways",
+    "warehouse": "WFS",
+    "handler": "WFS"
+  },
+  "592": {
+    "airline": "Sunrise Airlines",
+    "warehouse": "WFS",
+    "handler": "WF2"
+  },
+  "603": {
+    "airline": "SriLankan Airlines",
+    "warehouse": "WFS",
+    "handler": "WF2"
+  },
+  "606": {
+    "airline": "Georgian Airways",
+    "warehouse": "WFS",
+    "handler": "WFS"
+  },
+  "607": {
+    "airline": "Etihad Airways",
+    "warehouse": "WFS",
+    "handler": "WFS"
+  },
+  "610": {
+    "airline": "Atlas Global",
+    "warehouse": "Dnata",
+    "handler": "AGS"
+  },
+  "611": {
+    "airline": "Gulf Pearl",
+    "warehouse": "WFS",
+    "handler": "WFS"
+  },
+  "612": {
+    "airline": "TUI (Total Cargo Expertise)",
+    "warehouse": "WFS",
+    "handler": "WFS"
+  },
+  "615": {
+    "airline": "DHL Aviation",
+    "warehouse": "DHL",
+    "handler": "DHL"
+  },
+  "618": {
+    "airline": "Singapore Cargo Airlines",
+    "warehouse": "Swissport",
+    "handler": "SCS"
+  },
+  "623": {
+    "airline": "BULGARIA AIR",
+    "warehouse": "Dnata",
+    "handler": "AGS"
+  },
+  "624": {
+    "airline": "PEGASUS AIRLINES",
+    "warehouse": "WFS",
+    "handler": "WFS"
+  },
+  "628": {
+    "airline": "Belavia",
+    "warehouse": "Dnata",
+    "handler": "AGS"
+  },
+  "635": {
+    "airline": "Yemenia Yemen Airways",
+    "warehouse": "WFS",
+    "handler": "WFS"
+  },
+  "637": {
+    "airline": "Eritrean Airlines",
+    "warehouse": "WFS",
+    "handler": "WF2"
+  },
+  "643": {
+    "airline": "Air Malta",
+    "warehouse": "WFS",
+    "handler": "WFS"
+  },
+  "644": {
+    "airline": "Solar Cargo",
+    "warehouse": "WFS",
+    "handler": "WFS"
+  },
+  "645": {
+    "airline": "Safe Air Company",
+    "warehouse": "WFS",
+    "handler": "WF2"
+  },
+  "647": {
+    "airline": "Cimber Sterling",
+    "warehouse": "WFS",
+    "handler": "WF2"
+  },
+  "649": {
+    "airline": "Air Transat",
+    "warehouse": "WFS",
+    "handler": "WFS"
+  },
+  "656": {
+    "airline": "Air New Niugini",
+    "warehouse": "Dnata",
+    "handler": "AGS"
+  },
+  "657": {
+    "airline": "Air Baltic Corporation",
+    "warehouse": "Dnata",
+    "handler": "AGS"
+  },
+  "663": {
+    "airline": "Demavia Airlines SA",
+    "warehouse": "Swissport",
+    "handler": "SCS"
+  },
+  "669": {
+    "airline": "UNI-TOP Airlines",
+    "warehouse": "WFS",
+    "handler": "WFS"
+  },
+  "670": {
+    "airline": "Transaero Airlines",
+    "warehouse": "WFS",
+    "handler": "WFS"
+  },
+  "671": {
+    "airline": "Fly Georgia",
+    "warehouse": "WFS",
+    "handler": "WFS"
+  },
+  "672": {
+    "airline": "Royal Brunei Airlines",
+    "warehouse": "WFS",
+    "handler": "WFS"
+  },
+  "678": {
+    "airline": "Ghana AATA",
+    "warehouse": "WFS",
+    "handler": "WF2"
+  },
+  "684": {
+    "airline": "Georgian Airlines",
+    "warehouse": "WFS",
+    "handler": "WF2"
+  },
+  "685": {
+    "airline": "Portugalia",
+    "warehouse": "Swissport",
+    "handler": "SCS"
+  },
+  "687": {
+    "airline": "Carpatair",
+    "warehouse": "WFS",
+    "handler": "WF2"
+  },
+  "695": {
+    "airline": "EVA Airways Corporation",
+    "warehouse": "WFS",
+    "handler": "WF2"
+  },
+  "696": {
+    "airline": "Transportes Aereos de Cabo Verde",
+    "warehouse": "WFS",
+    "handler": "WF2"
+  },
+  "700": {
+    "airline": "C.A.L. Cargo Airlines Ltd.",
+    "warehouse": "Swissport",
+    "handler": "SCS"
+  },
+  "702": {
+    "airline": "Maersk Air Ltd.",
+    "warehouse": "WFS",
+    "handler": "WF2"
+  },
+  "703": {
+    "airline": "Flynas Air",
+    "warehouse": "WFS",
+    "handler": "WFS"
+  },
+  "706": {
+    "airline": "Kenya Airways",
+    "warehouse": "Dnata",
+    "handler": "AGS"
+  },
+  "710": {
+    "airline": "Aban Air",
+    "warehouse": "WFS",
+    "handler": "WF2"
+  },
+  "714": {
+    "airline": "PanAir Cargo",
+    "warehouse": "WFS",
+    "handler": "WFS"
+  },
+  "716": {
+    "airline": "MNG Airlines Cargo",
+    "warehouse": "WFS",
+    "handler": "WF2"
+  },
+  "722": {
+    "airline": "T’way Air Co.",
+    "warehouse": "WFS",
+    "handler": "WFS"
+  },
+  "724": {
+    "airline": "Swiss World Cargo",
+    "warehouse": "Swissport",
+    "handler": "SCS"
+  },
+  "727": {
+    "airline": "My Travel",
+    "warehouse": "WFS",
+    "handler": "WF2"
+  },
+  "728": {
+    "airline": "Sky Gates Airline",
+    "warehouse": "Dnata",
+    "handler": "AGS"
+  },
+  "729": {
+    "airline": "Avianca",
+    "warehouse": "WFS",
+    "handler": "WF2"
+  },
+  "730": {
+    "airline": "Air Cargo Germany",
+    "warehouse": "WFS",
+    "handler": "WF2"
+  },
+  "731": {
+    "airline": "Xiamen Airlines",
+    "warehouse": "Dnata",
+    "handler": "AGS"
+  },
+  "734": {
+    "airline": "Tyrolean Airways",
+    "warehouse": "KLM",
+    "handler": "KLM"
+  },
+  "738": {
+    "airline": "Vietnam Airlines Corporation",
+    "warehouse": "WFS",
+    "handler": "WF2"
+  },
+  "741": {
+    "airline": "Safi Airways",
+    "warehouse": "Swissport",
+    "handler": "SCS"
+  },
+  "744": {
+    "airline": "ACE Belgium",
+    "warehouse": "WFS",
+    "handler": "WF2"
+  },
+  "751": {
+    "airline": "Aerolog",
+    "warehouse": "WFS",
+    "handler": "WFS"
+  },
+  "752": {
+    "airline": "Fenix Airways",
+    "warehouse": "WFS",
+    "handler": "WFS"
+  },
+  "756": {
+    "airline": "ASL Airlines Belgium",
+    "warehouse": "Swissport",
+    "handler": "SCS"
+  },
+  "757": {
+    "airline": "I-Fly",
+    "warehouse": "WFS",
+    "handler": "WFS"
+  },
+  "758": {
+    "airline": "Kelowna Flightcraft Air Charter Ltd.",
+    "warehouse": "Swissport",
+    "handler": "SCS"
+  },
+  "760": {
+    "airline": "Air Austral",
+    "warehouse": "WFS",
+    "handler": "WF2"
+  },
+  "765": {
+    "airline": "IMPERIAL AIR",
+    "warehouse": "Swissport",
+    "handler": "SCS"
+  },
+  "771": {
+    "airline": "Azerbaijan Hava Yollary",
+    "warehouse": "Dnata",
+    "handler": "AGS"
+  },
+  "774": {
+    "airline": "Shanghai Airlines (via EVA)",
+    "warehouse": "WFS",
+    "handler": "WF2"
+  },
+  "777": {
+    "airline": "Blue Air",
+    "warehouse": "WFS",
+    "handler": "WFS"
+  },
+  "781": {
+    "airline": "China Eastern Airlines",
+    "warehouse": "Dnata",
+    "handler": "AGS"
+  },
+  "783": {
+    "airline": "Iberojet (Evelop Airlines)",
+    "warehouse": "WFS",
+    "handler": "WFS"
+  },
+  "784": {
+    "airline": "China Southern Airlines",
+    "warehouse": "Dnata",
+    "handler": "AGS"
+  },
+  "786": {
+    "airline": "Virgin Nigeria",
+    "warehouse": "WFS",
+    "handler": "WF2"
+  },
+  "787": {
+    "airline": "Sky Projects",
+    "warehouse": "WFS",
+    "handler": "WFS"
+  },
+  "797": {
+    "airline": "Travel Service a.s.",
+    "warehouse": "WFS",
+    "handler": "WFS"
+  },
+  "800": {
+    "airline": "Grandstat",
+    "warehouse": "Dnata",
+    "handler": "AGS"
+  },
+  "805": {
+    "airline": "Mercury Air",
+    "warehouse": "Swissport",
+    "handler": "SCS"
+  },
+  "810": {
+    "airline": "Amerijet International",
+    "warehouse": "Swissport",
+    "handler": "SCS"
+  },
+  "817": {
+    "airline": "South American Airways",
+    "warehouse": "Swissport",
+    "handler": "SCS"
+  },
+  "823": {
+    "airline": "VIM Airlines",
+    "warehouse": "WFS",
+    "handler": "WFS"
+  },
+  "827": {
+    "airline": "Atlantis Airlink",
+    "warehouse": "WFS",
+    "handler": "WF2"
+  },
+  "828": {
+    "airline": "Hong Kong Air Cargo Carrier Ltd.",
+    "warehouse": "WFS",
+    "handler": "WF2"
+  },
+  "830": {
+    "airline": "Catran",
+    "warehouse": "Dnata",
+    "handler": "AGS"
+  },
+  "831": {
+    "airline": "Croatia Airlines",
+    "warehouse": "Dnata",
+    "handler": "AGS"
+  },
+  "832": {
+    "airline": "ABX Air Inc",
+    "warehouse": "WFS",
+    "handler": "WFS"
+  },
+  "837": {
+    "airline": "Interjet Cargo",
+    "warehouse": "WFS",
+    "handler": "WFS"
+  },
+  "838": {
+    "airline": "WestJet",
+    "warehouse": "WFS",
+    "handler": "WFS"
+  },
+  "843": {
+    "airline": "Air Asia",
+    "warehouse": "WFS",
+    "handler": "WFS"
+  },
+  "851": {
+    "airline": "Hong Kong Airlines",
+    "warehouse": "Swissport",
+    "handler": "SCS"
+  },
+  "858": {
+    "airline": "Titan",
+    "warehouse": "WFS",
+    "handler": "WF2"
+  },
+  "861": {
+    "airline": "Hunnu Air",
+    "warehouse": "WFS",
+    "handler": "WFS"
+  },
+  "865": {
+    "airline": "Aerotransportes MAS de Cargo",
+    "warehouse": "WFS",
+    "handler": "WF2"
+  },
+  "869": {
+    "airline": "West Air co Martinair",
+    "warehouse": "Swissport",
+    "handler": "SCS"
+  },
+  "871": {
+    "airline": "Suparno",
+    "warehouse": "SCS of WF2",
+    "handler": "SCS of WF2"
+  },
+  "873": {
+    "airline": "Aero Union",
+    "warehouse": "WFS",
+    "handler": "WF2"
+  },
+  "876": {
+    "airline": "Sichan Airlines",
+    "warehouse": "WFS",
+    "handler": "WF2"
+  },
+  "880": {
+    "airline": "Hainan Airlines",
+    "warehouse": "WFS",
+    "handler": "WF2"
+  },
+  "881": {
+    "airline": "Condor Flugdienst",
+    "warehouse": "WFS",
+    "handler": "WFS"
+  },
+  "883": {
+    "airline": "Fly CAA",
+    "warehouse": "WFS",
+    "handler": "WFS"
+  },
+  "901": {
+    "airline": "Transportes Aeros Bolivianos",
+    "warehouse": "Swissport",
+    "handler": "SCS"
+  },
+  "904": {
+    "airline": "Viking Hellas",
+    "warehouse": "Dnata",
+    "handler": "AGS"
+  },
+  "907": {
+    "airline": "Air Armenia",
+    "warehouse": "Swissport",
+    "handler": "SCS"
+  },
+  "909": {
+    "airline": "Transwest Air Limited",
+    "warehouse": "WFS",
+    "handler": "WF2"
+  },
+  "910": {
+    "airline": "Oman Air",
+    "warehouse": "Swissport",
+    "handler": "SCS"
+  },
+  "911": {
+    "airline": "Daallo Airlines",
+    "warehouse": "Swissport",
+    "handler": "SCS"
+  },
+  "917": {
+    "airline": "Trans Africaine",
+    "warehouse": "WFS",
+    "handler": "WFS"
+  },
+  "919": {
+    "airline": "Air Anka",
+    "warehouse": "WFS",
+    "handler": "WFS"
+  },
+  "920": {
+    "airline": "Libo Air",
+    "warehouse": "Swissport",
+    "handler": "SCS"
+  },
+  "921": {
+    "airline": "SF Express",
+    "warehouse": "WFS",
+    "handler": "WF2"
+  },
+  "923": {
+    "airline": "Corsair",
+    "warehouse": "WFS",
+    "handler": "WF2"
+  },
+  "926": {
+    "airline": "Bamboo Airways",
+    "warehouse": "WFS",
+    "handler": "WFS"
+  },
+  "928": {
+    "airline": "Buraq Airlines",
+    "warehouse": "Swissport",
+    "handler": "SCS"
+  },
+  "930": {
+    "airline": "Boliviana de Aviacion",
+    "warehouse": "WFS",
+    "handler": "WFS"
+  },
+  "932": {
+    "airline": "Virgin Atlantic Airways",
+    "warehouse": "Swissport",
+    "handler": "SCS"
+  },
+  "933": {
+    "airline": "Nippon Cargo Airlines",
+    "warehouse": "Dnata",
+    "handler": "AGS"
+  },
+  "940": {
+    "airline": "Thai AirAsia X",
+    "warehouse": "WFS",
+    "handler": "WF2"
+  },
+  "946": {
+    "airline": "Vensecar Internacional",
+    "warehouse": "WFS",
+    "handler": "WFS"
+  },
+  "947": {
+    "airline": "DHL de Guatemala",
+    "warehouse": "DHL",
+    "handler": "DHL"
+  },
+  "949": {
+    "airline": "Jet2",
+    "warehouse": "Swissport",
+    "handler": "SCS"
+  },
+  "957": {
+    "airline": "TAM Linhas Aereas",
+    "warehouse": "WFS",
+    "handler": "WFS"
+  },
+  "959": {
+    "airline": "Central Airlines",
+    "warehouse": "WFS",
+    "handler": "WF2"
+  },
+  "960": {
+    "airline": "Estonian Air",
+    "warehouse": "WFS",
+    "handler": "WF2"
+  },
+  "961": {
+    "airline": "Panama Airways",
+    "warehouse": "WFS",
+    "handler": "WFS"
+  },
+  "970": {
+    "airline": "Sovereign",
+    "warehouse": "WFS",
+    "handler": "WF2"
+  },
+  "974": {
+    "airline": "Monarch Airlines",
+    "warehouse": "Dnata",
+    "handler": "AGS"
+  },
+  "976": {
+    "airline": "Airtrans Cyprus",
+    "warehouse": "WFS",
+    "handler": "WFS"
+  },
+  "978": {
+    "airline": "VietJet Air",
+    "warehouse": "Swissport",
+    "handler": "SCS"
+  },
+  "979": {
+    "airline": "Transavia Airlines",
+    "warehouse": "KLM",
+    "handler": "KLM"
+  },
+  "988": {
+    "airline": "Asiana Airlines",
+    "warehouse": "WFS",
+    "handler": "WF2"
+  },
+  "989": {
+    "airline": "Great Wall Airlines",
+    "warehouse": "Dnata",
+    "handler": "AGS"
+  },
+  "991": {
+    "airline": "Daallo Airlines",
+    "warehouse": "WFS",
+    "handler": "WFS"
+  },
+  "992": {
+    "airline": "DHL Aero Expreso",
+    "warehouse": "DHL",
+    "handler": "DHL"
+  },
+  "994": {
+    "airline": "AirZeta",
+    "warehouse": "WFS",
+    "handler": "WF2"
+  },
+  "995": {
+    "airline": "Air Bosna",
+    "warehouse": "Dnata",
+    "handler": "AGS"
+  },
+  "996": {
+    "airline": "Air Europa",
+    "warehouse": "WFS",
+    "handler": "WF2"
+  },
+  "997": {
+    "airline": "Biman Bangladesh Airlines",
+    "warehouse": "WFS",
+    "handler": "WFS"
+  },
+  "999": {
+    "airline": "Air China Cargo",
+    "warehouse": "Dnata",
+    "handler": "AGS"
+  },
+  "001": {
+    "airline": "American Airlines",
+    "warehouse": "WFS",
+    "handler": "WF2"
+  },
+  "003": {
+    "airline": "CMA-CGM Aircargo",
+    "warehouse": "WFS",
+    "handler": "WF2"
+  },
+  "006": {
+    "airline": "Delta Air Lines",
+    "warehouse": "KLM",
+    "handler": "KLM"
+  },
+  "007": {
+    "airline": "Sub African Airway",
+    "warehouse": "Swissport",
+    "handler": "SCS"
+  },
+  "008": {
+    "airline": "ICAR Airways",
+    "warehouse": "WE2",
+    "handler": "WE2"
+  },
+  "010": {
+    "airline": "Sky Up Airlines",
+    "warehouse": "WFS",
+    "handler": "WF2"
+  },
+  "011": {
+    "airline": "Blue Air",
+    "warehouse": "WFS",
+    "handler": "WF2"
+  },
+  "012": {
+    "airline": "North West Airlines",
+    "warehouse": "KLM",
+    "handler": "KLM"
+  },
+  "013": {
+    "airline": "Gabon Airlines",
+    "warehouse": "Swissport",
+    "handler": "SCS"
+  },
+  "014": {
+    "airline": "Air Canada",
+    "warehouse": "WFS",
+    "handler": "WF2"
+  },
+  "016": {
+    "airline": "United Airlines",
+    "warehouse": "WFS",
+    "handler": "WFS"
+  },
+  "020": {
+    "airline": "Deutsche Lufthansa",
+    "warehouse": "",
+    "handler": ""
+  },
+  "021": {
+    "airline": "Carpatair",
+    "warehouse": "WFS",
+    "handler": "WF2"
+  },
+  "022": {
+    "airline": "Sky Taxi",
+    "warehouse": "WFS",
+    "handler": "WFS"
+  },
+  "023": {
+    "airline": "Fedex",
+    "warehouse": "WFS",
+    "handler": "WF2"
+  },
+  "040": {
+    "airline": "Camair",
+    "warehouse": "WFS",
+    "handler": "WFS"
+  },
+  "043": {
+    "airline": "Hong Kong Dragon Airlines",
+    "warehouse": "WFS",
+    "handler": "WF2"
+  },
+  "044": {
+    "airline": "Aerolineas Argentinas",
+    "warehouse": "Swissport",
+    "handler": "SCS"
+  },
+  "045": {
+    "airline": "Latam Airlines",
+    "warehouse": "WFS",
+    "handler": "WF2"
+  },
+  "047": {
+    "airline": "TAP Air Portugal",
+    "warehouse": "WFS",
+    "handler": "WF2"
+  },
+  "053": {
+    "airline": "Aer Lingus",
+    "warehouse": "Swissport",
+    "handler": "SCS"
+  },
+  "055": {
+    "airline": "Alitalia",
+    "warehouse": "Dnata",
+    "handler": "AGS"
+  },
+  "057": {
+    "airline": "CMA CMG",
+    "warehouse": "WFS",
+    "handler": "WF2"
+  },
+  "061": {
+    "airline": "Air Seychelles",
+    "warehouse": "WFS",
+    "handler": "WFS"
+  },
+  "064": {
+    "airline": "CSA Czech Airlines",
+    "warehouse": "WFS",
+    "handler": "WF2"
+  },
+  "065": {
+    "airline": "Saudi Arabian Airlines",
+    "warehouse": "WFS",
+    "handler": "WF2"
+  },
+  "066": {
+    "airline": "Onur Air",
+    "warehouse": "Dnata",
+    "handler": "AGS"
+  },
+  "068": {
+    "airline": "LAM Linhas Aereas de Mocambique",
+    "warehouse": "WFS",
+    "handler": "WF2"
+  },
+  "070": {
+    "airline": "Syrian Arab Airlines",
+    "warehouse": "Dnata",
+    "handler": "AGS"
+  },
+  "071": {
+    "airline": "Ethiopian Airlines",
+    "warehouse": "Swissport",
+    "handler": "SCS"
+  },
+  "072": {
+    "airline": "Gulf Air",
+    "warehouse": "WFS",
+    "handler": "WF2"
+  },
+  "074": {
+    "airline": "KLM (aanlever VR8 – WF2)",
+    "warehouse": "WFS",
+    "handler": "WF2"
+  },
+  "075": {
+    "airline": "Iberia Lineas Aereas de Espana",
+    "warehouse": "",
+    "handler": ""
+  },
+  "076": {
+    "airline": "Middel East Airlines Airliban",
+    "warehouse": "WFS",
+    "handler": "WF2"
+  },
+  "077": {
+    "airline": "Egyptair",
+    "warehouse": "WFS",
+    "handler": "WF2"
+  },
+  "078": {
+    "airline": "Cyprus Airways",
+    "warehouse": "WFS",
+    "handler": "WF2"
+  },
+  "079": {
+    "airline": "Philipinne Airlines",
+    "warehouse": "Swissport",
+    "handler": "SCS"
+  },
+  "080": {
+    "airline": "LOT Polish Airlines",
+    "warehouse": "WFS",
+    "handler": "WF2"
+  },
+  "081": {
+    "airline": "Quantas Airways",
+    "warehouse": "WFS",
+    "handler": "WF2"
+  },
+  "082": {
+    "airline": "Brussels Airlines Cargo",
+    "warehouse": "WFS",
+    "handler": "WFS"
+  },
+  "083": {
+    "airline": "South African Airways",
+    "warehouse": "WFS",
+    "handler": "WF2"
+  },
+  "084": {
+    "airline": "Airblue",
+    "warehouse": "WFS",
+    "handler": "WFS"
+  },
+  "085": {
+    "airline": "Swissair",
+    "warehouse": "Swissport",
+    "handler": "SCS"
+  },
+  "086": {
+    "airline": "Air New Zealand",
+    "warehouse": "WFS",
+    "handler": "WF2"
+  },
+  "090": {
+    "airline": "Kingfisher",
+    "warehouse": "WFS",
+    "handler": "WFS"
+  },
+  "094": {
+    "airline": "European Cargo Airloine",
+    "warehouse": "WFS",
+    "handler": "WF2"
+  },
+  "098": {
+    "airline": "Air India",
+    "warehouse": "WFS",
+    "handler": "WF2"
+  }
+}
