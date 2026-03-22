@@ -37,8 +37,8 @@ export default function Shipments() {
 
       const { data, error } = await supabase
         .from('shipments')
-        .select('id, mawb, status, created_at')
-        .limit(10);
+        .select('id, mawb, status, created_at, pieces, parcels, weight, subklanten(name)')
+        .order('created_at', { ascending: false });
 
       console.log('result:', data, error);
 
