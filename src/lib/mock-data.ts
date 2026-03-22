@@ -33,14 +33,36 @@ export interface Outerbox {
   palletId: string | null;
 }
 
+export interface NoaEntry {
+  id: string;
+  noaNumber: number;
+  receivedAt: string;
+  colli: number;
+  weight: number;
+  filePath: string | null;
+}
+
+export interface OutboundGroup {
+  hub: string;
+  hubCode: string;
+  totalExpected: number;
+  totalPickedUp: number;
+  stillInStock: number;
+  pickups: OutboundPickup[];
+}
+
+export interface OutboundPickup {
+  date: string;
+  truckReference: string;
+  totalPieces: number;
+  pallets: Pallet[];
+}
+
 export interface Pallet {
   id: string;
   palletNumber: string;
-  hub: string;
-  truckReference: string;
   pieces: number;
   weight: number;
-  date: string;
   status: PalletStatus;
 }
 
