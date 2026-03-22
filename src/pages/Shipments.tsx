@@ -61,11 +61,6 @@ export default function Shipments() {
     });
   }, []);
 
-  const testQuery = async () => {
-    setTestResult('Loading test query...');
-    const { data, error } = await supabase.from('shipments').select('id, mawb, status').limit(5);
-    setTestResult(JSON.stringify({ data, error }, null, 2));
-  };
 
   const activeShipments = useMemo(
     () => shipments.filter((s: any) => s.status !== 'Outbound' && s.status !== 'outbound'),
