@@ -13,8 +13,10 @@ export interface Shipment {
   status: ShipmentStatus;
   transportType: 'AIR' | 'TRUCK';
   createdAt: string;
+  lastStatusUpdate: string;
   colliExpected: number;
   colliNoa: number | null;
+  hasValidationErrors?: boolean;
 }
 
 export interface StatusHistory {
@@ -81,12 +83,20 @@ export const subklanten = [
 ];
 
 export const shipments: Shipment[] = [
-  { id: '1', mawb: '235-84729301', subklant: 'PostNL Express', subklantId: 'sk1', pieces: 48, parcels: 312, chargeableWeight: 2840, warehouse: 'AMS-01', status: 'Delivered', transportType: 'AIR', createdAt: '2025-03-18', colliExpected: 48, colliNoa: 48 },
-  { id: '2', mawb: '074-19283746', subklant: 'DHL Parcel', subklantId: 'sk2', pieces: 22, parcels: 156, chargeableWeight: 1420, warehouse: 'AMS-02', status: 'In Transit', transportType: 'AIR', createdAt: '2025-03-19', colliExpected: 22, colliNoa: 22 },
-  { id: '3', mawb: '180-55738291', subklant: 'GLS Netherlands', subklantId: 'sk3', pieces: 35, parcels: 244, chargeableWeight: 1980, warehouse: 'AMS-01', status: 'In Stock', transportType: 'AIR', createdAt: '2025-03-20', colliExpected: 35, colliNoa: 33 },
-  { id: '4', mawb: '607-33847291', subklant: 'PostNL Express', subklantId: 'sk1', pieces: 15, parcels: 89, chargeableWeight: 760, warehouse: 'AMS-02', status: 'Arrived', transportType: 'AIR', createdAt: '2025-03-20', colliExpected: 15, colliNoa: null },
-  { id: '5', mawb: '176-92847130', subklant: 'DPD Benelux', subklantId: 'sk4', pieces: 60, parcels: 420, chargeableWeight: 3200, warehouse: 'AMS-01', status: 'NOA Received', transportType: 'AIR', createdAt: '2025-03-21', colliExpected: 60, colliNoa: 58 },
-  { id: '6', mawb: '235-10293847', subklant: 'PostNL Express', subklantId: 'sk1', pieces: 28, parcels: 195, chargeableWeight: 1650, warehouse: 'AMS-01', status: 'Created', transportType: 'AIR', createdAt: '2025-03-22', colliExpected: 28, colliNoa: null },
+  { id: '1', mawb: '235-84729301', subklant: 'PostNL Express', subklantId: 'sk1', pieces: 48, parcels: 312, chargeableWeight: 2840, warehouse: 'AMS-01', status: 'Delivered', transportType: 'AIR', createdAt: '2025-03-18', lastStatusUpdate: '2025-03-20 11:30', colliExpected: 48, colliNoa: 48 },
+  { id: '2', mawb: '074-19283746', subklant: 'DHL Parcel', subklantId: 'sk2', pieces: 22, parcels: 156, chargeableWeight: 1420, warehouse: 'AMS-02', status: 'In Transit', transportType: 'AIR', createdAt: '2025-03-19', lastStatusUpdate: '2025-03-21 08:00', colliExpected: 22, colliNoa: 22 },
+  { id: '3', mawb: '180-55738291', subklant: 'GLS Netherlands', subklantId: 'sk3', pieces: 35, parcels: 244, chargeableWeight: 1980, warehouse: 'AMS-01', status: 'In Stock', transportType: 'AIR', createdAt: '2025-03-20', lastStatusUpdate: '2025-03-20 10:00', colliExpected: 35, colliNoa: 33 },
+  { id: '4', mawb: '607-33847291', subklant: 'PostNL Express', subklantId: 'sk1', pieces: 15, parcels: 89, chargeableWeight: 760, warehouse: 'AMS-02', status: 'Arrived', transportType: 'AIR', createdAt: '2025-03-20', lastStatusUpdate: '2025-03-20 07:00', colliExpected: 15, colliNoa: null },
+  { id: '5', mawb: '176-92847130', subklant: 'DPD Benelux', subklantId: 'sk4', pieces: 60, parcels: 420, chargeableWeight: 3200, warehouse: 'AMS-01', status: 'NOA Received', transportType: 'AIR', createdAt: '2025-03-21', lastStatusUpdate: '2025-03-21 18:00', colliExpected: 60, colliNoa: 58 },
+  { id: '6', mawb: '235-10293847', subklant: 'PostNL Express', subklantId: 'sk1', pieces: 28, parcels: 195, chargeableWeight: 1650, warehouse: 'AMS-01', status: 'Created', transportType: 'AIR', createdAt: '2025-03-22', lastStatusUpdate: '2025-03-22 09:00', colliExpected: 28, colliNoa: null },
+  { id: '7', mawb: '412-66291047', subklant: 'DHL Parcel', subklantId: 'sk2', pieces: 40, parcels: 280, chargeableWeight: 2100, warehouse: 'AMS-01', status: 'Created', transportType: 'AIR', createdAt: '2025-03-19', lastStatusUpdate: '2025-03-19 14:00', colliExpected: 40, colliNoa: null, hasValidationErrors: true },
+  { id: '8', mawb: '074-55128930', subklant: 'GLS Netherlands', subklantId: 'sk3', pieces: 18, parcels: 126, chargeableWeight: 980, warehouse: 'AMS-02', status: 'Created', transportType: 'AIR', createdAt: '2025-03-20', lastStatusUpdate: '2025-03-20 06:30', colliExpected: 18, colliNoa: null },
+  { id: '9', mawb: '180-77384920', subklant: 'DPD Benelux', subklantId: 'sk4', pieces: 55, parcels: 385, chargeableWeight: 2950, warehouse: 'AMS-01', status: 'In Stock', transportType: 'AIR', createdAt: '2025-03-21', lastStatusUpdate: '2025-03-22 07:15', colliExpected: 55, colliNoa: 55 },
+  { id: '10', mawb: '607-99201384', subklant: 'PostNL Express', subklantId: 'sk1', pieces: 32, parcels: 224, chargeableWeight: 1780, warehouse: 'AMS-02', status: 'In Transit', transportType: 'AIR', createdAt: '2025-03-21', lastStatusUpdate: '2025-03-22 06:00', colliExpected: 32, colliNoa: 32 },
+  { id: '11', mawb: '176-44829103', subklant: 'DHL Parcel', subklantId: 'sk2', pieces: 25, parcels: 175, chargeableWeight: 1340, warehouse: 'AMS-01', status: 'NOA Received', transportType: 'AIR', createdAt: '2025-03-22', lastStatusUpdate: '2025-03-22 10:30', colliExpected: 25, colliNoa: 25 },
+  { id: '12', mawb: '235-88174029', subklant: 'GLS Netherlands', subklantId: 'sk3', pieces: 42, parcels: 294, chargeableWeight: 2240, warehouse: 'AMS-01', status: 'Delivered', transportType: 'AIR', createdAt: '2025-03-17', lastStatusUpdate: '2025-03-19 14:00', colliExpected: 42, colliNoa: 42 },
+  { id: '13', mawb: '412-33019284', subklant: 'PostNL Express', subklantId: 'sk1', pieces: 19, parcels: 133, chargeableWeight: 1020, warehouse: 'AMS-02', status: 'Arrived', transportType: 'AIR', createdAt: '2025-03-22', lastStatusUpdate: '2025-03-22 05:45', colliExpected: 19, colliNoa: null },
+  { id: '14', mawb: '074-22938471', subklant: 'DPD Benelux', subklantId: 'sk4', pieces: 70, parcels: 490, chargeableWeight: 3750, warehouse: 'AMS-01', status: 'In Stock', transportType: 'AIR', createdAt: '2025-03-21', lastStatusUpdate: '2025-03-21 16:00', colliExpected: 70, colliNoa: 68, hasValidationErrors: true },
 ];
 
 export const getStatusHistory = (shipmentId: string): StatusHistory[] => {
