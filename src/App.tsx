@@ -5,11 +5,17 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider, useAuth } from "@/lib/auth-context";
 import { AppLayout } from "@/components/AppLayout";
+import { StaffLayout } from "@/components/StaffLayout";
+import { useStaffAuth } from "@/hooks/use-staff-auth";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import Shipments from "./pages/Shipments";
 import ShipmentDetail from "./pages/ShipmentDetail";
 import NewShipment from "./pages/NewShipment";
+import MawbOverview from "./pages/staff/MawbOverview";
+import HubManagement from "./pages/staff/HubManagement";
+import CustomerManagement from "./pages/staff/CustomerManagement";
+import StaffPlaceholder from "./pages/staff/StaffPlaceholder";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -20,6 +26,16 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   if (loading) return <div className="min-h-screen flex items-center justify-center text-muted-foreground">Loading...</div>;
   if (!user) return <Navigate to="/login" replace />;
   return <AppLayout>{children}</AppLayout>;
+}
+
+function StaffRoute({ children }: { children: React.ReactNode }) {
+  const { user, loading } = useAuth();
+  const { data: staffAuth, isLoading: staffLoading } = useStaffAuth();
+
+  if (loading || staffLoading) return <div className="min-h-screen flex items-center justify-center text-muted-foreground">Loading...</div>;
+  if (!user) return <Navigate to="/login" replace />;
+  if (!staffAuth?.isStaff) return <Navigate to="/dashboard" replace />;
+  return <StaffLayout>{children}</StaffLayout>;
 }
 
 function AuthRoute({ children }: { children: React.ReactNode }) {
@@ -42,6 +58,16 @@ const App = () => (
             <Route path="/shipments" element={<ProtectedRoute><Shipments /></ProtectedRoute>} />
             <Route path="/shipments/:id" element={<ProtectedRoute><ShipmentDetail /></ProtectedRoute>} />
             <Route path="/new-shipment" element={<ProtectedRoute><NewShipment /></ProtectedRoute>} />
+
+            {/* Staff Portal */}
+            <Route path="/staff" element={<StaffRoute><MawbOverview /></StaffRoute>} />
+            <Route path="/staff/inbound" element={<StaffRoute><StaffPlaceholder title="Inbound Shipment" /></StaffRoute>} />
+            <Route path="/staff/outbound" element={<StaffRoute><StaffPlaceholder title="Outbound Shipment" /></StaffRoute>} />
+            <Route path="/staff/hubs" element={<StaffRoute><HubManagement /></StaffRoute>} />
+            <Route path="/staff/customers" element={<StaffRoute><CustomerManagement /></StaffRoute>} />
+            <Route path="/staff/staff-users" element={<StaffRoute><StaffPlaceholder title="Staff Management" /></StaffRoute>} />
+            <Route path="/staff/settings" element={<StaffRoute><StaffPlaceholder title="Settings" /></StaffRoute>} />
+
             <Route path="/" element={<Navigate to="/login" replace />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
