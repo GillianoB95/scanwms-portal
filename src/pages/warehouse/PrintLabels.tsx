@@ -1,7 +1,7 @@
-import { useState, useRef } from 'react';
+import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
-import { useWarehouseAuth } from '@/hooks/use-warehouse-auth';
+import { useAuth } from '@/lib/auth-context';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,21 +9,15 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useHubs } from '@/hooks/use-hubs';
 import { useToast } from '@/hooks/use-toast';
-import { Printer } from 'lucide-react';
-
-function generatePalletNumber() {
-  const ts = Date.now().toString(36).toUpperCase();
-  const rand = Math.random().toString(36).substring(2, 6).toUpperCase();
-  return `PLT-${ts}-${rand}`;
-}
+import { Printer, Loader2 } from 'lucide-react';
+import { printPalletLabel, generatePalletNumber } from '@/lib/printnode';
 
 export default function PrintLabels() {
-  const { data: auth } = useWarehouseAuth();
-  const warehouseId = auth?.warehouseId;
+  const { customer } = useAuth();
+  const warehouseId = customer?.warehouse_id;
   const { data: hubs = [] } = useHubs();
   const { toast } = useToast();
   const qc = useQueryClient();
-  const printRef = useRef<HTMLDivElement>(null);
 
   const [selectedShipment, setSelectedShipment] = useState('');
   const [selectedHub, setSelectedHub] = useState('');
@@ -45,30 +39,47 @@ export default function PrintLabels() {
     enabled: !!warehouseId,
   });
 
-  const createPallet = useMutation({
+  const createAndPrint = useMutation({
     mutationFn: async () => {
-      const palletNumber = generatePalletNumber();
       const shipment = shipments.find((s: any) => s.id === selectedShipment);
+      if (!shipment) throw new Error('Shipment not found');
+
+      const palletNumber = generatePalletNumber(selectedShipment);
+      const subklant = (shipment.customers as any)?.short_name || (shipment.customers as any)?.name || '—';
+      const colli = parseInt(colliCount);
+      const weightKg = parseFloat(weight);
+
+      // Insert pallet into DB
       const { error } = await supabase.from('pallets').insert({
         shipment_id: selectedShipment,
         pallet_number: palletNumber,
         hub_code: selectedHub,
-        colli_count: parseInt(colliCount),
-        weight_kg: parseFloat(weight),
+        colli_count: colli,
+        weight_kg: weightKg,
       });
       if (error) throw error;
-      return {
-        palletNumber,
-        subklant: (shipment?.customers as any)?.short_name || (shipment?.customers as any)?.name || '—',
-        colli: parseInt(colliCount),
-        weight: parseFloat(weight),
+
+      // Send to PrintNode
+      const printResult = await printPalletLabel({
+        palletId: palletNumber,
+        subklant,
+        mawb: (shipment as any).mawb || '',
+        colli,
+        weight: weightKg,
         hub: selectedHub,
-      };
+      });
+
+      return { palletNumber, subklant, colli, weight: weightKg, hub: selectedHub, printResult };
     },
-    onSuccess: (label) => {
-      setGeneratedLabel(label);
+    onSuccess: ({ palletNumber, subklant, colli, weight: w, hub, printResult }) => {
+      setGeneratedLabel({ palletNumber, subklant, colli, weight: w, hub });
       qc.invalidateQueries({ queryKey: ['label-shipments'] });
-      toast({ title: 'Pallet created', description: label.palletNumber });
+
+      if (printResult.success) {
+        toast({ title: 'Pallet created & sent to printer', description: `${palletNumber} (Job #${printResult.jobId})` });
+      } else {
+        toast({ title: 'Pallet created but print failed', description: printResult.error, variant: 'destructive' });
+      }
     },
     onError: (err: any) => {
       toast({ title: 'Error', description: err.message, variant: 'destructive' });
@@ -80,29 +91,7 @@ export default function PrintLabels() {
       toast({ title: 'Fill all fields', variant: 'destructive' });
       return;
     }
-    createPallet.mutate();
-  };
-
-  const handlePrint = () => {
-    if (!printRef.current) return;
-    const printWindow = window.open('', '_blank', 'width=400,height=600');
-    if (!printWindow) return;
-    printWindow.document.write(`
-      <html><head><title>Pallet Label</title>
-      <style>
-        body { font-family: monospace; padding: 16px; margin: 0; }
-        .label { border: 2px solid #000; padding: 16px; width: 350px; }
-        .row { display: flex; justify-content: space-between; margin: 8px 0; }
-        .title { font-size: 18px; font-weight: bold; text-align: center; margin-bottom: 12px; }
-        .barcode { text-align: center; font-size: 24px; letter-spacing: 4px; margin: 16px 0; padding: 12px; border: 1px dashed #666; }
-        .field-label { font-size: 11px; color: #666; }
-        .field-value { font-size: 14px; font-weight: bold; }
-      </style></head><body>
-      ${printRef.current.innerHTML}
-      <script>window.print(); window.close();</script>
-      </body></html>
-    `);
-    printWindow.document.close();
+    createAndPrint.mutate();
   };
 
   return (
@@ -145,48 +134,40 @@ export default function PrintLabels() {
                 <Input type="number" step="0.1" value={weight} onChange={e => setWeight(e.target.value)} placeholder="0.0" />
               </div>
             </div>
-            <Button onClick={handleGenerate} disabled={createPallet.isPending} className="w-full">
-              Generate Pallet Label
+            <Button onClick={handleGenerate} disabled={createAndPrint.isPending} className="w-full">
+              {createAndPrint.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Printer className="h-4 w-4 mr-2" />}
+              Generate & Print
             </Button>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg flex items-center justify-between">
-              Label Preview
-              {generatedLabel && (
-                <Button size="sm" variant="outline" onClick={handlePrint}>
-                  <Printer className="mr-2 h-4 w-4" />Print
-                </Button>
-              )}
-            </CardTitle>
+            <CardTitle className="text-lg">Label Preview</CardTitle>
           </CardHeader>
           <CardContent>
             {generatedLabel ? (
-              <div ref={printRef}>
-                <div className="label border-2 border-foreground p-4 font-mono max-w-sm mx-auto">
-                  <div className="text-center text-lg font-bold mb-3">SCANWMS PALLET</div>
-                  <div className="text-center text-2xl tracking-widest border border-dashed border-muted-foreground p-3 my-4 font-bold">
-                    {generatedLabel.palletNumber}
+              <div className="border-2 border-foreground p-4 font-mono max-w-sm mx-auto">
+                <div className="text-center text-lg font-bold mb-3">SCANWMS PALLET</div>
+                <div className="text-center text-2xl tracking-widest border border-dashed border-muted-foreground p-3 my-4 font-bold">
+                  {generatedLabel.palletNumber}
+                </div>
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Subklant:</span>
+                    <span className="font-bold">{generatedLabel.subklant}</span>
                   </div>
-                  <div className="space-y-2 text-sm">
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Subklant:</span>
-                      <span className="font-bold">{generatedLabel.subklant}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Hub:</span>
-                      <span className="font-bold">{generatedLabel.hub}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Colli:</span>
-                      <span className="font-bold">{generatedLabel.colli}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Weight:</span>
-                      <span className="font-bold">{generatedLabel.weight} kg</span>
-                    </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Hub:</span>
+                    <span className="font-bold">{generatedLabel.hub}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Colli:</span>
+                    <span className="font-bold">{generatedLabel.colli}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Weight:</span>
+                    <span className="font-bold">{generatedLabel.weight} kg</span>
                   </div>
                 </div>
               </div>
