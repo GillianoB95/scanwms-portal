@@ -90,6 +90,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await supabase.auth.signOut();
     setUser(null);
     setCustomer(null);
+    setRole(null);
   };
 
   return (
