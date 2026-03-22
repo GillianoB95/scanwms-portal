@@ -4,6 +4,7 @@ import { Upload, ArrowLeft, ArrowRight, Plane, Truck, AlertTriangle, XCircle, Ch
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth-context';
 import { useSubklanten } from '@/hooks/use-shipment-data';
+import { useHubs } from '@/hooks/use-hubs';
 import { parseManifest, validateManifest, type ManifestSummary } from '@/lib/parse-manifest';
 
 type Step = 1 | 2;
@@ -19,6 +20,7 @@ export default function NewShipment() {
   const navigate = useNavigate();
   const { user, customer } = useAuth();
   const { data: subklanten = [] } = useSubklanten();
+  const { data: activeHubCodes = [] } = useHubs();
 
   const [step, setStep] = useState<Step>(1);
   const [mawb, setMawb] = useState('');
@@ -150,7 +152,7 @@ export default function NewShipment() {
     !duplicateMawb;
 
   // Validation
-  const validation = manifestSummary ? validateManifest(manifestSummary, mawb) : { errors: [], warnings: [] };
+  const validation = manifestSummary ? validateManifest(manifestSummary, mawb, activeHubCodes) : { errors: [], warnings: [] };
 
   // Weight mismatch warning
   const allWarnings = [...validation.warnings];

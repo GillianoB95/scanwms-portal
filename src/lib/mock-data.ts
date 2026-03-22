@@ -1,4 +1,4 @@
-export type ShipmentStatus = 'Created' | 'Awaiting NOA' | 'Partial NOA' | 'NOA Complete' | 'In Transit' | 'In Stock' | 'Outbound';
+export type ShipmentStatus = 'Awaiting NOA' | 'Partial NOA' | 'NOA Complete' | 'In Transit' | 'In Stock' | 'Outbound' | 'Needs Action';
 export type PalletStatus = 'Palletized' | 'Loaded' | 'Outbound';
 
 export interface Shipment {
@@ -84,17 +84,17 @@ export const subklanten = [
 
 export const shipments: Shipment[] = [];
 
-export const statusOrder: ShipmentStatus[] = ['Created', 'Awaiting NOA', 'Partial NOA', 'NOA Complete', 'In Transit', 'In Stock', 'Outbound'];
+export const statusOrder: ShipmentStatus[] = ['Awaiting NOA', 'Partial NOA', 'NOA Complete', 'In Transit', 'In Stock', 'Outbound'];
 
 export const getStatusClass = (status: string): string => {
   const map: Record<string, string> = {
-    'Created': 'status-created',
     'Awaiting NOA': 'status-awaiting-noa',
     'Partial NOA': 'status-partial-noa',
     'NOA Complete': 'status-noa-complete',
     'In Transit': 'status-intransit',
     'In Stock': 'status-instock',
     'Outbound': 'status-outbound',
+    'Needs Action': 'status-needs-action',
     'Delivered': 'status-delivered',
     // Pallet statuses
     'Palletized': 'status-instock',
