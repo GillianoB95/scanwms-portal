@@ -13,10 +13,21 @@ export function useShipments() {
         .select('*, subklanten(name)')
         .eq('customer_id', customer.id)
         .order('created_at', { ascending: false });
-      if (error) throw error;
+
+      if (error) {
+        console.error('Shipments query failed:', {
+          customerId: customer.id,
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+        });
+        throw error;
+      }
+
       return data ?? [];
     },
     enabled: !!customer,
+    retry: false,
   });
 }
 
