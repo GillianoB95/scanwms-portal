@@ -1110,6 +1110,60 @@ ${JSON.stringify(items)}`;
   return map;
 }
 
+// ── AWB EXTRACTION ENDPOINT ──────────────────────────────
+app.post('/extract-awb', upload.single('file'), async (req, res) => {
+  if (!req.file) return res.status(400).json({ error: 'No file provided' });
+
+  try {
+    const fs_sync = require('fs');
+    const bytes = fs_sync.readFileSync(req.file.path);
+
+    // Extract readable text from PDF
+    let pdfText = '';
+    for (let i = 0; i < Math.min(bytes.length, 50000); i++) {
+      const b = bytes[i];
+      if (b >= 32 && b <= 126) pdfText += String.fromCharCode(b);
+      else if (b === 10 || b === 13) pdfText += ' ';
+    }
+    pdfText = pdfText.replace(/\s+/g, ' ').trim().slice(0, 6000);
+
+    fs_sync.unlinkSync(req.file.path);
+
+    const prompt = `Extract from this air waybill text:
+1. MAWB number (format XXX-XXXXXXXX, e.g. 607-50842772)
+2. Number of pieces/colli
+3. Gross weight in kg
+4. Chargeable weight in kg
+
+Return ONLY valid JSON: {"mawb":"607-50842772","pieces":221,"gross_weight":3412.0,"chargeable_weight":3412.0}
+Use null for fields not found.
+
+Text: ${pdfText}`;
+
+    const response = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: [{ role: 'user', content: prompt }],
+      temperature: 0,
+      max_tokens: 150,
+    });
+
+    const content = response.choices[0].message.content || '';
+    const match = content.match(/\{[\s\S]*\}/);
+    if (!match) return res.status(422).json({ error: 'Could not parse extraction result' });
+
+    const extracted = JSON.parse(match[0]);
+    res.json({
+      mawb: extracted.mawb || null,
+      pieces: typeof extracted.pieces === 'number' ? extracted.pieces : null,
+      gross_weight: typeof extracted.gross_weight === 'number' ? extracted.gross_weight : null,
+      chargeable_weight: typeof extracted.chargeable_weight === 'number' ? extracted.chargeable_weight : null,
+    });
+  } catch (err) {
+    console.error('extract-awb error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.post('/process', upload.single('manifest'), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
   // Optional target total shipment weight passed from UI
