@@ -136,16 +136,78 @@ export const getOuterboxes = (shipmentId: string): Outerbox[] => {
   return [];
 };
 
-export const getPallets = (shipmentId: string): Pallet[] => {
+export const getNoaEntries = (shipmentId: string): NoaEntry[] => {
+  const entries: Record<string, NoaEntry[]> = {
+    '1': [
+      { id: 'noa-1', noaNumber: 1, receivedAt: '2025-03-18 09:00', colli: 24, weight: 1420, filePath: '/noa/1-1.pdf' },
+      { id: 'noa-2', noaNumber: 2, receivedAt: '2025-03-18 14:30', colli: 24, weight: 1420, filePath: '/noa/1-2.pdf' },
+    ],
+    '3': [
+      { id: 'noa-3', noaNumber: 1, receivedAt: '2025-03-20 09:00', colli: 20, weight: 1130, filePath: '/noa/3-1.pdf' },
+      { id: 'noa-4', noaNumber: 2, receivedAt: '2025-03-20 14:30', colli: 13, weight: 850, filePath: '/noa/3-2.pdf' },
+    ],
+    '5': [
+      { id: 'noa-5', noaNumber: 1, receivedAt: '2025-03-21 10:00', colli: 58, weight: 3100, filePath: '/noa/5-1.pdf' },
+    ],
+  };
+  return entries[shipmentId] || [];
+};
+
+export const getOutboundGroups = (shipmentId: string): OutboundGroup[] => {
   if (shipmentId === '1') {
     return [
-      { id: 'p-0', palletNumber: 'PLT-001', hub: 'PostNL Nieuwegein', truckReference: 'TR-2025-0382', pieces: 12, weight: 710, date: '2025-03-19', status: 'Delivered' },
-      { id: 'p-1', palletNumber: 'PLT-002', hub: 'PostNL Den Haag', truckReference: 'TR-2025-0382', pieces: 12, weight: 695, date: '2025-03-19', status: 'Delivered' },
-      { id: 'p-2', palletNumber: 'PLT-003', hub: 'PostNL Utrecht', truckReference: 'TR-2025-0385', pieces: 12, weight: 720, date: '2025-03-19', status: 'Delivered' },
-      { id: 'p-3', palletNumber: 'PLT-004', hub: 'PostNL Rotterdam', truckReference: 'TR-2025-0385', pieces: 12, weight: 715, date: '2025-03-19', status: 'Delivered' },
+      {
+        hub: 'UPS Netherlands',
+        hubCode: 'UPS-NL',
+        totalExpected: 30,
+        totalPickedUp: 30,
+        stillInStock: 0,
+        pickups: [
+          {
+            date: '2025-03-19',
+            truckReference: 'XY-123-NL',
+            totalPieces: 24,
+            pallets: [
+              { id: 'p-0', palletNumber: 'PLT-001', pieces: 12, weight: 710, status: 'Delivered' },
+              { id: 'p-1', palletNumber: 'PLT-002', pieces: 12, weight: 695, status: 'Delivered' },
+            ],
+          },
+          {
+            date: '2025-03-20',
+            truckReference: 'AB-456-NL',
+            totalPieces: 6,
+            pallets: [
+              { id: 'p-4', palletNumber: 'PLT-005', pieces: 6, weight: 310, status: 'Delivered' },
+            ],
+          },
+        ],
+      },
+      {
+        hub: 'DHL Germany',
+        hubCode: 'DHL-DE',
+        totalExpected: 18,
+        totalPickedUp: 18,
+        stillInStock: 0,
+        pickups: [
+          {
+            date: '2025-03-19',
+            truckReference: 'CD-789-DE',
+            totalPieces: 18,
+            pallets: [
+              { id: 'p-2', palletNumber: 'PLT-003', pieces: 12, weight: 720, status: 'Delivered' },
+              { id: 'p-3', palletNumber: 'PLT-004', pieces: 6, weight: 360, status: 'Delivered' },
+            ],
+          },
+        ],
+      },
     ];
   }
   return [];
+};
+
+export const getPallets = (shipmentId: string): Pallet[] => {
+  const groups = getOutboundGroups(shipmentId);
+  return groups.flatMap(g => g.pickups.flatMap(p => p.pallets));
 };
 
 export const getNotes = (shipmentId: string): Note[] => {
