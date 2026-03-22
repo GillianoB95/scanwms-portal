@@ -256,12 +256,9 @@ function ShipmentRow({ shipment, onToggleCleared }: { shipment: any; onToggleCle
           <Button
             variant="ghost"
             size="icon"
-            className="h-8 w-8 text-green-600 hover:text-green-700"
+            className="h-8 w-8 text-accent hover:text-accent/80"
             title="CC YES"
-            onClick={() => {
-              const update = useUpdateShipment();
-              // Direct inline call
-            }}
+            onClick={() => onToggleCleared(shipment)}
           >
             <CheckCircle className="h-3.5 w-3.5" />
           </Button>
