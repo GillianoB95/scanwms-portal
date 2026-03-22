@@ -176,43 +176,43 @@ export function useInspections(shipmentId: string | undefined) {
   });
 }
 
-// Batch fetch clearances & inspections for all shipments (for list view badges)
-export function useAllClearances() {
-  const { customer } = useAuth();
+// Batch fetch clearances & inspections for current shipments only (for list view badges)
+export function useAllClearances(shipmentIds: string[]) {
   return useQuery({
-    queryKey: ['all-clearances', customer?.id],
+    queryKey: ['all-clearances', shipmentIds],
     queryFn: async () => {
-      if (!customer) return [];
+      if (shipmentIds.length === 0) return [];
       const { data, error } = await supabase
         .from('clearances')
-        .select('shipment_id, status, colli_cleared');
+        .select('shipment_id, status, colli_cleared')
+        .in('shipment_id', shipmentIds);
       if (error) {
         console.warn('Clearances query failed (table may not exist yet):', error.message);
         return [];
       }
       return data ?? [];
     },
-    enabled: !!customer,
+    enabled: shipmentIds.length > 0,
     retry: false,
   });
 }
 
-export function useAllInspections() {
-  const { customer } = useAuth();
+export function useAllInspections(shipmentIds: string[]) {
   return useQuery({
-    queryKey: ['all-inspections', customer?.id],
+    queryKey: ['all-inspections', shipmentIds],
     queryFn: async () => {
-      if (!customer) return [];
+      if (shipmentIds.length === 0) return [];
       const { data, error } = await supabase
         .from('inspections')
-        .select('shipment_id, status');
+        .select('shipment_id, status')
+        .in('shipment_id', shipmentIds);
       if (error) {
         console.warn('Inspections query failed (table may not exist yet):', error.message);
         return [];
       }
       return data ?? [];
     },
-    enabled: !!customer,
+    enabled: shipmentIds.length > 0,
     retry: false,
   });
 }
