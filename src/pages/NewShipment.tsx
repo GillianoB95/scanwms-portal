@@ -20,6 +20,7 @@ export default function NewShipment() {
   const navigate = useNavigate();
   const { user, customer } = useAuth();
   const { data: subklanten = [] } = useSubklanten();
+  const { data: activeHubCodes = [] } = useHubs();
 
   const [step, setStep] = useState<Step>(1);
   const [mawb, setMawb] = useState('');
