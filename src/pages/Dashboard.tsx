@@ -116,9 +116,9 @@ export default function Dashboard() {
                   <tr key={s.id} className="border-b last:border-0 hover:bg-muted/50 transition-colors">
                     <td className="px-5 py-3">
                       <Link to={`/shipments/${s.id}`} className="font-mono font-medium text-accent hover:underline">{s.mawb}</Link>
-                      {isAwaiting48h && (
+                      {isNeedsAction && (
                         <span className="ml-2 inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded bg-[hsl(var(--status-needs-action)/0.15)] text-[hsl(var(--status-needs-action))]">
-                          <Clock className="h-3 w-3" /> &gt;48h
+                          <AlertTriangle className="h-3 w-3" /> Action needed
                         </span>
                       )}
                     </td>
