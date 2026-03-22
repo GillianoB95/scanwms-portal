@@ -271,7 +271,7 @@ export default function ShipmentDetail() {
               <tfoot>
                 <tr className="bg-muted/30 font-medium border-t">
                   <td className="px-5 py-3">Total</td>
-                  <td className="px-5 py-3"></td>
+                  <td className="px-5 py-3" colSpan={2}></td>
                   <td className="px-5 py-3 text-right tabular-nums">
                     {noaEntries.reduce((sum: number, n: any) => sum + n.colli, 0)} / {shipment.colli_expected ?? '?'}
                   </td>
