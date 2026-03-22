@@ -4,6 +4,7 @@ import { Upload, ArrowLeft, ArrowRight, Plane, Truck, AlertTriangle, XCircle, Ch
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth-context';
 import { useSubklanten } from '@/hooks/use-shipment-data';
+import { useHubs } from '@/hooks/use-hubs';
 import { parseManifest, validateManifest, type ManifestSummary } from '@/lib/parse-manifest';
 
 type Step = 1 | 2;
