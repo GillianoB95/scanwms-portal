@@ -26,13 +26,25 @@ serve(async (req) => {
       );
     }
 
-    // Convert file to base64
+    // Read PDF as binary and extract text using simple pattern matching
     const arrayBuffer = await file.arrayBuffer();
-    const base64 = btoa(
-      new Uint8Array(arrayBuffer).reduce((data, byte) => data + String.fromCharCode(byte), "")
-    );
+    const bytes = new Uint8Array(arrayBuffer);
+    
+    // Convert to string to find text patterns (PDF text is often readable)
+    let pdfText = "";
+    for (let i = 0; i < bytes.length; i++) {
+      const byte = bytes[i];
+      if (byte >= 32 && byte <= 126) {
+        pdfText += String.fromCharCode(byte);
+      } else {
+        pdfText += " ";
+      }
+    }
+    
+    // Clean up the text - compress whitespace
+    pdfText = pdfText.replace(/\s+/g, " ").slice(0, 8000);
 
-    // Call OpenAI GPT-4o Vision
+    // Call OpenAI GPT-4o with text extraction prompt
     const openaiResponse = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -43,22 +55,28 @@ serve(async (req) => {
         model: "gpt-4o",
         messages: [
           {
+            role: "system",
+            content: "You are an air waybill data extraction expert. Extract specific fields from air waybill text and return only JSON.",
+          },
+          {
             role: "user",
-            content: [
-              {
-                type: "text",
-                text: 'Extract from this air waybill: MAWB number (XXX-XXXXXXXX format), number of pieces/colli, gross weight kg, chargeable weight kg. Return JSON only: {"mawb": "string", "pieces": number, "gross_weight": number, "chargeable_weight": number}',
-              },
-              {
-                type: "image_url",
-                image_url: {
-                  url: `data:application/pdf;base64,${base64}`,
-                },
-              },
-            ],
+            content: `Extract from this air waybill text:
+1. MAWB number (format: XXX-XXXXXXXX, e.g. 607-50842772)
+2. Number of pieces/colli (total pieces count)
+3. Gross weight in kg (look for "Gross Weight" or "GWT" followed by a number)
+4. Chargeable weight in kg (look for "Chargeable Weight" or "CHWT" followed by a number)
+
+Return ONLY valid JSON, no explanation:
+{"mawb": "607-50842772", "pieces": 221, "gross_weight": 3412.0, "chargeable_weight": 3412.0}
+
+If a field cannot be found, use null.
+
+Air waybill text:
+${pdfText}`,
           },
         ],
-        max_tokens: 300,
+        max_tokens: 200,
+        temperature: 0,
       }),
     });
 
@@ -74,7 +92,7 @@ serve(async (req) => {
     const result = await openaiResponse.json();
     const content = result.choices?.[0]?.message?.content || "";
 
-    // Parse JSON from response (handle markdown code blocks)
+    // Parse JSON from response
     let extracted;
     try {
       const jsonMatch = content.match(/\{[\s\S]*\}/);
