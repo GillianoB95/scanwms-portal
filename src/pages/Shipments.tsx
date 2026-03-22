@@ -102,9 +102,7 @@ export default function Shipments() {
 
   if (isLoading) {
     return (
-      <div className="flex flex-col items-center justify-center py-24 gap-4">
-        <button onClick={testQuery} className="px-4 py-2 rounded-lg bg-accent text-accent-foreground text-sm font-semibold hover:opacity-90 active:scale-[0.97] transition-all">Test Query</button>
-        {testResult && <pre className="w-full max-w-3xl overflow-auto rounded-lg border bg-card p-4 text-xs text-left">{testResult}</pre>}
+      <div className="flex items-center justify-center py-24">
         <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
       </div>
     );
