@@ -227,58 +227,71 @@ export default function ShipmentDetail() {
       </div>
 
       {/* NOA History */}
-      {noaEntries.length > 0 && (
-        <div className="bg-card rounded-xl border animate-fade-in" style={{ animationDelay: '240ms' }}>
-          <div className="px-5 py-4 border-b"><h2 className="font-semibold">NOA History</h2></div>
+      <div className="bg-card rounded-xl border animate-fade-in" style={{ animationDelay: '240ms' }}>
+        <div className="px-5 py-4 border-b"><h2 className="font-semibold">NOA History</h2></div>
+        {noaEntries.length === 0 ? (
+          <div className="px-5 py-8 text-center">
+            <span className="text-muted-foreground text-sm">No NOA received yet</span>
+          </div>
+        ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b text-muted-foreground">
-                  <th className="text-left px-5 py-3 font-medium">#</th>
+                  <th className="text-left px-5 py-3 font-medium">NOA #</th>
                   <th className="text-left px-5 py-3 font-medium">Date Received</th>
                   <th className="text-right px-5 py-3 font-medium">Colli</th>
-                  <th className="text-right px-5 py-3 font-medium">Weight</th>
-                  <th className="text-left px-5 py-3 font-medium">Status</th>
-                  <th className="text-right px-5 py-3 font-medium"></th>
+                  <th className="text-right px-5 py-3 font-medium">Weight (kg)</th>
+                  <th className="text-left px-5 py-3 font-medium">Source</th>
+                  <th className="text-right px-5 py-3 font-medium">Download</th>
                 </tr>
               </thead>
               <tbody>
                 {noaEntries.map((n: any) => (
-                  <tr key={n.id} className="border-b">
+                  <tr key={n.id} className="border-b last:border-0">
                     <td className="px-5 py-3 font-medium">NOA {n.noa_number}</td>
                     <td className="px-5 py-3 text-muted-foreground">{new Date(n.received_at).toLocaleString('en-GB')}</td>
                     <td className="px-5 py-3 text-right tabular-nums">{n.colli}</td>
-                    <td className="px-5 py-3 text-right tabular-nums">{Number(n.weight).toLocaleString()} kg</td>
-                    <td className="px-5 py-3"><span className="status-badge status-cleared">Received</span></td>
+                    <td className="px-5 py-3 text-right tabular-nums">{Number(n.weight).toLocaleString()}</td>
+                    <td className="px-5 py-3 text-muted-foreground">{n.source || 'Manual'}</td>
                     <td className="px-5 py-3 text-right">
-                      <button className="inline-flex items-center gap-1 text-xs text-accent hover:underline">
-                        <Download className="h-3.5 w-3.5" /> Download
-                      </button>
+                      {n.file_path ? (
+                        <button className="inline-flex items-center gap-1 text-xs text-accent hover:underline">
+                          <Download className="h-3.5 w-3.5" /> Download
+                        </button>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">—</span>
+                      )}
                     </td>
                   </tr>
                 ))}
-                <tr className="bg-muted/30 font-medium">
+              </tbody>
+              <tfoot>
+                <tr className="bg-muted/30 font-medium border-t">
                   <td className="px-5 py-3">Total</td>
                   <td className="px-5 py-3"></td>
                   <td className="px-5 py-3 text-right tabular-nums">
-                    {noaEntries.reduce((sum: number, n: any) => sum + n.colli, 0)} / {shipment.colli_expected}
+                    {noaEntries.reduce((sum: number, n: any) => sum + n.colli, 0)} / {shipment.colli_expected ?? '?'}
                   </td>
                   <td className="px-5 py-3 text-right tabular-nums">
                     {noaEntries.reduce((sum: number, n: any) => sum + Number(n.weight), 0).toLocaleString()} kg
                   </td>
                   <td className="px-5 py-3" colSpan={2}>
-                    {noaEntries.reduce((sum: number, n: any) => sum + n.colli, 0) >= (shipment.colli_expected || 0) ? (
-                      <span className="status-badge status-cleared">✅ Complete</span>
-                    ) : (
-                      <span className="status-badge status-partial">⚠ Partial ({(shipment.colli_expected || 0) - noaEntries.reduce((sum: number, n: any) => sum + n.colli, 0)} missing)</span>
-                    )}
+                    {(() => {
+                      const totalColli = noaEntries.reduce((sum: number, n: any) => sum + n.colli, 0);
+                      const expected = shipment.colli_expected || 0;
+                      if (totalColli >= expected && expected > 0) {
+                        return <span className="inline-flex items-center gap-1 text-xs font-medium text-[hsl(var(--status-delivered))]">✅ Complete</span>;
+                      }
+                      return <span className="inline-flex items-center gap-1 text-xs font-medium text-[hsl(var(--status-partial-noa))]">⚠️ Partial ({expected - totalColli} missing)</span>;
+                    })()}
                   </td>
                 </tr>
-              </tbody>
+              </tfoot>
             </table>
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
       {/* Customs Clearance */}
       <ClearanceSection shipmentId={shipment.id} colliExpected={shipment.colli_expected || 0} />
@@ -310,45 +323,52 @@ export default function ShipmentDetail() {
         <div className="bg-card rounded-xl border animate-fade-in" style={{ animationDelay: '480ms' }}>
           <div className="px-5 py-4 border-b"><h2 className="font-semibold">Outbound</h2></div>
           <div className="divide-y">
-            {Object.values(hubGroups).map((group: any) => (
-              <div key={group.hubCode} className="px-5 py-4">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-2">
-                    <span className="font-semibold text-sm">{group.hubCode}</span>
-                    <span className="text-muted-foreground text-xs">({group.hubName})</span>
-                  </div>
-                  <div className="text-xs text-muted-foreground">
-                    <span>Total: <strong className="text-foreground tabular-nums">{group.totalPieces}</strong> pieces</span>
-                  </div>
-                </div>
-                <div className="space-y-3">
-                  {group.pickups.map((pickup: any, pi: number) => (
-                    <div key={pi} className="bg-muted/40 rounded-lg p-3">
-                      <div className="flex items-center gap-2 mb-2 text-sm">
-                        <Truck className="h-3.5 w-3.5 text-muted-foreground" />
-                        <span className="font-medium">{new Date(pickup.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'long' })}</span>
-                        <span className="text-muted-foreground">—</span>
-                        <span className="font-mono text-muted-foreground">{pickup.truckReference}</span>
-                        <span className="text-muted-foreground">—</span>
-                        <span className="tabular-nums">{pickup.totalPieces} pieces</span>
-                      </div>
-                      <div className="space-y-1">
-                        {pickup.pallets.map((pallet: any) => (
-                          <div key={pallet.id} className="flex items-center justify-between text-sm py-1.5 px-3 bg-background rounded-md">
-                            <div className="flex items-center gap-4">
-                              <span className="font-mono font-medium">{pallet.pallet_number}</span>
-                              <span className="tabular-nums text-muted-foreground">{pallet.pieces} pcs</span>
-                              <span className="tabular-nums text-muted-foreground">{Number(pallet.weight).toLocaleString()} kg</span>
-                            </div>
-                            <StatusBadge status={pallet.status} />
-                          </div>
-                        ))}
-                      </div>
+            {Object.values(hubGroups).map((group: any) => {
+              const pickedUp = group.pickups.reduce((s: number, p: any) => s + p.totalPieces, 0);
+              const expected = group.totalExpected || pickedUp;
+              const stillInStock = expected - pickedUp;
+              return (
+                <div key={group.hubCode} className="px-5 py-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold text-sm">{group.hubName}</span>
+                      <span className="text-muted-foreground text-xs">({group.hubCode})</span>
                     </div>
-                  ))}
+                    <div className="flex gap-3 text-xs text-muted-foreground">
+                      <span>Expected: <strong className="text-foreground tabular-nums">{expected}</strong></span>
+                      <span>Picked up: <strong className="text-foreground tabular-nums">{pickedUp}</strong></span>
+                      <span>In stock: <strong className="text-foreground tabular-nums">{Math.max(0, stillInStock)}</strong></span>
+                    </div>
+                  </div>
+                  <div className="space-y-3">
+                    {group.pickups.map((pickup: any, pi: number) => (
+                      <div key={pi} className="bg-muted/40 rounded-lg p-3">
+                        <div className="flex items-center gap-2 mb-2 text-sm">
+                          <Truck className="h-3.5 w-3.5 text-muted-foreground" />
+                          <span className="font-medium">{new Date(pickup.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}</span>
+                          <span className="text-muted-foreground">—</span>
+                          <span className="font-mono text-muted-foreground">{pickup.truckReference}</span>
+                          <span className="text-muted-foreground">—</span>
+                          <span className="tabular-nums">{pickup.totalPieces} pieces</span>
+                        </div>
+                        <div className="space-y-1">
+                          {pickup.pallets.map((pallet: any) => (
+                            <div key={pallet.id} className="flex items-center justify-between text-sm py-1.5 px-3 bg-background rounded-md">
+                              <div className="flex items-center gap-4">
+                                <span className="font-mono font-medium">{pallet.pallet_number}</span>
+                                <span className="tabular-nums text-muted-foreground">{pallet.pieces} pcs</span>
+                                <span className="tabular-nums text-muted-foreground">{Number(pallet.weight).toLocaleString()} kg</span>
+                              </div>
+                              <StatusBadge status={pallet.status} />
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}
