@@ -13,8 +13,10 @@ export interface Shipment {
   status: ShipmentStatus;
   transportType: 'AIR' | 'TRUCK';
   createdAt: string;
+  lastStatusUpdate: string;
   colliExpected: number;
   colliNoa: number | null;
+  hasValidationErrors?: boolean;
 }
 
 export interface StatusHistory {
