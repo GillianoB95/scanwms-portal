@@ -139,27 +139,17 @@ export function useOuterboxes(shipmentId: string | undefined) {
 export function useSubklanten() {
   const { customer } = useAuth();
   return useQuery({
-    queryKey: ['subklanten', customer?.id],
+    queryKey: ['subklanten', customer?.id, customer?.parent_customer_id],
     queryFn: async () => {
       if (!customer) return [];
-      // Fetch subklanten linked to this customer
+      // Sub-accounts fetch subklanten from the parent customer
+      const ownerId = customer.parent_customer_id ?? customer.id;
       const { data: subs, error } = await supabase
         .from('subklanten')
         .select('*')
-        .eq('customer_id', customer.id);
+        .eq('customer_id', ownerId);
       if (error) throw error;
-      const result = subs ?? [];
-
-      // If the logged-in customer is a sub-account (has parent_customer_id),
-      // include itself as a selectable option
-      if (customer.parent_customer_id) {
-        const alreadyIncluded = result.some((s: any) => s.name === customer.name);
-        if (!alreadyIncluded) {
-          result.unshift({ id: customer.id, name: customer.name, customer_id: customer.id });
-        }
-      }
-
-      return result;
+      return subs ?? [];
     },
     enabled: !!customer,
   });
