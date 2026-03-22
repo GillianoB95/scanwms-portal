@@ -8,6 +8,31 @@ export function useShipments() {
     queryKey: ['shipments', customer?.id],
     queryFn: async () => {
       if (!customer) return [];
+
+      // Main accounts (no parent) see own + sub-account shipments
+      if (!customer.parent_customer_id) {
+        // Get sub-account IDs
+        const { data: subAccounts } = await supabase
+          .from('customers')
+          .select('id')
+          .eq('parent_customer_id', customer.id);
+        
+        const ids = [customer.id, ...(subAccounts ?? []).map((s: any) => s.id)];
+        
+        const { data, error } = await supabase
+          .from('shipments')
+          .select('*, subklanten(name)')
+          .in('customer_id', ids)
+          .order('created_at', { ascending: false });
+
+        if (error) {
+          console.error('Shipments query failed:', error.message);
+          throw error;
+        }
+        return data ?? [];
+      }
+
+      // Sub-accounts see only their own shipments
       const { data, error } = await supabase
         .from('shipments')
         .select('*, subklanten(name)')
@@ -15,15 +40,9 @@ export function useShipments() {
         .order('created_at', { ascending: false });
 
       if (error) {
-        console.error('Shipments query failed:', {
-          customerId: customer.id,
-          message: error.message,
-          details: error.details,
-          hint: error.hint,
-        });
+        console.error('Shipments query failed:', error.message);
         throw error;
       }
-
       return data ?? [];
     },
     enabled: !!customer,
@@ -123,12 +142,24 @@ export function useSubklanten() {
     queryKey: ['subklanten', customer?.id],
     queryFn: async () => {
       if (!customer) return [];
-      const { data, error } = await supabase
+      // Fetch subklanten linked to this customer
+      const { data: subs, error } = await supabase
         .from('subklanten')
         .select('*')
         .eq('customer_id', customer.id);
       if (error) throw error;
-      return data ?? [];
+      const result = subs ?? [];
+
+      // If the logged-in customer is a sub-account (has parent_customer_id),
+      // include itself as a selectable option
+      if (customer.parent_customer_id) {
+        const alreadyIncluded = result.some((s: any) => s.name === customer.name);
+        if (!alreadyIncluded) {
+          result.unshift({ id: customer.id, name: customer.name, customer_id: customer.id });
+        }
+      }
+
+      return result;
     },
     enabled: !!customer,
   });

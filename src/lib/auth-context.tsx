@@ -6,6 +6,7 @@ interface Customer {
   id: string;
   name: string;
   warehouse_id: string | null;
+  parent_customer_id: string | null;
 }
 
 interface AuthContextType {
@@ -34,7 +35,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const fetchCustomer = async (email: string) => {
     const { data } = await supabase
       .from('customer_users')
-      .select('role, customer_id, customers(id, name, warehouse_id)')
+      .select('role, customer_id, customers(id, name, warehouse_id, parent_customer_id)')
       .eq('email', email)
       .single();
 
