@@ -97,8 +97,18 @@ export default function Shipments() {
     setSearch('');
   };
 
+  const testQuery = async () => {
+    const { data, error } = await supabase.from('shipments').select('id, mawb, status').limit(5);
+    alert(JSON.stringify({ data, error }, null, 2));
+  };
+
   if (isLoading) {
-    return <div className="flex items-center justify-center py-24"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>;
+    return (
+      <div className="flex flex-col items-center justify-center py-24 gap-4">
+        <button onClick={testQuery} className="px-4 py-2 rounded-lg bg-accent text-accent-foreground text-sm font-semibold hover:opacity-90 active:scale-[0.97] transition-all">Test Query</button>
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      </div>
+    );
   }
 
   if (loadError) {
