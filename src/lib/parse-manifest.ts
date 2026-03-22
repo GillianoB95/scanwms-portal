@@ -79,7 +79,11 @@ export async function parseManifest(file: File): Promise<ManifestSummary> {
   return { totalParcels: rows.length, totalWeight, rows };
 }
 
-export function validateManifest(summary: ManifestSummary, mawb: string): ManifestValidation {
+export function validateManifest(
+  summary: ManifestSummary,
+  mawb: string,
+  activeHubCodes?: string[],
+): ManifestValidation {
   const errors: { message: string }[] = [];
   const warnings: { message: string }[] = [];
 
@@ -116,6 +120,22 @@ export function validateManifest(summary: ManifestSummary, mawb: string): Manife
     if (hubs.size > 1) {
       errors.push({
         message: `Box "${box}" contains mixed hubs: ${[...hubs].join(', ')}. All items in a box must go to the same hub.`,
+      });
+    }
+  }
+
+  // 4. Hub validation against database
+  if (activeHubCodes) {
+    const activeSet = new Set(activeHubCodes.map(c => c.toLowerCase()));
+    const unknownHubs = new Set<string>();
+    for (const row of summary.rows) {
+      if (row.hub && !activeSet.has(row.hub.toLowerCase())) {
+        unknownHubs.add(row.hub);
+      }
+    }
+    for (const code of unknownHubs) {
+      errors.push({
+        message: `Hub '${code}' is not configured. Contact your account manager.`,
       });
     }
   }
