@@ -6,6 +6,7 @@ interface Customer {
   id: string;
   name: string;
   warehouse_id: string | null;
+  parent_customer_id: string | null;
 }
 
 interface AuthContextType {
