@@ -238,8 +238,9 @@ export default function ShipmentDetail() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b text-muted-foreground">
-                  <th className="text-left px-5 py-3 font-medium">NOA #</th>
+                 <th className="text-left px-5 py-3 font-medium">NOA #</th>
                   <th className="text-left px-5 py-3 font-medium">Date Received</th>
+                  <th className="text-left px-5 py-3 font-medium">Received At</th>
                   <th className="text-right px-5 py-3 font-medium">Colli</th>
                   <th className="text-right px-5 py-3 font-medium">Weight (kg)</th>
                   <th className="text-left px-5 py-3 font-medium">Source</th>
