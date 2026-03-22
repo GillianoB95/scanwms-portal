@@ -100,7 +100,7 @@ export default function Dashboard() {
             <thead>
               <tr className="border-b text-muted-foreground">
                 <th className="text-left px-5 py-3 font-medium">MAWB</th>
-                <th className="text-left px-5 py-3 font-medium hidden sm:table-cell">Subklant</th>
+                <th className="text-left px-5 py-3 font-medium hidden sm:table-cell">Sub Client</th>
                 <th className="text-right px-5 py-3 font-medium hidden md:table-cell">Pieces</th>
                 <th className="text-right px-5 py-3 font-medium hidden md:table-cell">Parcels</th>
                 <th className="text-right px-5 py-3 font-medium hidden md:table-cell">Weight</th>

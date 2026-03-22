@@ -154,7 +154,7 @@ export default function PrintLabels() {
                 </div>
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">Subklant:</span>
+                    <span className="text-muted-foreground">Sub Client:</span>
                     <span className="font-bold">{generatedLabel.subklant}</span>
                   </div>
                   <div className="flex justify-between">

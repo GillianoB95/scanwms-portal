@@ -24,7 +24,7 @@ export default function Shipments() {
   const [shipments, setShipments] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [testResult, setTestResult] = useState('');
+  
   const [tab, setTab] = useState<Tab>('active');
   const [search, setSearch] = useState('');
   const [subFilter, setSubFilter] = useState<SubFilter>('all');
@@ -40,7 +40,7 @@ export default function Shipments() {
         .select('id, mawb, status, created_at, pieces, parcels, weight, subklanten(name)')
         .order('created_at', { ascending: false });
 
-      console.log('result:', data, error);
+      
 
       if (error) {
         console.error('Shipments error:', error);
@@ -61,11 +61,6 @@ export default function Shipments() {
     });
   }, []);
 
-  const testQuery = async () => {
-    setTestResult('Loading test query...');
-    const { data, error } = await supabase.from('shipments').select('id, mawb, status').limit(5);
-    setTestResult(JSON.stringify({ data, error }, null, 2));
-  };
 
   const activeShipments = useMemo(
     () => shipments.filter((s: any) => s.status !== 'Outbound' && s.status !== 'outbound'),
@@ -107,9 +102,7 @@ export default function Shipments() {
 
   if (isLoading) {
     return (
-      <div className="flex flex-col items-center justify-center py-24 gap-4">
-        <button onClick={testQuery} className="px-4 py-2 rounded-lg bg-accent text-accent-foreground text-sm font-semibold hover:opacity-90 active:scale-[0.97] transition-all">Test Query</button>
-        {testResult && <pre className="w-full max-w-3xl overflow-auto rounded-lg border bg-card p-4 text-xs text-left">{testResult}</pre>}
+      <div className="flex items-center justify-center py-24">
         <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
       </div>
     );
@@ -177,7 +170,7 @@ export default function Shipments() {
             <thead>
               <tr className="border-b text-muted-foreground">
                 <th className="text-left px-5 py-3 font-medium">MAWB</th>
-                <th className="text-left px-5 py-3 font-medium">Subklant</th>
+                <th className="text-left px-5 py-3 font-medium">Sub Client</th>
                 <th className="text-right px-5 py-3 font-medium">Pieces</th>
                 <th className="text-right px-5 py-3 font-medium">Parcels</th>
                 <th className="text-right px-5 py-3 font-medium">Weight</th>
