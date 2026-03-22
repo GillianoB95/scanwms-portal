@@ -18,6 +18,7 @@ import CustomerManagement from "./pages/staff/CustomerManagement";
 import InboundShipment from "./pages/staff/InboundShipment";
 import OutboundShipment from "./pages/staff/OutboundShipment";
 import StaffManagement from "./pages/staff/StaffManagement";
+import WarehouseManagement from "./pages/staff/WarehouseManagement";
 import StaffPlaceholder from "./pages/staff/StaffPlaceholder";
 import NotFound from "./pages/NotFound";
 
