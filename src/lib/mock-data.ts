@@ -1,0 +1,156 @@
+export type ShipmentStatus = 'Created' | 'NOA Received' | 'Arrived' | 'In Stock' | 'In Transit' | 'Delivered';
+export type PalletStatus = 'Palletized' | 'Loaded' | 'Delivered';
+
+export interface Shipment {
+  id: string;
+  mawb: string;
+  subklant: string;
+  subklantId: string;
+  pieces: number;
+  parcels: number;
+  chargeableWeight: number;
+  warehouse: string;
+  status: ShipmentStatus;
+  transportType: 'AIR' | 'TRUCK';
+  createdAt: string;
+  colliExpected: number;
+  colliNoa: number | null;
+}
+
+export interface StatusHistory {
+  status: ShipmentStatus;
+  changedBy: string;
+  changedAt: string;
+  notes?: string;
+}
+
+export interface Outerbox {
+  id: string;
+  barcode: string;
+  status: 'expected' | 'scanned_in' | 'in_stock' | 'scanned_out';
+  scannedInAt: string | null;
+  scannedOutAt: string | null;
+  palletId: string | null;
+}
+
+export interface Pallet {
+  id: string;
+  palletNumber: string;
+  hub: string;
+  truckReference: string;
+  pieces: number;
+  weight: number;
+  date: string;
+  status: PalletStatus;
+}
+
+export interface Note {
+  id: string;
+  author: string;
+  content: string;
+  createdAt: string;
+}
+
+export const subklanten = [
+  { id: 'sk1', name: 'PostNL Express' },
+  { id: 'sk2', name: 'DHL Parcel' },
+  { id: 'sk3', name: 'GLS Netherlands' },
+  { id: 'sk4', name: 'DPD Benelux' },
+];
+
+export const shipments: Shipment[] = [
+  { id: '1', mawb: '235-84729301', subklant: 'PostNL Express', subklantId: 'sk1', pieces: 48, parcels: 312, chargeableWeight: 2840, warehouse: 'AMS-01', status: 'Delivered', transportType: 'AIR', createdAt: '2025-03-18', colliExpected: 48, colliNoa: 48 },
+  { id: '2', mawb: '074-19283746', subklant: 'DHL Parcel', subklantId: 'sk2', pieces: 22, parcels: 156, chargeableWeight: 1420, warehouse: 'AMS-02', status: 'In Transit', transportType: 'AIR', createdAt: '2025-03-19', colliExpected: 22, colliNoa: 22 },
+  { id: '3', mawb: '180-55738291', subklant: 'GLS Netherlands', subklantId: 'sk3', pieces: 35, parcels: 244, chargeableWeight: 1980, warehouse: 'AMS-01', status: 'In Stock', transportType: 'AIR', createdAt: '2025-03-20', colliExpected: 35, colliNoa: 33 },
+  { id: '4', mawb: '607-33847291', subklant: 'PostNL Express', subklantId: 'sk1', pieces: 15, parcels: 89, chargeableWeight: 760, warehouse: 'AMS-02', status: 'Arrived', transportType: 'AIR', createdAt: '2025-03-20', colliExpected: 15, colliNoa: null },
+  { id: '5', mawb: '176-92847130', subklant: 'DPD Benelux', subklantId: 'sk4', pieces: 60, parcels: 420, chargeableWeight: 3200, warehouse: 'AMS-01', status: 'NOA Received', transportType: 'AIR', createdAt: '2025-03-21', colliExpected: 60, colliNoa: 58 },
+  { id: '6', mawb: '235-10293847', subklant: 'PostNL Express', subklantId: 'sk1', pieces: 28, parcels: 195, chargeableWeight: 1650, warehouse: 'AMS-01', status: 'Created', transportType: 'AIR', createdAt: '2025-03-22', colliExpected: 28, colliNoa: null },
+];
+
+export const getStatusHistory = (shipmentId: string): StatusHistory[] => {
+  const histories: Record<string, StatusHistory[]> = {
+    '1': [
+      { status: 'Created', changedBy: 'System', changedAt: '2025-03-18 08:00', notes: 'Shipment created via portal' },
+      { status: 'NOA Received', changedBy: 'KLM Cargo', changedAt: '2025-03-18 14:30' },
+      { status: 'Arrived', changedBy: 'Warehouse AMS-01', changedAt: '2025-03-19 06:15' },
+      { status: 'In Stock', changedBy: 'Warehouse AMS-01', changedAt: '2025-03-19 09:45', notes: 'All 48 colli scanned in' },
+      { status: 'In Transit', changedBy: 'Transport Desk', changedAt: '2025-03-19 16:00' },
+      { status: 'Delivered', changedBy: 'Driver M. de Vries', changedAt: '2025-03-20 11:30' },
+    ],
+    '2': [
+      { status: 'Created', changedBy: 'System', changedAt: '2025-03-19 10:00' },
+      { status: 'NOA Received', changedBy: 'Martinair', changedAt: '2025-03-19 18:00' },
+      { status: 'Arrived', changedBy: 'Warehouse AMS-02', changedAt: '2025-03-20 07:00' },
+      { status: 'In Stock', changedBy: 'Warehouse AMS-02', changedAt: '2025-03-20 10:00' },
+      { status: 'In Transit', changedBy: 'Transport Desk', changedAt: '2025-03-21 08:00' },
+    ],
+  };
+  return histories[shipmentId] || [
+    { status: 'Created', changedBy: 'System', changedAt: '2025-03-20 09:00' },
+  ];
+};
+
+export const getOuterboxes = (shipmentId: string): Outerbox[] => {
+  if (shipmentId === '1') {
+    return Array.from({ length: 48 }, (_, i) => ({
+      id: `ob-${i}`,
+      barcode: `AMS${String(i + 1).padStart(4, '0')}`,
+      status: 'scanned_out' as const,
+      scannedInAt: '2025-03-19 09:00',
+      scannedOutAt: '2025-03-19 16:00',
+      palletId: `p-${Math.floor(i / 12)}`,
+    }));
+  }
+  if (shipmentId === '3') {
+    return Array.from({ length: 35 }, (_, i) => ({
+      id: `ob-${i}`,
+      barcode: `AMS${String(i + 1).padStart(4, '0')}`,
+      status: i < 30 ? 'in_stock' as const : i < 33 ? 'scanned_in' as const : 'expected' as const,
+      scannedInAt: i < 33 ? '2025-03-20 10:00' : null,
+      scannedOutAt: null,
+      palletId: null,
+    }));
+  }
+  return [];
+};
+
+export const getPallets = (shipmentId: string): Pallet[] => {
+  if (shipmentId === '1') {
+    return [
+      { id: 'p-0', palletNumber: 'PLT-001', hub: 'PostNL Nieuwegein', truckReference: 'TR-2025-0382', pieces: 12, weight: 710, date: '2025-03-19', status: 'Delivered' },
+      { id: 'p-1', palletNumber: 'PLT-002', hub: 'PostNL Den Haag', truckReference: 'TR-2025-0382', pieces: 12, weight: 695, date: '2025-03-19', status: 'Delivered' },
+      { id: 'p-2', palletNumber: 'PLT-003', hub: 'PostNL Utrecht', truckReference: 'TR-2025-0385', pieces: 12, weight: 720, date: '2025-03-19', status: 'Delivered' },
+      { id: 'p-3', palletNumber: 'PLT-004', hub: 'PostNL Rotterdam', truckReference: 'TR-2025-0385', pieces: 12, weight: 715, date: '2025-03-19', status: 'Delivered' },
+    ];
+  }
+  return [];
+};
+
+export const getNotes = (shipmentId: string): Note[] => {
+  if (shipmentId === '1') {
+    return [
+      { id: 'n1', author: 'Warehouse Team', content: 'All boxes received in good condition. No damage reported.', createdAt: '2025-03-19 10:15' },
+      { id: 'n2', author: 'Transport Desk', content: 'Split across 2 trucks due to hub routing. TR-0382 and TR-0385.', createdAt: '2025-03-19 15:45' },
+    ];
+  }
+  if (shipmentId === '3') {
+    return [
+      { id: 'n1', author: 'Warehouse Team', content: '2 colli missing from NOA count. Investigating with airline.', createdAt: '2025-03-20 11:00' },
+    ];
+  }
+  return [];
+};
+
+export const statusOrder: ShipmentStatus[] = ['Created', 'NOA Received', 'Arrived', 'In Stock', 'In Transit', 'Delivered'];
+
+export const getStatusClass = (status: ShipmentStatus): string => {
+  const map: Record<ShipmentStatus, string> = {
+    'Created': 'status-created',
+    'NOA Received': 'status-noa',
+    'Arrived': 'status-arrived',
+    'In Stock': 'status-instock',
+    'In Transit': 'status-intransit',
+    'Delivered': 'status-delivered',
+  };
+  return map[status];
+};
