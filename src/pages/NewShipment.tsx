@@ -4,10 +4,16 @@ import { Upload, ArrowLeft, ArrowRight, Plane, Truck, AlertTriangle, XCircle, Ch
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth-context';
 import { useSubklanten } from '@/hooks/use-shipment-data';
-import { extractAwbData, type AwbExtractedData } from '@/lib/extract-awb';
 import { parseManifest, validateManifest, type ManifestSummary } from '@/lib/parse-manifest';
 
 type Step = 1 | 2;
+
+interface AwbServerData {
+  mawb: string | null;
+  pieces: number | null;
+  gross_weight: number | null;
+  chargeable_weight: number | null;
+}
 
 export default function NewShipment() {
   const navigate = useNavigate();
@@ -20,19 +26,17 @@ export default function NewShipment() {
   const [awbFile, setAwbFile] = useState<File | null>(null);
   const [manifestFile, setManifestFile] = useState<File | null>(null);
 
-  // Extraction state
+  // Server-side AWB extraction state
   const [awbExtracting, setAwbExtracting] = useState(false);
-  const [awbData, setAwbData] = useState<AwbExtractedData | null>(null);
+  const [awbData, setAwbData] = useState<AwbServerData | null>(null);
   const [awbError, setAwbError] = useState<string | null>(null);
 
   const [manifestParsing, setManifestParsing] = useState(false);
   const [manifestSummary, setManifestSummary] = useState<ManifestSummary | null>(null);
   const [manifestError, setManifestError] = useState<string | null>(null);
 
-  // Editable extracted fields
-  const [editColli, setEditColli] = useState('');
-  const [editGrossWeight, setEditGrossWeight] = useState('');
-  const [editChargeableWeight, setEditChargeableWeight] = useState('');
+  // Duplicate MAWB check
+  const [duplicateMawb, setDuplicateMawb] = useState<string | null>(null);
 
   // Submit
   const [submitting, setSubmitting] = useState(false);
@@ -44,7 +48,7 @@ export default function NewShipment() {
     return `${digits.slice(0, 3)}-${digits.slice(3)}`;
   }, []);
 
-  // Extract AWB data when file is uploaded
+  // Server-side AWB extraction when file is uploaded
   useEffect(() => {
     if (!awbFile) {
       setAwbData(null);
@@ -54,20 +58,25 @@ export default function NewShipment() {
     let cancelled = false;
     setAwbExtracting(true);
     setAwbError(null);
+    setAwbData(null);
 
-    extractAwbData(awbFile)
-      .then((data) => {
+    const formData = new FormData();
+    formData.append('file', awbFile);
+
+    supabase.functions
+      .invoke('extract-awb', { body: formData })
+      .then(({ data, error }) => {
         if (cancelled) return;
-        setAwbData(data);
+        if (error) throw error;
+        if (data?.error) throw new Error(data.error);
+
+        setAwbData(data as AwbServerData);
         if (data.mawb && !mawb) setMawb(data.mawb);
-        setEditColli(data.colli != null ? String(data.colli) : '');
-        setEditGrossWeight(data.grossWeight != null ? String(data.grossWeight) : '');
-        setEditChargeableWeight(data.chargeableWeight != null ? String(data.chargeableWeight) : '');
       })
       .catch((err) => {
         if (cancelled) return;
         console.error('AWB extraction failed:', err);
-        setAwbError('Could not extract data from PDF. You can enter values manually.');
+        setAwbError('Could not extract AWB data. Please ensure this is a valid Air Waybill.');
       })
       .finally(() => {
         if (!cancelled) setAwbExtracting(false);
@@ -104,10 +113,41 @@ export default function NewShipment() {
     return () => { cancelled = true; };
   }, [manifestFile]);
 
-  const colli = parseInt(editColli, 10) || 0;
-  const grossWeight = parseFloat(editGrossWeight) || 0;
-  const chargeableWeight = parseFloat(editChargeableWeight) || 0;
-  const canProceed = mawb.replace(/\D/g, '').length === 11 && subklantId && awbFile && manifestFile;
+  // Duplicate MAWB check
+  useEffect(() => {
+    const digits = mawb.replace(/\D/g, '');
+    if (digits.length !== 11 || !customer?.id) {
+      setDuplicateMawb(null);
+      return;
+    }
+    let cancelled = false;
+
+    supabase
+      .from('shipments')
+      .select('id, mawb')
+      .eq('customer_id', customer.id)
+      .eq('mawb', mawb)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (cancelled) return;
+        setDuplicateMawb(data ? `A shipment with MAWB ${mawb} already exists.` : null);
+      });
+
+    return () => { cancelled = true; };
+  }, [mawb, customer?.id]);
+
+  const colli = awbData?.pieces ?? 0;
+  const grossWeight = awbData?.gross_weight ?? 0;
+  const chargeableWeight = awbData?.chargeable_weight ?? 0;
+  const awbExtracted = !!awbData && !awbExtracting && !awbError;
+
+  const canProceed =
+    mawb.replace(/\D/g, '').length === 11 &&
+    subklantId &&
+    awbFile &&
+    manifestFile &&
+    awbExtracted &&
+    !duplicateMawb;
 
   // Validation
   const validation = manifestSummary ? validateManifest(manifestSummary, mawb) : { errors: [], warnings: [] };
@@ -129,6 +169,20 @@ export default function NewShipment() {
     setSubmitError(null);
 
     try {
+      // Duplicate check at submit time (race condition guard)
+      const { data: existing } = await supabase
+        .from('shipments')
+        .select('id, mawb')
+        .eq('customer_id', customer.id)
+        .eq('mawb', mawb)
+        .maybeSingle();
+
+      if (existing) {
+        setSubmitError(`A shipment with MAWB ${mawb} already exists.`);
+        setSubmitting(false);
+        return;
+      }
+
       const effectiveWeight = Math.max(grossWeight, chargeableWeight);
 
       // 1. Insert shipment
@@ -234,6 +288,11 @@ export default function NewShipment() {
               placeholder="XXX-XXXXXXXX"
               className="w-full h-10 px-3 rounded-lg border bg-background text-sm font-mono focus:outline-none focus:ring-2 focus:ring-ring"
             />
+            {duplicateMawb && (
+              <div className="mt-2 text-sm text-destructive bg-destructive/10 rounded-lg px-3 py-2 flex items-center gap-1.5">
+                <XCircle className="h-4 w-4 shrink-0" /> {duplicateMawb}
+              </div>
+            )}
           </div>
 
           <div>
@@ -256,29 +315,35 @@ export default function NewShipment() {
           {/* AWB extraction status */}
           {awbExtracting && (
             <div className="flex items-center gap-2 text-sm text-muted-foreground animate-fade-in">
-              <Loader2 className="h-4 w-4 animate-spin" /> Extracting data from Air Waybill...
+              <Loader2 className="h-4 w-4 animate-spin" /> Extracting AWB data...
             </div>
           )}
           {awbError && (
-            <div className="text-sm text-[hsl(var(--status-noa))] bg-[hsl(var(--status-noa))/0.08] rounded-lg px-3 py-2 animate-fade-in">
-              <AlertTriangle className="h-4 w-4 inline mr-1.5" />{awbError}
+            <div className="text-sm text-destructive bg-destructive/10 rounded-lg px-3 py-2 animate-fade-in flex items-center gap-1.5">
+              <XCircle className="h-4 w-4 shrink-0" />{awbError}
             </div>
           )}
           {awbData && !awbExtracting && (
             <div className="bg-muted/40 rounded-lg p-4 space-y-3 animate-fade-in">
-              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Extracted from AWB (editable)</p>
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Extracted from AWB (read-only)</p>
               <div className="grid grid-cols-3 gap-3">
                 <div>
                   <label className="text-xs text-muted-foreground block mb-1">Colli (pieces)</label>
-                  <input value={editColli} onChange={e => setEditColli(e.target.value)} className="w-full h-9 px-2.5 rounded-md border bg-background text-sm tabular-nums font-mono focus:outline-none focus:ring-2 focus:ring-ring" />
+                  <div className="w-full h-9 px-2.5 rounded-md border bg-muted text-sm tabular-nums font-mono flex items-center">
+                    {awbData.pieces ?? '—'}
+                  </div>
                 </div>
                 <div>
                   <label className="text-xs text-muted-foreground block mb-1">Gross Weight (kg)</label>
-                  <input value={editGrossWeight} onChange={e => setEditGrossWeight(e.target.value)} className="w-full h-9 px-2.5 rounded-md border bg-background text-sm tabular-nums font-mono focus:outline-none focus:ring-2 focus:ring-ring" />
+                  <div className="w-full h-9 px-2.5 rounded-md border bg-muted text-sm tabular-nums font-mono flex items-center">
+                    {awbData.gross_weight != null ? `${awbData.gross_weight.toLocaleString()}` : '—'}
+                  </div>
                 </div>
                 <div>
                   <label className="text-xs text-muted-foreground block mb-1">Chargeable Weight (kg)</label>
-                  <input value={editChargeableWeight} onChange={e => setEditChargeableWeight(e.target.value)} className="w-full h-9 px-2.5 rounded-md border bg-background text-sm tabular-nums font-mono focus:outline-none focus:ring-2 focus:ring-ring" />
+                  <div className="w-full h-9 px-2.5 rounded-md border bg-muted text-sm tabular-nums font-mono flex items-center">
+                    {awbData.chargeable_weight != null ? `${awbData.chargeable_weight.toLocaleString()}` : '—'}
+                  </div>
                 </div>
               </div>
             </div>
@@ -291,8 +356,8 @@ export default function NewShipment() {
             </div>
           )}
           {manifestError && (
-            <div className="text-sm text-destructive bg-destructive/10 rounded-lg px-3 py-2 animate-fade-in">
-              <XCircle className="h-4 w-4 inline mr-1.5" />{manifestError}
+            <div className="text-sm text-destructive bg-destructive/10 rounded-lg px-3 py-2 animate-fade-in flex items-center gap-1.5">
+              <XCircle className="h-4 w-4 shrink-0" />{manifestError}
             </div>
           )}
           {manifestSummary && !manifestParsing && (
@@ -369,8 +434,8 @@ export default function NewShipment() {
           )}
 
           {submitError && (
-            <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
-              {submitError}
+            <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive flex items-center gap-1.5">
+              <XCircle className="h-4 w-4 shrink-0" /> {submitError}
             </div>
           )}
 
