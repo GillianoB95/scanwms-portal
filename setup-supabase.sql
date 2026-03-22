@@ -280,7 +280,7 @@ begin
 
   -- Status history
   insert into shipment_status_history (shipment_id, status, changed_by, changed_at, notes) values
-    (v_ship1, 'Created', 'System', '2025-03-18T08:00:00Z', 'Shipment created via portal'),
+    (v_ship1, 'Awaiting NOA', 'System', '2025-03-18T08:00:00Z', 'Shipment created via portal'),
     (v_ship1, 'Partial NOA', 'KLM Cargo', '2025-03-18T09:00:00Z', null),
     (v_ship1, 'NOA Complete', 'KLM Cargo', '2025-03-18T14:30:00Z', null),
     (v_ship1, 'In Transit', 'Transport Desk', '2025-03-19T06:15:00Z', null),
