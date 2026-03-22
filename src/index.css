@@ -77,23 +77,47 @@
     background-color: hsl(var(--status-created) / 0.15);
     color: hsl(var(--status-created));
   }
-  .status-noa {
-    background-color: hsl(var(--status-noa) / 0.15);
-    color: hsl(var(--status-noa));
+  .status-awaiting-noa {
+    background-color: hsl(var(--status-awaiting-noa) / 0.15);
+    color: hsl(var(--status-awaiting-noa));
   }
-  .status-arrived {
-    background-color: hsl(var(--status-arrived) / 0.15);
-    color: hsl(var(--status-arrived));
+  .status-partial-noa {
+    background-color: hsl(var(--status-partial-noa) / 0.15);
+    color: hsl(var(--status-partial-noa));
   }
-  .status-instock {
-    background-color: hsl(var(--status-instock) / 0.15);
-    color: hsl(var(--status-instock));
+  .status-noa-complete {
+    background-color: hsl(var(--status-noa-complete) / 0.15);
+    color: hsl(var(--status-noa-complete));
   }
   .status-intransit {
     background-color: hsl(var(--status-intransit) / 0.15);
     color: hsl(var(--status-intransit));
   }
+  .status-instock {
+    background-color: hsl(var(--status-instock) / 0.15);
+    color: hsl(var(--status-instock));
+  }
+  .status-outbound {
+    background-color: hsl(var(--status-outbound) / 0.15);
+    color: hsl(var(--status-outbound));
+  }
   .status-delivered {
+    background-color: hsl(var(--status-delivered) / 0.15);
+    color: hsl(var(--status-delivered));
+  }
+  .status-needs-action {
+    background-color: hsl(var(--status-needs-action) / 0.15);
+    color: hsl(var(--status-needs-action));
+  }
+  .status-pending {
+    background-color: hsl(var(--status-created) / 0.15);
+    color: hsl(var(--status-created));
+  }
+  .status-partial {
+    background-color: hsl(var(--status-partial-noa) / 0.15);
+    color: hsl(var(--status-partial-noa));
+  }
+  .status-cleared {
     background-color: hsl(var(--status-delivered) / 0.15);
     color: hsl(var(--status-delivered));
   }

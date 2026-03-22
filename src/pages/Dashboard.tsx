@@ -1,10 +1,10 @@
 import { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { AlertTriangle, Clock, Package, Truck, Warehouse, Loader2 } from 'lucide-react';
+import { AlertTriangle, Clock, Package, Truck, Warehouse, Loader2, CircleDot, CheckCircle2 } from 'lucide-react';
 import { useShipments } from '@/hooks/use-shipment-data';
 import { StatusBadge } from '@/components/StatusBadge';
 
-type StatusFilter = 'all' | 'needs-action' | 'awaiting-noa' | 'noa-received' | 'in-stock' | 'in-transit';
+type StatusFilter = 'all' | 'needs-action' | 'awaiting-noa' | 'partial-noa' | 'noa-complete' | 'in-transit' | 'in-stock' | 'outbound';
 
 function hoursAgo(dateStr: string): number {
   const now = new Date();
@@ -25,27 +25,33 @@ export default function Dashboard() {
   const [activeFilter, setActiveFilter] = useState<StatusFilter>('all');
 
   const needsAction = shipments.filter((s: any) => s.status === 'Created' && hoursAgo(s.updated_at) > 48);
-  const awaitingNoa = shipments.filter((s: any) => s.status === 'Created');
-  const noaReceived = shipments.filter((s: any) => s.status === 'NOA Received' || s.status === 'Arrived');
-  const inStock = shipments.filter((s: any) => s.status === 'In Stock');
+  const awaitingNoa = shipments.filter((s: any) => s.status === 'Awaiting NOA' || s.status === 'Created');
+  const partialNoa = shipments.filter((s: any) => s.status === 'Partial NOA');
+  const noaComplete = shipments.filter((s: any) => s.status === 'NOA Complete');
   const inTransit = shipments.filter((s: any) => s.status === 'In Transit');
+  const inStock = shipments.filter((s: any) => s.status === 'In Stock');
+  const outbound = shipments.filter((s: any) => s.status === 'Outbound');
 
   const statusRows: { key: StatusFilter; label: string; count: number; dot: string; icon: React.ElementType }[] = [
-    { key: 'needs-action', label: 'Needs Action', count: needsAction.length, dot: 'bg-destructive', icon: AlertTriangle },
-    { key: 'awaiting-noa', label: 'Awaiting NOA', count: awaitingNoa.length, dot: 'bg-[hsl(var(--status-noa))]', icon: Clock },
-    { key: 'noa-received', label: 'NOA Received', count: noaReceived.length, dot: 'bg-[hsl(var(--status-arrived))]', icon: Package },
-    { key: 'in-stock', label: 'In Stock', count: inStock.length, dot: 'bg-[hsl(var(--status-instock))]', icon: Warehouse },
+    { key: 'needs-action', label: 'Needs Action', count: needsAction.length, dot: 'bg-[hsl(var(--status-needs-action))]', icon: AlertTriangle },
+    { key: 'awaiting-noa', label: 'Awaiting NOA', count: awaitingNoa.length, dot: 'bg-[hsl(var(--status-awaiting-noa))]', icon: Clock },
+    { key: 'partial-noa', label: 'Partial NOA', count: partialNoa.length, dot: 'bg-[hsl(var(--status-partial-noa))]', icon: CircleDot },
+    { key: 'noa-complete', label: 'NOA Complete', count: noaComplete.length, dot: 'bg-[hsl(var(--status-noa-complete))]', icon: CheckCircle2 },
     { key: 'in-transit', label: 'In Transit', count: inTransit.length, dot: 'bg-[hsl(var(--status-intransit))]', icon: Truck },
+    { key: 'in-stock', label: 'In Stock', count: inStock.length, dot: 'bg-[hsl(var(--status-instock))]', icon: Warehouse },
+    { key: 'outbound', label: 'Outbound', count: outbound.length, dot: 'bg-[hsl(var(--status-outbound))]', icon: Package },
   ];
 
   const tableShipments = useMemo(() => {
     const filterMap: Record<StatusFilter, any[]> = {
-      'all': shipments.filter((s: any) => s.status !== 'Delivered'),
+      'all': shipments.filter((s: any) => s.status !== 'Outbound'),
       'needs-action': needsAction,
       'awaiting-noa': awaitingNoa,
-      'noa-received': noaReceived,
-      'in-stock': inStock,
+      'partial-noa': partialNoa,
+      'noa-complete': noaComplete,
       'in-transit': inTransit,
+      'in-stock': inStock,
+      'outbound': outbound,
     };
     return [...filterMap[activeFilter]].sort(
       (a, b) => new Date(a.updated_at).getTime() - new Date(b.updated_at).getTime()
@@ -79,7 +85,7 @@ export default function Dashboard() {
         ))}
       </div>
 
-      <div className="bg-card rounded-xl border animate-fade-in" style={{ animationDelay: '320ms' }}>
+      <div className="bg-card rounded-xl border animate-fade-in" style={{ animationDelay: '420ms' }}>
         <div className="px-5 py-4 border-b flex items-center justify-between">
           <h2 className="font-semibold">
             {activeFilter === 'all' ? 'Active Shipments' : statusRows.find(r => r.key === activeFilter)?.label}
@@ -104,14 +110,14 @@ export default function Dashboard() {
             </thead>
             <tbody>
               {tableShipments.map((s: any) => {
-                const isAwaiting48h = s.status === 'Created' && hoursAgo(s.updated_at) > 48;
+                const isAwaiting48h = (s.status === 'Created' || s.status === 'Awaiting NOA') && hoursAgo(s.updated_at) > 48;
                 const subklantName = s.subklanten?.name || '—';
                 return (
                   <tr key={s.id} className="border-b last:border-0 hover:bg-muted/50 transition-colors">
                     <td className="px-5 py-3">
                       <Link to={`/shipments/${s.id}`} className="font-mono font-medium text-accent hover:underline">{s.mawb}</Link>
                       {isAwaiting48h && (
-                        <span className="ml-2 inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded bg-[hsl(var(--status-noa)/0.15)] text-[hsl(var(--status-noa))]">
+                        <span className="ml-2 inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded bg-[hsl(var(--status-needs-action)/0.15)] text-[hsl(var(--status-needs-action))]">
                           <Clock className="h-3 w-3" /> &gt;48h
                         </span>
                       )}

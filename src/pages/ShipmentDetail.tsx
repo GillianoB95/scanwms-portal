@@ -1,9 +1,121 @@
 import { useParams, Link } from 'react-router-dom';
-import { ArrowLeft, Download, CheckCircle2, Circle, MessageSquare, Truck, Loader2 } from 'lucide-react';
-import { useShipment, useStatusHistory, useNoas, useOutbounds, useOuterboxes } from '@/hooks/use-shipment-data';
+import { ArrowLeft, Download, CheckCircle2, Circle, Truck, Loader2, Shield, AlertTriangle } from 'lucide-react';
+import { useShipment, useStatusHistory, useNoas, useOutbounds, useOuterboxes, useClearances, useInspections } from '@/hooks/use-shipment-data';
 import { StatusBadge } from '@/components/StatusBadge';
+import { getStatusClass } from '@/lib/mock-data';
 
-const statusOrder = ['Created', 'NOA Received', 'Arrived', 'In Stock', 'In Transit', 'Delivered'];
+const statusOrder = ['Created', 'Awaiting NOA', 'Partial NOA', 'NOA Complete', 'In Transit', 'In Stock', 'Outbound'];
+
+function ClearanceSection({ shipmentId, colliExpected }: { shipmentId: string; colliExpected: number }) {
+  const { data: clearances = [], isLoading } = useClearances(shipmentId);
+
+  if (isLoading) return null;
+
+  const totalCleared = clearances.reduce((sum: number, c: any) => sum + (c.colli_cleared || 0), 0);
+  const latestStatus = clearances.length > 0
+    ? (totalCleared >= colliExpected ? 'cleared' : totalCleared > 0 ? 'partial' : 'pending')
+    : 'pending';
+
+  const statusLabel: Record<string, string> = {
+    pending: 'Pending',
+    partial: 'Partially Cleared',
+    cleared: 'Fully Cleared',
+  };
+
+  const pending = colliExpected - totalCleared;
+
+  return (
+    <div className="bg-card rounded-xl border p-5 animate-fade-in" style={{ animationDelay: '280ms' }}>
+      <div className="flex items-center gap-2 mb-4">
+        <Shield className="h-4.5 w-4.5 text-muted-foreground" />
+        <h2 className="font-semibold">Customs Clearance</h2>
+      </div>
+      <div className="flex items-center gap-4 flex-wrap">
+        <span className={`status-badge ${getStatusClass(latestStatus)}`}>
+          {statusLabel[latestStatus]}
+        </span>
+        <span className="text-sm tabular-nums">
+          <strong>{totalCleared}</strong> / {colliExpected} colli cleared
+        </span>
+      </div>
+      {latestStatus === 'partial' && pending > 0 && (
+        <p className="text-sm text-muted-foreground mt-3">
+          ⚠ {pending} colli still pending clearance
+        </p>
+      )}
+      {clearances.length > 0 && (
+        <div className="mt-4 space-y-2">
+          {clearances.map((c: any) => (
+            <div key={c.id} className="flex items-center justify-between text-sm py-2 px-3 bg-muted/40 rounded-lg">
+              <div>
+                <span className="tabular-nums font-medium">{c.colli_cleared} colli</span>
+                {c.cleared_by && <span className="text-muted-foreground ml-2">by {c.cleared_by}</span>}
+              </div>
+              {c.cleared_at && (
+                <span className="text-muted-foreground text-xs">{new Date(c.cleared_at).toLocaleString('en-GB')}</span>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function InspectionsSection({ shipmentId }: { shipmentId: string }) {
+  const { data: inspections = [], isLoading } = useInspections(shipmentId);
+
+  if (isLoading) return null;
+
+  const inspectionStatusLabel: Record<string, string> = {
+    under_inspection: 'Under Inspection',
+    removed: 'Removed from Box',
+    released: 'Released',
+  };
+
+  return (
+    <div className="bg-card rounded-xl border animate-fade-in" style={{ animationDelay: '340ms' }}>
+      <div className="px-5 py-4 border-b flex items-center gap-2">
+        <AlertTriangle className="h-4 w-4 text-muted-foreground" />
+        <h2 className="font-semibold">Customs Inspections</h2>
+      </div>
+      {inspections.length === 0 ? (
+        <div className="px-5 py-6 text-center">
+          <span className="status-badge status-cleared">No inspections</span>
+        </div>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b text-muted-foreground">
+                <th className="text-left px-5 py-3 font-medium">Parcel Barcode</th>
+                <th className="text-left px-5 py-3 font-medium">Status</th>
+                <th className="text-left px-5 py-3 font-medium">Date</th>
+              </tr>
+            </thead>
+            <tbody>
+              {inspections.map((insp: any) => (
+                <tr key={insp.id} className="border-b last:border-0">
+                  <td className="px-5 py-3 font-mono font-medium">{insp.parcel_barcode}</td>
+                  <td className="px-5 py-3">
+                    <span className={`status-badge ${getStatusClass(insp.status)}`}>
+                      {inspectionStatusLabel[insp.status] || insp.status}
+                    </span>
+                  </td>
+                  <td className="px-5 py-3 text-muted-foreground">
+                    {insp.confirmed_at
+                      ? new Date(insp.confirmed_at).toLocaleString('en-GB')
+                      : new Date(insp.created_at).toLocaleString('en-GB')}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function ShipmentDetail() {
   const { id } = useParams<{ id: string }>();
@@ -34,7 +146,6 @@ export default function ShipmentDetail() {
   const scannedOut = outerboxes.filter((b: any) => b.status === 'scanned_out').length;
   const notScanned = outerboxes.filter((b: any) => b.status === 'expected').length;
 
-  // Group outbounds by hub
   const hubGroups = outboundData.reduce((acc: any, ob: any) => {
     const hubCode = ob.hubs?.code || 'Unknown';
     const hubName = ob.hubs?.name || hubCode;
@@ -64,7 +175,7 @@ export default function ShipmentDetail() {
         <StatusBadge status={shipment.status} />
       </div>
 
-      {/* Section 1 — Info */}
+      {/* Shipment Info */}
       <div className="bg-card rounded-xl border p-5 animate-fade-in" style={{ animationDelay: '80ms' }}>
         <h2 className="font-semibold mb-4">Shipment Info</h2>
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 text-sm">
@@ -84,7 +195,7 @@ export default function ShipmentDetail() {
         </div>
       </div>
 
-      {/* Section 2 — Timeline */}
+      {/* Status Timeline */}
       <div className="bg-card rounded-xl border p-5 animate-fade-in" style={{ animationDelay: '160ms' }}>
         <h2 className="font-semibold mb-4">Status Timeline</h2>
         <div className="space-y-0">
@@ -115,7 +226,7 @@ export default function ShipmentDetail() {
         </div>
       </div>
 
-      {/* Section 3 — NOA History */}
+      {/* NOA History */}
       {noaEntries.length > 0 && (
         <div className="bg-card rounded-xl border animate-fade-in" style={{ animationDelay: '240ms' }}>
           <div className="px-5 py-4 border-b"><h2 className="font-semibold">NOA History</h2></div>
@@ -138,7 +249,7 @@ export default function ShipmentDetail() {
                     <td className="px-5 py-3 text-muted-foreground">{new Date(n.received_at).toLocaleString('en-GB')}</td>
                     <td className="px-5 py-3 text-right tabular-nums">{n.colli}</td>
                     <td className="px-5 py-3 text-right tabular-nums">{Number(n.weight).toLocaleString()} kg</td>
-                    <td className="px-5 py-3"><span className="status-badge status-delivered">Received</span></td>
+                    <td className="px-5 py-3"><span className="status-badge status-cleared">Received</span></td>
                     <td className="px-5 py-3 text-right">
                       <button className="inline-flex items-center gap-1 text-xs text-accent hover:underline">
                         <Download className="h-3.5 w-3.5" /> Download
@@ -157,9 +268,9 @@ export default function ShipmentDetail() {
                   </td>
                   <td className="px-5 py-3" colSpan={2}>
                     {noaEntries.reduce((sum: number, n: any) => sum + n.colli, 0) >= (shipment.colli_expected || 0) ? (
-                      <span className="status-badge status-delivered">✅ Complete</span>
+                      <span className="status-badge status-cleared">✅ Complete</span>
                     ) : (
-                      <span className="status-badge status-intransit">⚠ Partial ({(shipment.colli_expected || 0) - noaEntries.reduce((sum: number, n: any) => sum + n.colli, 0)} missing)</span>
+                      <span className="status-badge status-partial">⚠ Partial ({(shipment.colli_expected || 0) - noaEntries.reduce((sum: number, n: any) => sum + n.colli, 0)} missing)</span>
                     )}
                   </td>
                 </tr>
@@ -169,9 +280,15 @@ export default function ShipmentDetail() {
         </div>
       )}
 
-      {/* Section 4 — Warehouse Tracking */}
+      {/* Customs Clearance */}
+      <ClearanceSection shipmentId={shipment.id} colliExpected={shipment.colli_expected || 0} />
+
+      {/* Customs Inspections */}
+      <InspectionsSection shipmentId={shipment.id} />
+
+      {/* Warehouse Tracking */}
       {outerboxes.length > 0 && (
-        <div className="bg-card rounded-xl border p-5 animate-fade-in" style={{ animationDelay: '320ms' }}>
+        <div className="bg-card rounded-xl border p-5 animate-fade-in" style={{ animationDelay: '400ms' }}>
           <h2 className="font-semibold mb-4">Warehouse Tracking</h2>
           <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 text-sm mb-4">
             <div className="bg-muted rounded-lg px-3 py-2"><span className="text-muted-foreground text-xs block">Expected</span><span className="font-bold tabular-nums">{outerboxes.length}</span></div>
@@ -183,14 +300,14 @@ export default function ShipmentDetail() {
           <div className="w-full h-2.5 bg-muted rounded-full overflow-hidden flex">
             {scannedOut > 0 && <div className="bg-[hsl(var(--status-delivered))] h-full" style={{ width: `${(scannedOut / outerboxes.length) * 100}%` }} />}
             {inStock > 0 && <div className="bg-[hsl(var(--status-instock))] h-full" style={{ width: `${(inStock / outerboxes.length) * 100}%` }} />}
-            {(scannedIn - inStock - scannedOut) > 0 && <div className="bg-[hsl(var(--status-arrived))] h-full" style={{ width: `${((scannedIn - inStock - scannedOut) / outerboxes.length) * 100}%` }} />}
+            {(scannedIn - inStock - scannedOut) > 0 && <div className="bg-[hsl(var(--status-noa-complete))] h-full" style={{ width: `${((scannedIn - inStock - scannedOut) / outerboxes.length) * 100}%` }} />}
           </div>
         </div>
       )}
 
-      {/* Section 5 — Outbound (grouped by hub → pickup) */}
+      {/* Outbound */}
       {Object.keys(hubGroups).length > 0 && (
-        <div className="bg-card rounded-xl border animate-fade-in" style={{ animationDelay: '400ms' }}>
+        <div className="bg-card rounded-xl border animate-fade-in" style={{ animationDelay: '480ms' }}>
           <div className="px-5 py-4 border-b"><h2 className="font-semibold">Outbound</h2></div>
           <div className="divide-y">
             {Object.values(hubGroups).map((group: any) => (

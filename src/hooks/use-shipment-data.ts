@@ -122,3 +122,70 @@ export function useSubklanten() {
     enabled: !!customer,
   });
 }
+
+export function useClearances(shipmentId: string | undefined) {
+  return useQuery({
+    queryKey: ['clearances', shipmentId],
+    queryFn: async () => {
+      if (!shipmentId) return [];
+      const { data, error } = await supabase
+        .from('clearances')
+        .select('*')
+        .eq('shipment_id', shipmentId)
+        .order('created_at', { ascending: true });
+      if (error) throw error;
+      return data ?? [];
+    },
+    enabled: !!shipmentId,
+  });
+}
+
+export function useInspections(shipmentId: string | undefined) {
+  return useQuery({
+    queryKey: ['inspections', shipmentId],
+    queryFn: async () => {
+      if (!shipmentId) return [];
+      const { data, error } = await supabase
+        .from('inspections')
+        .select('*')
+        .eq('shipment_id', shipmentId)
+        .order('created_at', { ascending: true });
+      if (error) throw error;
+      return data ?? [];
+    },
+    enabled: !!shipmentId,
+  });
+}
+
+// Batch fetch clearances & inspections for all shipments (for list view badges)
+export function useAllClearances() {
+  const { customer } = useAuth();
+  return useQuery({
+    queryKey: ['all-clearances', customer?.id],
+    queryFn: async () => {
+      if (!customer) return [];
+      const { data, error } = await supabase
+        .from('clearances')
+        .select('shipment_id, status, colli_cleared');
+      if (error) throw error;
+      return data ?? [];
+    },
+    enabled: !!customer,
+  });
+}
+
+export function useAllInspections() {
+  const { customer } = useAuth();
+  return useQuery({
+    queryKey: ['all-inspections', customer?.id],
+    queryFn: async () => {
+      if (!customer) return [];
+      const { data, error } = await supabase
+        .from('inspections')
+        .select('shipment_id, status');
+      if (error) throw error;
+      return data ?? [];
+    },
+    enabled: !!customer,
+  });
+}
