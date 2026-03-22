@@ -11,6 +11,7 @@ interface Customer {
 interface AuthContextType {
   user: SupabaseUser | null;
   customer: Customer | null;
+  role: string | null;
   loading: boolean;
   login: (email: string, password: string) => Promise<string | null>;
   logout: () => Promise<void>;
