@@ -25,6 +25,17 @@ interface ManifestResult {
   cleanedBlob: Blob | null;
 }
 
+async function fetchWithTimeout(url: string, options: RequestInit, timeoutMs: number): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(url, { ...options, signal: controller.signal });
+    return res;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 export default function NewShipment() {
   const navigate = useNavigate();
   const { user, customer } = useAuth();
@@ -40,6 +51,10 @@ export default function NewShipment() {
   const [awbExtracting, setAwbExtracting] = useState(false);
   const [awbData, setAwbData] = useState<AwbServerData | null>(null);
   const [awbError, setAwbError] = useState<string | null>(null);
+  const [awbManualMode, setAwbManualMode] = useState(false);
+  const [manualColli, setManualColli] = useState('');
+  const [manualGrossWeight, setManualGrossWeight] = useState('');
+  const [manualChargeableWeight, setManualChargeableWeight] = useState('');
 
   const [manifestProcessing, setManifestProcessing] = useState(false);
   const [manifestResult, setManifestResult] = useState<ManifestResult | null>(null);
@@ -49,39 +64,90 @@ export default function NewShipment() {
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
+  // Auto-set subklantId for sub-accounts
+  const isSubAccount = !!customer?.parent_customer_id;
+  useEffect(() => {
+    if (isSubAccount && subklanten.length > 0 && !subklantId) {
+      // Find the subklant entry matching this sub-account's name
+      const match = subklanten.find((s: any) =>
+        s.name?.toLowerCase() === customer?.name?.toLowerCase()
+      );
+      if (match) {
+        setSubklantId(match.id);
+      } else if (subklanten.length === 1) {
+        setSubklantId(subklanten[0].id);
+      }
+    }
+  }, [isSubAccount, subklanten, customer?.name, subklantId]);
+
   const formatMawb = useCallback((val: string) => {
     const digits = val.replace(/\D/g, '').slice(0, 11);
     if (digits.length <= 3) return digits;
     return `${digits.slice(0, 3)}-${digits.slice(3)}`;
   }, []);
 
-  // AWB extraction via Supabase edge function
+  // AWB extraction: Railway primary, Supabase edge function fallback, 15s timeout each
   useEffect(() => {
-    if (!awbFile) { setAwbData(null); setAwbError(null); return; }
+    if (!awbFile) { setAwbData(null); setAwbError(null); setAwbManualMode(false); return; }
     let cancelled = false;
     setAwbExtracting(true);
     setAwbError(null);
     setAwbData(null);
+    setAwbManualMode(false);
 
-    const formData = new FormData();
-    formData.append('file', awbFile);
+    const extract = async () => {
+      const formData = new FormData();
+      formData.append('file', awbFile);
 
-    supabase.functions
-      .invoke('extract-awb', { body: formData })
-      .then(({ data, error }) => {
+      // Try Railway first
+      try {
+        const res = await fetchWithTimeout(
+          `${MANIFEST_CLEANER_URL}/extract-awb`,
+          { method: 'POST', body: formData },
+          15000
+        );
+        if (res.ok) {
+          const data = await res.json();
+          if (!data.error) return data as AwbServerData;
+        }
+      } catch (e) {
+        console.warn('Railway AWB extraction failed, trying Supabase fallback:', e);
+      }
+
+      // Fallback to Supabase edge function
+      const formData2 = new FormData();
+      formData2.append('file', awbFile);
+      const { data, error } = await supabase.functions.invoke('extract-awb', { body: formData2 });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      return data as AwbServerData;
+    };
+
+    // Wrap with overall 15s timeout for the fallback too
+    const timeoutId = setTimeout(() => {
+      if (!cancelled) {
+        setAwbExtracting(false);
+        setAwbManualMode(true);
+        setAwbError('AWB extraction timed out. Please enter the values manually.');
+      }
+    }, 32000); // total budget: ~15s railway + ~15s supabase + buffer
+
+    extract()
+      .then((result) => {
         if (cancelled) return;
-        if (error) throw error;
-        if (data?.error) throw new Error(data.error);
-        setAwbData(data as AwbServerData);
-        if (data.mawb && !mawb) setMawb(data.mawb);
+        clearTimeout(timeoutId);
+        setAwbData(result);
+        if (result.mawb && !mawb) setMawb(result.mawb);
       })
       .catch((err) => {
         if (cancelled) return;
-        setAwbError('Could not extract AWB data. Please ensure this is a valid Air Waybill.');
+        clearTimeout(timeoutId);
+        setAwbManualMode(true);
+        setAwbError('Could not extract AWB data. Please enter the values manually.');
       })
       .finally(() => { if (!cancelled) setAwbExtracting(false); });
 
-    return () => { cancelled = true; };
+    return () => { cancelled = true; clearTimeout(timeoutId); };
   }, [awbFile]);
 
   // Manifest processing via Railway manifest cleaner
@@ -110,7 +176,6 @@ export default function NewShipment() {
         }
         if (!res.ok) throw new Error(`Manifest cleaner error: ${res.status}`);
         const blob = await res.blob();
-        // Parse XLSX to get counts
         setManifestResult({
           totalParcels: 0, totalWeight: 0,
           errors: [], warnings: [],
@@ -137,10 +202,10 @@ export default function NewShipment() {
     return () => { cancelled = true; };
   }, [mawb, customer?.id]);
 
-  const colli = awbData?.pieces ?? 0;
-  const grossWeight = awbData?.gross_weight ?? 0;
-  const chargeableWeight = awbData?.chargeable_weight ?? 0;
-  const awbExtracted = !!awbData && !awbExtracting && !awbError;
+  const colli = awbManualMode ? (parseInt(manualColli) || 0) : (awbData?.pieces ?? 0);
+  const grossWeight = awbManualMode ? (parseFloat(manualGrossWeight) || 0) : (awbData?.gross_weight ?? 0);
+  const chargeableWeight = awbManualMode ? (parseFloat(manualChargeableWeight) || 0) : (awbData?.chargeable_weight ?? 0);
+  const awbExtracted = awbManualMode || (!!awbData && !awbExtracting && !awbError);
   const manifestReady = !!manifestResult?.cleanedBlob && !manifestProcessing;
   const hasBlockingErrors = (manifestResult?.errors?.length ?? 0) > 0;
 
@@ -249,14 +314,16 @@ export default function NewShipment() {
             )}
           </div>
 
-          <div>
-            <label className="block text-sm font-medium mb-1.5">Subklant</label>
-            <select value={subklantId} onChange={e => setSubklantId(e.target.value)}
-              className="w-full h-10 px-3 rounded-lg border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring">
-              <option value="">Select subklant...</option>
-              {subklanten.map((s: any) => <option key={s.id} value={s.id}>{s.name}</option>)}
-            </select>
-          </div>
+          {!isSubAccount && (
+            <div>
+              <label className="block text-sm font-medium mb-1.5">Sub Client</label>
+              <select value={subklantId} onChange={e => setSubklantId(e.target.value)}
+                className="w-full h-10 px-3 rounded-lg border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring">
+                <option value="">Select sub client...</option>
+                {subklanten.map((s: any) => <option key={s.id} value={s.id}>{s.name}</option>)}
+              </select>
+            </div>
+          )}
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <UploadZone label="Air Waybill (PDF)" accept=".pdf" file={awbFile} onFile={setAwbFile} />
@@ -264,14 +331,40 @@ export default function NewShipment() {
           </div>
 
           {awbExtracting && <div className="flex items-center gap-2 text-sm text-muted-foreground animate-fade-in"><Loader2 className="h-4 w-4 animate-spin" /> Extracting AWB data...</div>}
-          {awbError && <div className="text-sm text-destructive bg-destructive/10 rounded-lg px-3 py-2 animate-fade-in flex items-center gap-1.5"><XCircle className="h-4 w-4 shrink-0" />{awbError}</div>}
-          {awbData && !awbExtracting && (
+          {awbError && <div className="text-sm text-destructive bg-destructive/10 rounded-lg px-3 py-2 animate-fade-in flex items-center gap-1.5"><AlertTriangle className="h-4 w-4 shrink-0" />{awbError}</div>}
+          
+          {/* Extracted AWB data (read-only) */}
+          {awbData && !awbExtracting && !awbManualMode && (
             <div className="bg-muted/40 rounded-lg p-4 space-y-3 animate-fade-in">
               <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Extracted from AWB (read-only)</p>
               <div className="grid grid-cols-3 gap-3">
                 <div><label className="text-xs text-muted-foreground block mb-1">Colli</label><div className="w-full h-9 px-2.5 rounded-md border bg-muted text-sm tabular-nums font-mono flex items-center">{awbData.pieces ?? '—'}</div></div>
                 <div><label className="text-xs text-muted-foreground block mb-1">Gross Weight (kg)</label><div className="w-full h-9 px-2.5 rounded-md border bg-muted text-sm tabular-nums font-mono flex items-center">{awbData.gross_weight?.toLocaleString() ?? '—'}</div></div>
                 <div><label className="text-xs text-muted-foreground block mb-1">Chargeable Weight (kg)</label><div className="w-full h-9 px-2.5 rounded-md border bg-muted text-sm tabular-nums font-mono flex items-center">{awbData.chargeable_weight?.toLocaleString() ?? '—'}</div></div>
+              </div>
+            </div>
+          )}
+
+          {/* Manual AWB input (fallback) */}
+          {awbManualMode && awbFile && (
+            <div className="bg-muted/40 rounded-lg p-4 space-y-3 animate-fade-in">
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Enter AWB data manually</p>
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className="text-xs text-muted-foreground block mb-1">Colli</label>
+                  <input type="number" value={manualColli} onChange={e => setManualColli(e.target.value)} placeholder="0"
+                    className="w-full h-9 px-2.5 rounded-md border bg-background text-sm tabular-nums font-mono focus:outline-none focus:ring-2 focus:ring-ring" />
+                </div>
+                <div>
+                  <label className="text-xs text-muted-foreground block mb-1">Gross Weight (kg)</label>
+                  <input type="number" step="0.1" value={manualGrossWeight} onChange={e => setManualGrossWeight(e.target.value)} placeholder="0"
+                    className="w-full h-9 px-2.5 rounded-md border bg-background text-sm tabular-nums font-mono focus:outline-none focus:ring-2 focus:ring-ring" />
+                </div>
+                <div>
+                  <label className="text-xs text-muted-foreground block mb-1">Chargeable Weight (kg)</label>
+                  <input type="number" step="0.1" value={manualChargeableWeight} onChange={e => setManualChargeableWeight(e.target.value)} placeholder="0"
+                    className="w-full h-9 px-2.5 rounded-md border bg-background text-sm tabular-nums font-mono focus:outline-none focus:ring-2 focus:ring-ring" />
+                </div>
               </div>
             </div>
           )}
@@ -314,7 +407,7 @@ export default function NewShipment() {
               <div><span className="text-muted-foreground text-xs block">Colli</span><span className="font-bold tabular-nums">{colli || '—'}</span></div>
               <div><span className="text-muted-foreground text-xs block">Chargeable Weight</span><span className="font-bold tabular-nums">{chargeableWeight ? `${chargeableWeight.toLocaleString()} kg` : '—'}</span></div>
               <div><span className="text-muted-foreground text-xs block">Warehouse</span><span className="font-medium">{customer?.warehouse_id || 'DSC'}</span></div>
-              <div><span className="text-muted-foreground text-xs block">Subklant</span><span className="font-medium">{subklanten.find((s: any) => s.id === subklantId)?.name || '—'}</span></div>
+              <div><span className="text-muted-foreground text-xs block">Sub Client</span><span className="font-medium">{subklanten.find((s: any) => s.id === subklantId)?.name || '—'}</span></div>
             </div>
           </div>
 
