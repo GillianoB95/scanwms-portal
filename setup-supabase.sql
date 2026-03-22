@@ -288,7 +288,7 @@ begin
     (v_ship1, 'Outbound', 'Transport Desk', '2025-03-20T11:30:00Z', null);
 
   insert into shipment_status_history (shipment_id, status, changed_by, changed_at) values
-    (v_ship2, 'Created', 'System', '2025-03-19T10:00:00Z'),
+    (v_ship2, 'Awaiting NOA', 'System', '2025-03-19T10:00:00Z'),
     (v_ship2, 'Partial NOA', 'Martinair', '2025-03-19T18:00:00Z'),
     (v_ship2, 'NOA Complete', 'Martinair', '2025-03-20T07:00:00Z'),
     (v_ship2, 'In Transit', 'Transport Desk', '2025-03-21T08:00:00Z');
