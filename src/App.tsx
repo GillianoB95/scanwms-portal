@@ -15,6 +15,9 @@ import NewShipment from "./pages/NewShipment";
 import MawbOverview from "./pages/staff/MawbOverview";
 import HubManagement from "./pages/staff/HubManagement";
 import CustomerManagement from "./pages/staff/CustomerManagement";
+import InboundShipment from "./pages/staff/InboundShipment";
+import OutboundShipment from "./pages/staff/OutboundShipment";
+import StaffManagement from "./pages/staff/StaffManagement";
 import StaffPlaceholder from "./pages/staff/StaffPlaceholder";
 import NotFound from "./pages/NotFound";
 
