@@ -41,19 +41,21 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 }
 
 function StaffRoute({ children }: { children: React.ReactNode }) {
-  const { user, role, loading } = useAuth();
+  const { user, customer, role, loading } = useAuth();
 
   if (loading) return <div className="min-h-screen flex items-center justify-center text-muted-foreground">Loading...</div>;
   if (!user) return <Navigate to="/login" replace />;
+  if (user && !role && !customer) return <div className="min-h-screen flex items-center justify-center text-muted-foreground">Loading...</div>;
   if (role !== 'staff' && role !== 'admin') return <Navigate to="/dashboard" replace />;
   return <StaffLayout>{children}</StaffLayout>;
 }
 
 function WarehouseRoute({ children }: { children: React.ReactNode }) {
-  const { user, role, loading } = useAuth();
+  const { user, customer, role, loading } = useAuth();
 
   if (loading) return <div className="min-h-screen flex items-center justify-center text-muted-foreground">Loading...</div>;
   if (!user) return <Navigate to="/login" replace />;
+  if (user && !role && !customer) return <div className="min-h-screen flex items-center justify-center text-muted-foreground">Loading...</div>;
   if (role !== 'warehouse' && role !== 'staff' && role !== 'admin') return <Navigate to="/dashboard" replace />;
   return <WarehouseLayout>{children}</WarehouseLayout>;
 }
