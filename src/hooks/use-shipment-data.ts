@@ -8,6 +8,31 @@ export function useShipments() {
     queryKey: ['shipments', customer?.id],
     queryFn: async () => {
       if (!customer) return [];
+
+      // Main accounts (no parent) see own + sub-account shipments
+      if (!customer.parent_customer_id) {
+        // Get sub-account IDs
+        const { data: subAccounts } = await supabase
+          .from('customers')
+          .select('id')
+          .eq('parent_customer_id', customer.id);
+        
+        const ids = [customer.id, ...(subAccounts ?? []).map((s: any) => s.id)];
+        
+        const { data, error } = await supabase
+          .from('shipments')
+          .select('*, subklanten(name)')
+          .in('customer_id', ids)
+          .order('created_at', { ascending: false });
+
+        if (error) {
+          console.error('Shipments query failed:', error.message);
+          throw error;
+        }
+        return data ?? [];
+      }
+
+      // Sub-accounts see only their own shipments
       const { data, error } = await supabase
         .from('shipments')
         .select('*, subklanten(name)')
@@ -15,15 +40,9 @@ export function useShipments() {
         .order('created_at', { ascending: false });
 
       if (error) {
-        console.error('Shipments query failed:', {
-          customerId: customer.id,
-          message: error.message,
-          details: error.details,
-          hint: error.hint,
-        });
+        console.error('Shipments query failed:', error.message);
         throw error;
       }
-
       return data ?? [];
     },
     enabled: !!customer,
