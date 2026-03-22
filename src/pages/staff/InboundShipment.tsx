@@ -9,12 +9,136 @@ import { StatusBadge } from '@/components/StatusBadge';
 import { Progress } from '@/components/ui/progress';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
 import { useAllShipments, useUpdateShipment } from '@/hooks/use-staff-data';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { supabase } from '@/lib/supabase';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 
 const ALL_STATUSES = ['Awaiting NOA', 'Partial NOA', 'NOA Complete', 'In Transit', 'In Stock', 'Outbound', 'Needs Action'];
+
+function useCreateNoa() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (noa: { shipment_id: string; colli: number; weight: number; source: string; file_path?: string }) => {
+      const { data, error } = await supabase.from('noas').insert(noa).select().single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['staff-all-shipments'] });
+    },
+  });
+}
+
+function NoaUploadModal({ shipment, open, onOpenChange }: { shipment: any; open: boolean; onOpenChange: (v: boolean) => void }) {
+  const createNoa = useCreateNoa();
+  const updateShipment = useUpdateShipment();
+  const [colli, setColli] = useState('');
+  const [weight, setWeight] = useState('');
+  const [source, setSource] = useState('');
+  const [file, setFile] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
+
+  const handleSave = async () => {
+    if (!colli || !weight) return;
+    setUploading(true);
+
+    try {
+      let filePath: string | undefined;
+
+      if (file) {
+        const ext = file.name.split('.').pop();
+        const path = `noas/${shipment.id}/${Date.now()}.${ext}`;
+        const { error: uploadError } = await supabase.storage.from('documents').upload(path, file);
+        if (uploadError) throw uploadError;
+        filePath = path;
+      }
+
+      await createNoa.mutateAsync({
+        shipment_id: shipment.id,
+        colli: parseInt(colli),
+        weight: parseFloat(weight),
+        source: source || 'Unknown',
+        file_path: filePath,
+      });
+
+      // Recalculate totals: fetch all NOAs for this shipment
+      const { data: allNoas } = await supabase
+        .from('noas')
+        .select('colli')
+        .eq('shipment_id', shipment.id);
+
+      const totalReceived = (allNoas ?? []).reduce((sum: number, n: any) => sum + (n.colli ?? 0), 0);
+      const expected = shipment.colli_expected ?? shipment.parcels ?? 0;
+
+      let newStatus = shipment.status;
+      if (expected > 0 && totalReceived >= expected) {
+        newStatus = 'NOA Complete';
+      } else if (totalReceived > 0) {
+        newStatus = 'Partial NOA';
+      }
+
+      await updateShipment.mutateAsync({
+        id: shipment.id,
+        colli_received: totalReceived,
+        status: newStatus,
+        noa_date: new Date().toISOString().split('T')[0],
+      });
+
+      toast.success(`NOA uploaded — ${totalReceived}/${expected} colli received`);
+      onOpenChange(false);
+      setColli('');
+      setWeight('');
+      setSource('');
+      setFile(null);
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to upload NOA');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Upload NOA — {shipment?.mawb}</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4 py-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="noa-colli">Colli Count *</Label>
+              <Input id="noa-colli" type="number" placeholder="0" value={colli} onChange={e => setColli(e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="noa-weight">Weight (kg) *</Label>
+              <Input id="noa-weight" type="number" step="0.01" placeholder="0.00" value={weight} onChange={e => setWeight(e.target.value)} />
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="noa-source">Source / Airline</Label>
+            <Input id="noa-source" placeholder="e.g. KLM, Emirates" value={source} onChange={e => setSource(e.target.value)} />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="noa-file">PDF Document (optional)</Label>
+            <Input id="noa-file" type="file" accept=".pdf" onChange={e => setFile(e.target.files?.[0] || null)} />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+          <Button onClick={handleSave} disabled={!colli || !weight || uploading}>
+            {uploading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+            Save NOA
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
 
 export default function InboundShipment() {
   const { data: shipments = [], isLoading } = useAllShipments();
@@ -26,6 +150,7 @@ export default function InboundShipment() {
   const [statusFilter, setStatusFilter] = useState('all');
   const [dateFrom, setDateFrom] = useState<Date | undefined>();
   const [dateTo, setDateTo] = useState<Date | undefined>();
+  const [noaShipment, setNoaShipment] = useState<any>(null);
 
   const customers = useMemo(() => {
     const set = new Set(shipments.map((s: any) => s.customers?.name).filter(Boolean));
@@ -172,7 +297,10 @@ export default function InboundShipment() {
                     <TableCell>{s.warehouse_id || '—'}</TableCell>
                     <TableCell className="text-right">{colliExpected}</TableCell>
                     <TableCell className="text-right">
-                      <span className={cn(colliReceived >= colliExpected && colliExpected > 0 ? 'text-green-500' : colliReceived > 0 ? 'text-amber-500' : 'text-muted-foreground')}>
+                      <span className={cn(
+                        colliReceived >= colliExpected && colliExpected > 0 ? 'text-accent' : 
+                        colliReceived > 0 ? 'text-primary' : 'text-muted-foreground'
+                      )}>
                         {colliReceived}
                       </span>
                     </TableCell>
@@ -189,7 +317,7 @@ export default function InboundShipment() {
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center justify-end gap-1">
-                        <Button variant="ghost" size="icon" className="h-8 w-8" title="Upload NOA">
+                        <Button variant="ghost" size="icon" className="h-8 w-8" title="Upload NOA" onClick={() => setNoaShipment(s)}>
                           <Upload className="h-3.5 w-3.5" />
                         </Button>
                         <Button
@@ -200,7 +328,7 @@ export default function InboundShipment() {
                           onClick={() => handleMarkUnloaded(s)}
                           disabled={!!s.unloaded_at}
                         >
-                          <PackageCheck className={cn("h-3.5 w-3.5", s.unloaded_at && "text-green-500")} />
+                          <PackageCheck className={cn("h-3.5 w-3.5", s.unloaded_at && "text-accent")} />
                         </Button>
                         <Link to={`/shipments/${s.id}`}>
                           <Button variant="ghost" size="icon" className="h-8 w-8" title="View Detail">
@@ -219,6 +347,15 @@ export default function InboundShipment() {
           </TableBody>
         </Table>
       </div>
+
+      {/* NOA Upload Modal */}
+      {noaShipment && (
+        <NoaUploadModal
+          shipment={noaShipment}
+          open={!!noaShipment}
+          onOpenChange={(v) => { if (!v) setNoaShipment(null); }}
+        />
+      )}
     </div>
   );
 }
