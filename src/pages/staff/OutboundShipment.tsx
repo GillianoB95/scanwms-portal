@@ -8,24 +8,15 @@ import { StatusBadge } from '@/components/StatusBadge';
 import { Badge } from '@/components/ui/badge';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
+import { useAllHubs } from '@/hooks/use-staff-data';
+import { useAuth } from '@/lib/auth-context';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
-
-interface OutboundRecord {
-  id: string;
-  hub_id: string;
-  hub_name?: string;
-  hub_code?: string;
-  truck_reference: string;
-  pickup_date: string;
-  status: string;
-  pallets_count: number;
-  total_pieces: number;
-  created_at: string;
-}
 
 function useAllOutbounds() {
   return useQuery({
@@ -33,13 +24,14 @@ function useAllOutbounds() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('outbounds')
-        .select('*, hubs(name, code)')
+        .select('*, hubs(name, code, carrier)')
         .order('pickup_date', { ascending: false });
       if (error) throw error;
       return (data ?? []).map((o: any) => ({
         ...o,
         hub_name: o.hubs?.name ?? '—',
         hub_code: o.hubs?.code ?? '—',
+        carrier: o.hubs?.carrier ?? '—',
       }));
     },
   });
@@ -59,7 +51,101 @@ function useMarkPickedUp() {
   });
 }
 
+function useCreateOutbound() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (outbound: { hub_id: string; truck_reference: string; pickup_date: string }) => {
+      const { data, error } = await supabase.from('outbounds').insert(outbound).select().single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['staff-all-outbounds'] });
+      toast.success('Outbound created');
+    },
+  });
+}
+
+/* ─── Add Outbound Modal ─── */
+function AddOutboundModal({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) {
+  const { data: hubs = [] } = useAllHubs();
+  const createOutbound = useCreateOutbound();
+  const [hubId, setHubId] = useState('');
+  const [truckRef, setTruckRef] = useState('');
+  const [pickupDate, setPickupDate] = useState<Date | undefined>(new Date());
+  const [saving, setSaving] = useState(false);
+
+  const handleSave = async () => {
+    if (!hubId || !pickupDate) return;
+    setSaving(true);
+    try {
+      await createOutbound.mutateAsync({
+        hub_id: hubId,
+        truck_reference: truckRef,
+        pickup_date: format(pickupDate, 'yyyy-MM-dd'),
+      });
+      onOpenChange(false);
+      setHubId(''); setTruckRef(''); setPickupDate(new Date());
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to create outbound');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Add Outbound</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4 py-4">
+          <div className="space-y-2">
+            <Label>Hub *</Label>
+            <Select value={hubId} onValueChange={setHubId}>
+              <SelectTrigger><SelectValue placeholder="Select hub" /></SelectTrigger>
+              <SelectContent>
+                {hubs.filter((h: any) => h.active).map((h: any) => (
+                  <SelectItem key={h.id} value={h.id}>{h.code} — {h.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label>Truck Reference</Label>
+            <Input value={truckRef} onChange={e => setTruckRef(e.target.value)} placeholder="e.g. TRK-2024-001" />
+          </div>
+          <div className="space-y-2">
+            <Label>Pickup Date *</Label>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !pickupDate && "text-muted-foreground")}>
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {pickupDate ? format(pickupDate, 'dd/MM/yyyy') : 'Pick a date'}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar mode="single" selected={pickupDate} onSelect={setPickupDate} className="p-3 pointer-events-auto" />
+              </PopoverContent>
+            </Popover>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+          <Button onClick={handleSave} disabled={!hubId || !pickupDate || saving}>
+            {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+            Create Outbound
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/* ─── Main Page ─── */
 export default function OutboundShipment() {
+  const { role } = useAuth();
+  const isAdmin = role === 'admin';
   const { data: outbounds = [], isLoading } = useAllOutbounds();
   const markPickedUp = useMarkPickedUp();
 
@@ -67,7 +153,8 @@ export default function OutboundShipment() {
   const [hubFilter, setHubFilter] = useState('all');
   const [dateFrom, setDateFrom] = useState<Date | undefined>();
   const [dateTo, setDateTo] = useState<Date | undefined>();
-  const [expandedHubs, setExpandedHubs] = useState<Set<string>>(new Set());
+  const [expandedDates, setExpandedDates] = useState<Set<string>>(new Set());
+  const [addOpen, setAddOpen] = useState(false);
 
   const hubs = useMemo(() => {
     const set = new Set(outbounds.map((o: any) => o.hub_name).filter(Boolean));
@@ -88,20 +175,21 @@ export default function OutboundShipment() {
     });
   }, [outbounds, search, hubFilter, dateFrom, dateTo]);
 
+  // Group by pickup_date
   const grouped = useMemo(() => {
     const map = new Map<string, any[]>();
     filtered.forEach((o: any) => {
-      const hub = o.hub_name || 'Unknown Hub';
-      if (!map.has(hub)) map.set(hub, []);
-      map.get(hub)!.push(o);
+      const dateKey = o.pickup_date ? format(new Date(o.pickup_date), 'yyyy-MM-dd') : 'No Date';
+      if (!map.has(dateKey)) map.set(dateKey, []);
+      map.get(dateKey)!.push(o);
     });
-    return Array.from(map.entries()).sort(([a], [b]) => a.localeCompare(b));
+    return Array.from(map.entries()).sort(([a], [b]) => b.localeCompare(a));
   }, [filtered]);
 
-  const toggleHub = (hub: string) => {
-    setExpandedHubs(prev => {
+  const toggleDate = (date: string) => {
+    setExpandedDates(prev => {
       const next = new Set(prev);
-      next.has(hub) ? next.delete(hub) : next.add(hub);
+      next.has(date) ? next.delete(date) : next.add(date);
       return next;
     });
   };
@@ -119,9 +207,9 @@ export default function OutboundShipment() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">Outbound Shipments</h1>
-          <p className="text-muted-foreground text-sm mt-1">Manage outbound pickups grouped by hub</p>
+          <p className="text-muted-foreground text-sm mt-1">Manage outbound pickups grouped by date</p>
         </div>
-        <Button>
+        <Button onClick={() => setAddOpen(true)}>
           <Plus className="h-4 w-4 mr-2" />
           Add Outbound
         </Button>
@@ -171,27 +259,28 @@ export default function OutboundShipment() {
         </div>
       </div>
 
-      <p className="text-sm text-muted-foreground">{filtered.length} outbound{filtered.length !== 1 ? 's' : ''} across {grouped.length} hub{grouped.length !== 1 ? 's' : ''}</p>
+      <p className="text-sm text-muted-foreground">{filtered.length} outbound{filtered.length !== 1 ? 's' : ''} across {grouped.length} date{grouped.length !== 1 ? 's' : ''}</p>
 
-      {/* Grouped by Hub */}
+      {/* Grouped by Date */}
       {grouped.length === 0 ? (
         <div className="bg-card rounded-xl border p-8 text-center text-muted-foreground">No outbound shipments found</div>
       ) : (
         <div className="space-y-4">
-          {grouped.map(([hubName, items]) => {
-            const expanded = expandedHubs.has(hubName);
+          {grouped.map(([dateKey, items]) => {
+            const expanded = expandedDates.has(dateKey);
             const totalPallets = items.reduce((s: number, o: any) => s + (o.pallets_count ?? 0), 0);
             const totalPieces = items.reduce((s: number, o: any) => s + (o.total_pieces ?? 0), 0);
+            const displayDate = dateKey !== 'No Date' ? format(new Date(dateKey), 'EEEE dd/MM/yyyy') : 'No Date';
 
             return (
-              <div key={hubName} className="bg-card rounded-xl border overflow-hidden">
+              <div key={dateKey} className="bg-card rounded-xl border overflow-hidden">
                 <button
-                  onClick={() => toggleHub(hubName)}
+                  onClick={() => toggleDate(dateKey)}
                   className="w-full flex items-center justify-between p-4 hover:bg-muted/50 transition-colors"
                 >
                   <div className="flex items-center gap-3">
                     {expanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-                    <span className="font-semibold">{hubName}</span>
+                    <span className="font-semibold">{displayDate}</span>
                     <Badge variant="secondary">{items.length} outbound{items.length !== 1 ? 's' : ''}</Badge>
                   </div>
                   <div className="flex items-center gap-4 text-sm text-muted-foreground">
@@ -204,10 +293,10 @@ export default function OutboundShipment() {
                   <Table>
                     <TableHeader>
                       <TableRow>
+                        <TableHead>Carrier / Hub</TableHead>
                         <TableHead>Truck Reference</TableHead>
-                        <TableHead>Pickup Date</TableHead>
-                        <TableHead className="text-right">Pallets</TableHead>
                         <TableHead className="text-right">Pieces</TableHead>
+                        <TableHead className="text-right">Weight</TableHead>
                         <TableHead>Status</TableHead>
                         <TableHead className="text-right">Actions</TableHead>
                       </TableRow>
@@ -215,10 +304,15 @@ export default function OutboundShipment() {
                     <TableBody>
                       {items.map((o: any) => (
                         <TableRow key={o.id}>
+                          <TableCell>
+                            <div>
+                              <span className="font-medium">{o.carrier}</span>
+                              <span className="text-muted-foreground text-xs ml-2">({o.hub_code})</span>
+                            </div>
+                          </TableCell>
                           <TableCell className="font-mono text-sm">{o.truck_reference || '—'}</TableCell>
-                          <TableCell>{o.pickup_date ? format(new Date(o.pickup_date), 'dd/MM/yy') : '—'}</TableCell>
-                          <TableCell className="text-right">{o.pallets_count ?? 0}</TableCell>
                           <TableCell className="text-right">{o.total_pieces ?? 0}</TableCell>
+                          <TableCell className="text-right">{o.total_weight ? `${o.total_weight} kg` : '—'}</TableCell>
                           <TableCell><StatusBadge status={o.status || 'Pending'} /></TableCell>
                           <TableCell>
                             <div className="flex items-center justify-end gap-1">
@@ -247,6 +341,8 @@ export default function OutboundShipment() {
           })}
         </div>
       )}
+
+      <AddOutboundModal open={addOpen} onOpenChange={setAddOpen} />
     </div>
   );
 }

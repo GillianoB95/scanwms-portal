@@ -7,6 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { useAllHubs, useCreateHub, useUpdateHub, useDeleteHub } from '@/hooks/use-staff-data';
+import { useAuth } from '@/lib/auth-context';
 import { toast } from 'sonner';
 
 interface HubForm {
@@ -19,6 +20,8 @@ interface HubForm {
 const emptyForm: HubForm = { code: '', name: '', carrier: '', active: true };
 
 export default function HubManagement() {
+  const { role } = useAuth();
+  const isAdmin = role === 'admin';
   const { data: hubs = [], isLoading } = useAllHubs();
   const createHub = useCreateHub();
   const updateHub = useUpdateHub();
@@ -79,10 +82,12 @@ export default function HubManagement() {
           <h1 className="text-2xl font-bold">Hub Management</h1>
           <p className="text-muted-foreground text-sm mt-1">Manage warehouse hubs and carriers</p>
         </div>
-        <Button onClick={openCreate}>
-          <Plus className="h-4 w-4 mr-2" />
-          Add Hub
-        </Button>
+        {isAdmin && (
+          <Button onClick={openCreate}>
+            <Plus className="h-4 w-4 mr-2" />
+            Add Hub
+          </Button>
+        )}
       </div>
 
       <div className="bg-card rounded-xl border overflow-hidden">
@@ -115,9 +120,11 @@ export default function HubManagement() {
                       <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(hub)}>
                         <Pencil className="h-3.5 w-3.5" />
                       </Button>
-                      <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => handleDelete(hub.id, hub.code)}>
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
+                      {isAdmin && (
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => handleDelete(hub.id, hub.code)}>
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      )}
                     </div>
                   </TableCell>
                 </TableRow>
