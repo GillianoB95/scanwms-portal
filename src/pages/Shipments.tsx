@@ -30,9 +30,10 @@ const subFilterConfig: { key: SubFilter; label: string; match: (s: any) => boole
 ];
 
 export default function Shipments() {
-  const { data: shipments = [], isLoading } = useShipments();
-  const { data: allClearances = [] } = useAllClearances();
-  const { data: allInspections = [] } = useAllInspections();
+  const { data: shipments = [], isLoading, isError, error } = useShipments();
+  const shipmentIds = useMemo(() => shipments.map((s: any) => s.id), [shipments]);
+  const { data: allClearances = [] } = useAllClearances(shipmentIds);
+  const { data: allInspections = [] } = useAllInspections(shipmentIds);
   const [tab, setTab] = useState<Tab>('active');
   const [search, setSearch] = useState('');
   const [subFilter, setSubFilter] = useState<SubFilter>('all');
