@@ -98,6 +98,11 @@ export default function Shipments() {
     return <div className="flex items-center justify-center py-24"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>;
   }
 
+  if (isError) {
+    console.error('Shipments page failed to load shipments:', error);
+    return <div className="rounded-xl border bg-card p-6 text-sm text-destructive">Failed to load shipments. Check the console for query details.</div>;
+  }
+
   return (
     <div className="space-y-5">
       <div>
