@@ -251,7 +251,8 @@ export default function ShipmentDetail() {
                 {noaEntries.map((n: any) => (
                   <tr key={n.id} className="border-b last:border-0">
                     <td className="px-5 py-3 font-medium">NOA {n.noa_number}</td>
-                    <td className="px-5 py-3 text-muted-foreground">{new Date(n.received_at).toLocaleString('en-GB')}</td>
+                    <td className="px-5 py-3 text-muted-foreground">{new Date(n.created_at).toLocaleString('en-GB')}</td>
+                    <td className="px-5 py-3 text-muted-foreground">{n.received_at ? new Date(n.received_at).toLocaleString('en-GB') : '—'}</td>
                     <td className="px-5 py-3 text-right tabular-nums">{n.colli}</td>
                     <td className="px-5 py-3 text-right tabular-nums">{Number(n.weight).toLocaleString()}</td>
                     <td className="px-5 py-3 text-muted-foreground">{n.source || 'Manual'}</td>
