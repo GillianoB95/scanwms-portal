@@ -123,7 +123,7 @@ export default function Shipments() {
     <div className="space-y-5">
       <div>
         <h1 className="text-2xl font-bold">Shipments</h1>
-        <p className="text-muted-foreground text-sm mt-1">Minimal query test: shipments only</p>
+        <p className="text-muted-foreground text-sm mt-1">All your shipments</p>
       </div>
 
       <div className="relative max-w-md animate-fade-in">
