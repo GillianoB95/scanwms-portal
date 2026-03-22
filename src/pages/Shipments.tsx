@@ -50,6 +50,8 @@ export default function Shipments() {
         .select('*, subklanten(name)')
         .order('created_at', { ascending: false });
 
+      console.log('shipments data:', data, 'error:', error);
+
       if (error) {
         console.error('Shipments error:', error);
         setLoadError(error.message);
@@ -98,7 +100,11 @@ export default function Shipments() {
       setIsLoading(false);
     };
 
-    fetchShipments();
+    fetchShipments().catch((err) => {
+      console.error('fetchShipments failed:', err);
+      setLoadError(err instanceof Error ? err.message : 'Unknown shipments error');
+      setIsLoading(false);
+    });
   }, []);
 
   const clearanceMap = useMemo(() => {

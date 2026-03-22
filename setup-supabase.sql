@@ -145,6 +145,10 @@ alter table shipment_files enable row level security;
 alter table clearances enable row level security;
 alter table inspections enable row level security;
 
+-- TEMPORARY TESTING: disable RLS on these two tables
+alter table shipments disable row level security;
+alter table subklanten disable row level security;
+
 -- 3. HELPER FUNCTION
 
 create or replace function public.is_current_user_email()
