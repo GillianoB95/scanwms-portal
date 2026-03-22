@@ -24,7 +24,7 @@ export default function Shipments() {
   const [shipments, setShipments] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [testResult, setTestResult] = useState('');
+  
   const [tab, setTab] = useState<Tab>('active');
   const [search, setSearch] = useState('');
   const [subFilter, setSubFilter] = useState<SubFilter>('all');
