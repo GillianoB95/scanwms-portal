@@ -44,12 +44,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     console.log('[AuthProvider] useEffect running');
+
+    const handleCustomerFetch = (email: string) => {
+      window.setTimeout(() => {
+        fetchCustomer(email).catch((error) => {
+          console.error('fetchCustomer failed:', error);
+        });
+      }, 0);
+    };
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
+      (_event, session) => {
         setUser(session?.user ?? null);
         setLoading(false);
         if (session?.user?.email) {
-          await fetchCustomer(session.user.email);
+          handleCustomerFetch(session.user.email);
         } else {
           setCustomer(null);
         }
@@ -60,7 +69,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(session?.user ?? null);
       setLoading(false);
       if (session?.user?.email) {
-        fetchCustomer(session.user.email);
+        handleCustomerFetch(session.user.email);
       }
     });
 
