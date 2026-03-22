@@ -20,6 +20,7 @@ const subFilterConfig: { key: SubFilter; label: string; match: (s: any) => boole
 ];
 
 export default function Shipments() {
+  const navigate = useNavigate();
   const [shipments, setShipments] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
