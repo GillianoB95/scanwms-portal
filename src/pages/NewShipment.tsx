@@ -98,21 +98,21 @@ export default function NewShipment() {
             </select>
           </div>
 
-          {/* Upload AWB */}
-          <UploadZone
-            label="Air Waybill (PDF)"
-            accept=".pdf"
-            file={awbFile}
-            onFile={setAwbFile}
-          />
-
-          {/* Upload Manifest */}
-          <UploadZone
-            label="Manifest (XLS/XLSX)"
-            accept=".xls,.xlsx"
-            file={manifestFile}
-            onFile={setManifestFile}
-          />
+          {/* Uploads side by side */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <UploadZone
+              label="Air Waybill (PDF)"
+              accept=".pdf"
+              file={awbFile}
+              onFile={setAwbFile}
+            />
+            <UploadZone
+              label="Manifest (XLS/XLSX)"
+              accept=".xls,.xlsx"
+              file={manifestFile}
+              onFile={setManifestFile}
+            />
+          </div>
 
           <div className="flex justify-end pt-2">
             <button

@@ -59,6 +59,7 @@ export default function Dashboard() {
                   </td>
                   <td className="px-5 py-3 hidden sm:table-cell">{s.subklant}</td>
                   <td className="px-5 py-3 text-right tabular-nums hidden md:table-cell">{s.pieces}</td>
+                  <td className="px-5 py-3 text-right tabular-nums hidden md:table-cell">{s.parcels}</td>
                   <td className="px-5 py-3 text-right tabular-nums hidden md:table-cell">{s.chargeableWeight.toLocaleString()} kg</td>
                   <td className="px-5 py-3"><StatusBadge status={s.status} /></td>
                   <td className="px-5 py-3 hidden lg:table-cell text-muted-foreground">{s.createdAt}</td>
