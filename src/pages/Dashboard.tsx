@@ -110,7 +110,7 @@ export default function Dashboard() {
             </thead>
             <tbody>
               {tableShipments.map((s: any) => {
-                const isAwaiting48h = (s.status === 'Created' || s.status === 'Awaiting NOA') && hoursAgo(s.updated_at) > 48;
+                const isNeedsAction = s.status === 'Needs Action';
                 const subklantName = s.subklanten?.name || '—';
                 return (
                   <tr key={s.id} className="border-b last:border-0 hover:bg-muted/50 transition-colors">
