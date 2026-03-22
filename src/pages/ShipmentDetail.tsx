@@ -1,6 +1,6 @@
 import { useParams, Link } from 'react-router-dom';
-import { ArrowLeft, Download, FileText, CheckCircle2, Circle, MessageSquare } from 'lucide-react';
-import { shipments, statusOrder, getStatusHistory, getOuterboxes, getPallets, getNotes, type ShipmentStatus } from '@/lib/mock-data';
+import { ArrowLeft, Download, FileText, CheckCircle2, Circle, MessageSquare, AlertTriangle, Truck } from 'lucide-react';
+import { shipments, statusOrder, getStatusHistory, getOuterboxes, getNoaEntries, getOutboundGroups, getNotes, type ShipmentStatus } from '@/lib/mock-data';
 import { StatusBadge } from '@/components/StatusBadge';
 
 export default function ShipmentDetail() {
