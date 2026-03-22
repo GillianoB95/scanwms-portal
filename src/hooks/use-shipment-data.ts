@@ -31,7 +31,7 @@ export function useShipment(id: string | undefined) {
         .select('*, subklanten(name)')
         .eq('id', id)
         .eq('customer_id', customer.id)
-        .single();
+        .maybeSingle();
       if (error) throw error;
       return data;
     },
@@ -133,10 +133,14 @@ export function useClearances(shipmentId: string | undefined) {
         .select('*')
         .eq('shipment_id', shipmentId)
         .order('created_at', { ascending: true });
-      if (error) throw error;
+      if (error) {
+        console.warn('Clearances query failed:', error.message);
+        return [];
+      }
       return data ?? [];
     },
     enabled: !!shipmentId,
+    retry: false,
   });
 }
 
@@ -150,10 +154,14 @@ export function useInspections(shipmentId: string | undefined) {
         .select('*')
         .eq('shipment_id', shipmentId)
         .order('created_at', { ascending: true });
-      if (error) throw error;
+      if (error) {
+        console.warn('Inspections query failed:', error.message);
+        return [];
+      }
       return data ?? [];
     },
     enabled: !!shipmentId,
+    retry: false,
   });
 }
 
@@ -167,10 +175,14 @@ export function useAllClearances() {
       const { data, error } = await supabase
         .from('clearances')
         .select('shipment_id, status, colli_cleared');
-      if (error) throw error;
+      if (error) {
+        console.warn('Clearances query failed (table may not exist yet):', error.message);
+        return [];
+      }
       return data ?? [];
     },
     enabled: !!customer,
+    retry: false,
   });
 }
 
@@ -183,9 +195,13 @@ export function useAllInspections() {
       const { data, error } = await supabase
         .from('inspections')
         .select('shipment_id, status');
-      if (error) throw error;
+      if (error) {
+        console.warn('Inspections query failed (table may not exist yet):', error.message);
+        return [];
+      }
       return data ?? [];
     },
     enabled: !!customer,
+    retry: false,
   });
 }
