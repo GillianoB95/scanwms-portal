@@ -31,7 +31,7 @@ export function useShipment(id: string | undefined) {
         .select('*, subklanten(name)')
         .eq('id', id)
         .eq('customer_id', customer.id)
-        .single();
+        .maybeSingle();
       if (error) throw error;
       return data;
     },
