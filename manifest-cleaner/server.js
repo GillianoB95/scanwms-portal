@@ -1715,8 +1715,12 @@ app.get('/download/:filename', (req, res) => {
   res.download(filepath);
 });
 
-const PORT = process.env.PORT || 4700;
-app.listen(PORT, () => {
-  console.log(`Manifest Cleaner running at http://localhost:${PORT}`);
-  console.log(`File browser: http://localhost:${PORT}/files`);
+// Health check endpoint for Railway
+app.get('/', (req, res) => res.json({ status: 'ok', service: 'manifest-cleaner' }));
+app.get('/health', (req, res) => res.json({ status: 'ok' }));
+
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`Manifest Cleaner running at http://0.0.0.0:${PORT}`);
+  console.log(`File browser: http://0.0.0.0:${PORT}/files`);
 });
