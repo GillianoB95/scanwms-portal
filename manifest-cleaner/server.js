@@ -463,6 +463,15 @@ const app = express();
 const upload = multer({ dest: 'uploads/' });
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
+// CORS — allow all origins for Railway deployment
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  if (req.method === 'OPTIONS') return res.sendStatus(200);
+  next();
+});
+
 app.use(express.static('public'));
 
 // Zipcode format patterns per country code
