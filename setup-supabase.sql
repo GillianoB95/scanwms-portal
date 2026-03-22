@@ -145,78 +145,91 @@ alter table shipment_files enable row level security;
 alter table clearances enable row level security;
 alter table inspections enable row level security;
 
--- TEMPORARY TESTING: disable RLS on these two tables
-alter table shipments disable row level security;
-alter table subklanten disable row level security;
+-- 3. SECURITY DEFINER FUNCTIONS (bypass RLS to avoid recursion)
 
--- 3. HELPER FUNCTION
-
-create or replace function public.is_current_user_email()
-returns text
+-- Returns the customer_id for the current authenticated user
+create or replace function public.get_my_customer_id()
+returns uuid
 language sql
 stable
 security definer
 set search_path = public
 as $$
-  select auth.jwt()->>'email'
+  select customer_id
+  from public.customer_users
+  where email = (select auth.jwt()->>'email')
+  limit 1
 $$;
 
--- 4. RLS POLICIES
+-- Returns shipment IDs belonging to the current user's customer
+create or replace function public.get_my_shipment_ids()
+returns setof uuid
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select id
+  from public.shipments
+  where customer_id = public.get_my_customer_id()
+$$;
+
+-- 4. RLS POLICIES (all using security definer functions, no nested RLS)
 
 drop policy if exists "Users can view their own customer" on customers;
 create policy "Users can view their own customer" on customers for select to authenticated
-  using (id in (select customer_id from customer_users where email = public.is_current_user_email()));
+  using (id = public.get_my_customer_id());
 
 drop policy if exists "Users can view their own record" on customer_users;
 create policy "Users can view their own record" on customer_users for select to authenticated
-  using (email = public.is_current_user_email());
+  using (email = (select auth.jwt()->>'email'));
 
 drop policy if exists "Users can view own subklanten" on subklanten;
 create policy "Users can view own subklanten" on subklanten for select to authenticated
-  using (customer_id in (select customer_id from customer_users where email = public.is_current_user_email()));
+  using (customer_id = public.get_my_customer_id());
 
 drop policy if exists "Authenticated users can view hubs" on hubs;
 create policy "Authenticated users can view hubs" on hubs for select to authenticated using (true);
 
 drop policy if exists "Users can view own shipments" on shipments;
 create policy "Users can view own shipments" on shipments for select to authenticated
-  using (customer_id in (select customer_id from customer_users where email = public.is_current_user_email()));
+  using (customer_id = public.get_my_customer_id());
 
 drop policy if exists "Users can insert own shipments" on shipments;
 create policy "Users can insert own shipments" on shipments for insert to authenticated
-  with check (customer_id in (select customer_id from customer_users where email = public.is_current_user_email()));
+  with check (customer_id = public.get_my_customer_id());
 
 drop policy if exists "Users can view own noas" on noas;
 create policy "Users can view own noas" on noas for select to authenticated
-  using (shipment_id in (select id from shipments where customer_id in (select customer_id from customer_users where email = public.is_current_user_email())));
+  using (shipment_id in (select public.get_my_shipment_ids()));
 
 drop policy if exists "Users can view own status history" on shipment_status_history;
 create policy "Users can view own status history" on shipment_status_history for select to authenticated
-  using (shipment_id in (select id from shipments where customer_id in (select customer_id from customer_users where email = public.is_current_user_email())));
+  using (shipment_id in (select public.get_my_shipment_ids()));
 
 drop policy if exists "Users can view own outbounds" on outbounds;
 create policy "Users can view own outbounds" on outbounds for select to authenticated
-  using (shipment_id in (select id from shipments where customer_id in (select customer_id from customer_users where email = public.is_current_user_email())));
+  using (shipment_id in (select public.get_my_shipment_ids()));
 
 drop policy if exists "Users can view own pallets" on pallets;
 create policy "Users can view own pallets" on pallets for select to authenticated
-  using (shipment_id in (select id from shipments where customer_id in (select customer_id from customer_users where email = public.is_current_user_email())));
+  using (shipment_id in (select public.get_my_shipment_ids()));
 
 drop policy if exists "Users can view own outerboxes" on outerboxes;
 create policy "Users can view own outerboxes" on outerboxes for select to authenticated
-  using (shipment_id in (select id from shipments where customer_id in (select customer_id from customer_users where email = public.is_current_user_email())));
+  using (shipment_id in (select public.get_my_shipment_ids()));
 
 drop policy if exists "Users can view own files" on shipment_files;
 create policy "Users can view own files" on shipment_files for select to authenticated
-  using (shipment_id in (select id from shipments where customer_id in (select customer_id from customer_users where email = public.is_current_user_email())));
+  using (shipment_id in (select public.get_my_shipment_ids()));
 
 drop policy if exists "Users can view own clearances" on clearances;
 create policy "Users can view own clearances" on clearances for select to authenticated
-  using (shipment_id in (select id from shipments where customer_id in (select customer_id from customer_users where email = public.is_current_user_email())));
+  using (shipment_id in (select public.get_my_shipment_ids()));
 
 drop policy if exists "Users can view own inspections" on inspections;
 create policy "Users can view own inspections" on inspections for select to authenticated
-  using (shipment_id in (select id from shipments where customer_id in (select customer_id from customer_users where email = public.is_current_user_email())));
+  using (shipment_id in (select public.get_my_shipment_ids()));
 
 -- ============================================
 -- 5. SAMPLE DATA
