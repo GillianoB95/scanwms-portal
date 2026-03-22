@@ -152,7 +152,7 @@ export default function NewShipment() {
     !duplicateMawb;
 
   // Validation
-  const validation = manifestSummary ? validateManifest(manifestSummary, mawb) : { errors: [], warnings: [] };
+  const validation = manifestSummary ? validateManifest(manifestSummary, mawb, activeHubCodes) : { errors: [], warnings: [] };
 
   // Weight mismatch warning
   const allWarnings = [...validation.warnings];

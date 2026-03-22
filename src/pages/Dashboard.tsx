@@ -24,8 +24,8 @@ export default function Dashboard() {
   const { data: shipments = [], isLoading } = useShipments();
   const [activeFilter, setActiveFilter] = useState<StatusFilter>('all');
 
-  const needsAction = shipments.filter((s: any) => s.status === 'Created' && hoursAgo(s.updated_at) > 48);
-  const awaitingNoa = shipments.filter((s: any) => s.status === 'Awaiting NOA' || s.status === 'Created');
+  const needsAction = shipments.filter((s: any) => s.status === 'Needs Action');
+  const awaitingNoa = shipments.filter((s: any) => s.status === 'Awaiting NOA');
   const partialNoa = shipments.filter((s: any) => s.status === 'Partial NOA');
   const noaComplete = shipments.filter((s: any) => s.status === 'NOA Complete');
   const inTransit = shipments.filter((s: any) => s.status === 'In Transit');
