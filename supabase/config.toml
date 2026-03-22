@@ -1,0 +1,5 @@
+[project]
+id = "zsjvmiyqhyzjeuyzovqx"
+
+[functions.extract-awb]
+verify_jwt = false
