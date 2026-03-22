@@ -18,7 +18,8 @@ export default function ShipmentDetail() {
 
   const history = getStatusHistory(shipment.id);
   const outerboxes = getOuterboxes(shipment.id);
-  const pallets = getPallets(shipment.id);
+  const noaEntries = getNoaEntries(shipment.id);
+  const outboundGroups = getOutboundGroups(shipment.id);
   const notes = getNotes(shipment.id);
 
   const currentIdx = statusOrder.indexOf(shipment.status);
