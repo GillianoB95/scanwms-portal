@@ -40,7 +40,7 @@ export default function Shipments() {
         .select('id, mawb, status, created_at, pieces, parcels, weight, subklanten(name)')
         .order('created_at', { ascending: false });
 
-      console.log('result:', data, error);
+      
 
       if (error) {
         console.error('Shipments error:', error);
