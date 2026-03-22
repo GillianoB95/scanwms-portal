@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Search, Loader2, Plus, Pencil, Trash2, UserPlus } from 'lucide-react';
+import { Search, Loader2, Trash2, UserPlus } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Label } from '@/components/ui/label';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/lib/auth-context';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 
@@ -56,6 +57,8 @@ function useDeleteStaffUser() {
 }
 
 export default function StaffManagement() {
+  const { role: currentRole } = useAuth();
+  const isAdmin = currentRole === 'admin';
   const { data: staffUsers = [], isLoading } = useStaffUsers();
   const updateRole = useUpdateStaffRole();
   const deleteUser = useDeleteStaffUser();
@@ -97,39 +100,41 @@ export default function StaffManagement() {
           <h1 className="text-2xl font-bold">Staff Management</h1>
           <p className="text-muted-foreground text-sm mt-1">Manage staff and admin users</p>
         </div>
-        <Dialog open={inviteOpen} onOpenChange={setInviteOpen}>
-          <DialogTrigger asChild>
-            <Button>
-              <UserPlus className="h-4 w-4 mr-2" />
-              Invite Staff
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Invite Staff Member</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4 py-4">
-              <div className="space-y-2">
-                <Label htmlFor="invite-email">Email</Label>
-                <Input id="invite-email" type="email" placeholder="staff@example.com" value={inviteEmail} onChange={e => setInviteEmail(e.target.value)} />
+        {isAdmin && (
+          <Dialog open={inviteOpen} onOpenChange={setInviteOpen}>
+            <DialogTrigger asChild>
+              <Button>
+                <UserPlus className="h-4 w-4 mr-2" />
+                Invite Staff
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Invite Staff Member</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4 py-4">
+                <div className="space-y-2">
+                  <Label htmlFor="invite-email">Email</Label>
+                  <Input id="invite-email" type="email" placeholder="staff@example.com" value={inviteEmail} onChange={e => setInviteEmail(e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Role</Label>
+                  <Select value={inviteRole} onValueChange={setInviteRole}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="staff">Staff</SelectItem>
+                      <SelectItem value="admin">Admin</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
-              <div className="space-y-2">
-                <Label>Role</Label>
-                <Select value={inviteRole} onValueChange={setInviteRole}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="staff">Staff</SelectItem>
-                    <SelectItem value="admin">Admin</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setInviteOpen(false)}>Cancel</Button>
-              <Button onClick={handleInvite} disabled={!inviteEmail}>Send Invite</Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setInviteOpen(false)}>Cancel</Button>
+                <Button onClick={handleInvite} disabled={!inviteEmail}>Send Invite</Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        )}
       </div>
 
       {/* Filters */}
@@ -184,29 +189,33 @@ export default function StaffManagement() {
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center justify-end gap-1">
-                      <Select
-                        value={u.role}
-                        onValueChange={(role) => updateRole.mutate({ id: u.id, role })}
-                      >
-                        <SelectTrigger className="h-8 w-[100px] text-xs">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="staff">Staff</SelectItem>
-                          <SelectItem value="admin">Admin</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-destructive hover:text-destructive"
-                        title="Remove"
-                        onClick={() => {
-                          if (confirm('Remove this staff user?')) deleteUser.mutate(u.id);
-                        }}
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
+                      {isAdmin && (
+                        <Select
+                          value={u.role}
+                          onValueChange={(role) => updateRole.mutate({ id: u.id, role })}
+                        >
+                          <SelectTrigger className="h-8 w-[100px] text-xs">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="staff">Staff</SelectItem>
+                            <SelectItem value="admin">Admin</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      )}
+                      {isAdmin && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-destructive hover:text-destructive"
+                          title="Remove"
+                          onClick={() => {
+                            if (confirm('Remove this staff user?')) deleteUser.mutate(u.id);
+                          }}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      )}
                     </div>
                   </TableCell>
                 </TableRow>
