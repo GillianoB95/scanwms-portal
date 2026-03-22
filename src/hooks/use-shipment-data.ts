@@ -133,10 +133,14 @@ export function useClearances(shipmentId: string | undefined) {
         .select('*')
         .eq('shipment_id', shipmentId)
         .order('created_at', { ascending: true });
-      if (error) throw error;
+      if (error) {
+        console.warn('Clearances query failed:', error.message);
+        return [];
+      }
       return data ?? [];
     },
     enabled: !!shipmentId,
+    retry: false,
   });
 }
 
@@ -150,10 +154,14 @@ export function useInspections(shipmentId: string | undefined) {
         .select('*')
         .eq('shipment_id', shipmentId)
         .order('created_at', { ascending: true });
-      if (error) throw error;
+      if (error) {
+        console.warn('Inspections query failed:', error.message);
+        return [];
+      }
       return data ?? [];
     },
     enabled: !!shipmentId,
+    retry: false,
   });
 }
 
