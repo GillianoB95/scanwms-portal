@@ -39,7 +39,7 @@ export default function NewShipment() {
   const errors: { message: string }[] = [];
 
   return (
-    <div className="max-w-2xl space-y-6">
+    <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold">New Shipment</h1>
         <p className="text-muted-foreground text-sm mt-1">Create a new shipment in 2 steps</p>
@@ -98,21 +98,21 @@ export default function NewShipment() {
             </select>
           </div>
 
-          {/* Upload AWB */}
-          <UploadZone
-            label="Air Waybill (PDF)"
-            accept=".pdf"
-            file={awbFile}
-            onFile={setAwbFile}
-          />
-
-          {/* Upload Manifest */}
-          <UploadZone
-            label="Manifest (XLS/XLSX)"
-            accept=".xls,.xlsx"
-            file={manifestFile}
-            onFile={setManifestFile}
-          />
+          {/* Uploads side by side */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <UploadZone
+              label="Air Waybill (PDF)"
+              accept=".pdf"
+              file={awbFile}
+              onFile={setAwbFile}
+            />
+            <UploadZone
+              label="Manifest (XLS/XLSX)"
+              accept=".xls,.xlsx"
+              file={manifestFile}
+              onFile={setManifestFile}
+            />
+          </div>
 
           <div className="flex justify-end pt-2">
             <button

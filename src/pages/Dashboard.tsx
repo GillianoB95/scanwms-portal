@@ -45,6 +45,7 @@ export default function Dashboard() {
                 <th className="text-left px-5 py-3 font-medium">MAWB</th>
                 <th className="text-left px-5 py-3 font-medium hidden sm:table-cell">Subklant</th>
                 <th className="text-right px-5 py-3 font-medium hidden md:table-cell">Pieces</th>
+                <th className="text-right px-5 py-3 font-medium hidden md:table-cell">Parcels</th>
                 <th className="text-right px-5 py-3 font-medium hidden md:table-cell">Weight</th>
                 <th className="text-left px-5 py-3 font-medium">Status</th>
                 <th className="text-left px-5 py-3 font-medium hidden lg:table-cell">Date</th>
@@ -58,6 +59,7 @@ export default function Dashboard() {
                   </td>
                   <td className="px-5 py-3 hidden sm:table-cell">{s.subklant}</td>
                   <td className="px-5 py-3 text-right tabular-nums hidden md:table-cell">{s.pieces}</td>
+                  <td className="px-5 py-3 text-right tabular-nums hidden md:table-cell">{s.parcels}</td>
                   <td className="px-5 py-3 text-right tabular-nums hidden md:table-cell">{s.chargeableWeight.toLocaleString()} kg</td>
                   <td className="px-5 py-3"><StatusBadge status={s.status} /></td>
                   <td className="px-5 py-3 hidden lg:table-cell text-muted-foreground">{s.createdAt}</td>
