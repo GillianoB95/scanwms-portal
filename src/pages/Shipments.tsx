@@ -177,16 +177,28 @@ export default function Shipments() {
             <thead>
               <tr className="border-b text-muted-foreground">
                 <th className="text-left px-5 py-3 font-medium">MAWB</th>
+                <th className="text-left px-5 py-3 font-medium">Subklant</th>
+                <th className="text-right px-5 py-3 font-medium">Pieces</th>
+                <th className="text-right px-5 py-3 font-medium">Parcels</th>
+                <th className="text-right px-5 py-3 font-medium">Weight</th>
                 <th className="text-left px-5 py-3 font-medium">Status</th>
                 <th className="text-left px-5 py-3 font-medium">Created</th>
               </tr>
             </thead>
             <tbody>
               {paginated.map((s: any) => (
-                <tr key={s.id} className="border-b last:border-0 hover:bg-muted/50 transition-colors">
+                <tr
+                  key={s.id}
+                  onClick={() => navigate(`/shipments/${s.id}`)}
+                  className="border-b last:border-0 hover:bg-muted/50 transition-colors cursor-pointer"
+                >
                   <td className="px-5 py-3">
-                    <Link to={`/shipments/${s.id}`} className="font-mono font-medium text-accent hover:underline">{s.mawb}</Link>
+                    <span className="font-mono font-medium text-accent">{s.mawb}</span>
                   </td>
+                  <td className="px-5 py-3 text-muted-foreground">{s.subklanten?.name ?? '—'}</td>
+                  <td className="px-5 py-3 text-right tabular-nums">{s.pieces ?? '—'}</td>
+                  <td className="px-5 py-3 text-right tabular-nums">{s.parcels ?? '—'}</td>
+                  <td className="px-5 py-3 text-right tabular-nums">{s.weight != null ? `${s.weight} kg` : '—'}</td>
                   <td className="px-5 py-3">
                     <StatusBadge status={s.status} />
                   </td>
@@ -196,7 +208,7 @@ export default function Shipments() {
                 </tr>
               ))}
               {paginated.length === 0 && (
-                <tr><td colSpan={3} className="px-5 py-12 text-center text-muted-foreground">No shipments found</td></tr>
+                <tr><td colSpan={7} className="px-5 py-12 text-center text-muted-foreground">No shipments found</td></tr>
               )}
             </tbody>
           </table>
