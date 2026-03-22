@@ -1,7 +1,7 @@
-import { useState, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Search, ChevronLeft, ChevronRight, Loader2, Lock, CheckCircle2, AlertTriangle } from 'lucide-react';
-import { useShipments, useAllClearances, useAllInspections } from '@/hooks/use-shipment-data';
+import { supabase } from '@/lib/supabase';
 import { StatusBadge } from '@/components/StatusBadge';
 
 type Tab = 'active' | 'archive';
@@ -21,29 +21,89 @@ function waitingTime(dateStr: string): string {
 
 const subFilterConfig: { key: SubFilter; label: string; match: (s: any) => boolean }[] = [
   { key: 'all', label: 'All', match: () => true },
-  { key: 'awaiting-noa', label: 'Awaiting NOA', match: s => s.status === 'Created' || s.status === 'Awaiting NOA' },
-  { key: 'partial-noa', label: 'Partial NOA', match: s => s.status === 'Partial NOA' },
-  { key: 'noa-complete', label: 'NOA Complete', match: s => s.status === 'NOA Complete' },
-  { key: 'in-transit', label: 'In Transit', match: s => s.status === 'In Transit' },
-  { key: 'in-stock', label: 'In Stock', match: s => s.status === 'In Stock' },
-  { key: 'outbound', label: 'Outbound', match: s => s.status === 'Outbound' },
+  { key: 'awaiting-noa', label: 'Awaiting NOA', match: s => s.status === 'Created' || s.status === 'Awaiting NOA' || s.status === 'awaiting_noa' },
+  { key: 'partial-noa', label: 'Partial NOA', match: s => s.status === 'Partial NOA' || s.status === 'partial_noa' },
+  { key: 'noa-complete', label: 'NOA Complete', match: s => s.status === 'NOA Complete' || s.status === 'noa_complete' },
+  { key: 'in-transit', label: 'In Transit', match: s => s.status === 'In Transit' || s.status === 'in_transit' },
+  { key: 'in-stock', label: 'In Stock', match: s => s.status === 'In Stock' || s.status === 'in_stock' },
+  { key: 'outbound', label: 'Outbound', match: s => s.status === 'Outbound' || s.status === 'outbound' },
 ];
 
 export default function Shipments() {
-  const { data: shipments = [], isLoading, isError, error } = useShipments();
-  const shipmentIds = useMemo(() => shipments.map((s: any) => s.id), [shipments]);
-  const { data: allClearances = [] } = useAllClearances(shipmentIds);
-  const { data: allInspections = [] } = useAllInspections(shipmentIds);
+  const [shipments, setShipments] = useState<any[]>([]);
+  const [allClearances, setAllClearances] = useState<any[]>([]);
+  const [allInspections, setAllInspections] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>('active');
   const [search, setSearch] = useState('');
   const [subFilter, setSubFilter] = useState<SubFilter>('all');
   const [page, setPage] = useState(1);
 
-  // Build lookup maps
+  useEffect(() => {
+    const fetchShipments = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+
+      const { data, error } = await supabase
+        .from('shipments')
+        .select('*, subklanten(name)')
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('Shipments error:', error);
+        setLoadError(error.message);
+        setShipments([]);
+        setIsLoading(false);
+        return;
+      }
+
+      const rows = data || [];
+      setShipments(rows);
+
+      const shipmentIds = rows.map((shipment: any) => shipment.id);
+
+      if (shipmentIds.length === 0) {
+        setAllClearances([]);
+        setAllInspections([]);
+        setIsLoading(false);
+        return;
+      }
+
+      const [clearancesResult, inspectionsResult] = await Promise.all([
+        supabase
+          .from('clearances')
+          .select('shipment_id, status, colli_cleared')
+          .in('shipment_id', shipmentIds),
+        supabase
+          .from('inspections')
+          .select('shipment_id, status')
+          .in('shipment_id', shipmentIds),
+      ]);
+
+      if (clearancesResult.error) {
+        console.error('Clearances error:', clearancesResult.error);
+        setAllClearances([]);
+      } else {
+        setAllClearances(clearancesResult.data || []);
+      }
+
+      if (inspectionsResult.error) {
+        console.error('Inspections error:', inspectionsResult.error);
+        setAllInspections([]);
+      } else {
+        setAllInspections(inspectionsResult.data || []);
+      }
+
+      setIsLoading(false);
+    };
+
+    fetchShipments();
+  }, []);
+
   const clearanceMap = useMemo(() => {
     const map: Record<string, string> = {};
     for (const c of allClearances) {
-      // Take the "best" status per shipment
       const current = map[c.shipment_id];
       if (c.status === 'cleared' || (!current && c.status)) {
         map[c.shipment_id] = c.status;
@@ -62,8 +122,14 @@ export default function Shipments() {
     return map;
   }, [allInspections]);
 
-  const activeShipments = useMemo(() => shipments.filter((s: any) => s.status !== 'Outbound'), [shipments]);
-  const archiveShipments = useMemo(() => shipments.filter((s: any) => s.status === 'Outbound'), [shipments]);
+  const activeShipments = useMemo(
+    () => shipments.filter((s: any) => s.status !== 'Outbound' && s.status !== 'outbound'),
+    [shipments]
+  );
+  const archiveShipments = useMemo(
+    () => shipments.filter((s: any) => s.status === 'Outbound' || s.status === 'outbound'),
+    [shipments]
+  );
 
   const filtered = useMemo(() => {
     const base = tab === 'active' ? activeShipments : archiveShipments;
@@ -71,7 +137,7 @@ export default function Shipments() {
 
     if (search) {
       const q = search.toLowerCase();
-      result = result.filter((s: any) => s.mawb.includes(q) || s.subklanten?.name?.toLowerCase().includes(q));
+      result = result.filter((s: any) => s.mawb.toLowerCase().includes(q) || s.subklanten?.name?.toLowerCase().includes(q));
     }
 
     if (tab === 'active' && subFilter !== 'all') {
@@ -98,9 +164,8 @@ export default function Shipments() {
     return <div className="flex items-center justify-center py-24"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>;
   }
 
-  if (isError) {
-    console.error('Shipments page failed to load shipments:', error);
-    return <div className="rounded-xl border bg-card p-6 text-sm text-destructive">Failed to load shipments. Check the console for query details.</div>;
+  if (loadError) {
+    return <div className="rounded-xl border bg-card p-6 text-sm text-destructive">Failed to load shipments: {loadError}</div>;
   }
 
   return (
