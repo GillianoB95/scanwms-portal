@@ -182,9 +182,9 @@ export default function Shipments() {
                       <div className="flex items-center gap-1.5 flex-wrap">
                         <StatusBadge status={s.status} />
                         {clrStatus === 'cleared' ? (
-                          <CheckCircle2 className="h-3.5 w-3.5 text-[hsl(var(--status-delivered))]" title="Customs cleared" />
+                          <span title="Customs cleared"><CheckCircle2 className="h-3.5 w-3.5 text-[hsl(var(--status-delivered))]" /></span>
                         ) : (
-                          <Lock className="h-3.5 w-3.5 text-muted-foreground" title="Not cleared" />
+                          <span title="Not cleared"><Lock className="h-3.5 w-3.5 text-muted-foreground" /></span>
                         )}
                         {hasOpenInspection && (
                           <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold px-1.5 py-0.5 rounded bg-[hsl(var(--status-needs-action)/0.15)] text-[hsl(var(--status-needs-action))]">
