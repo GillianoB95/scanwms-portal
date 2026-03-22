@@ -15,6 +15,9 @@ import NewShipment from "./pages/NewShipment";
 import MawbOverview from "./pages/staff/MawbOverview";
 import HubManagement from "./pages/staff/HubManagement";
 import CustomerManagement from "./pages/staff/CustomerManagement";
+import InboundShipment from "./pages/staff/InboundShipment";
+import OutboundShipment from "./pages/staff/OutboundShipment";
+import StaffManagement from "./pages/staff/StaffManagement";
 import StaffPlaceholder from "./pages/staff/StaffPlaceholder";
 import NotFound from "./pages/NotFound";
 
@@ -61,11 +64,11 @@ const App = () => (
 
             {/* Staff Portal */}
             <Route path="/staff" element={<StaffRoute><MawbOverview /></StaffRoute>} />
-            <Route path="/staff/inbound" element={<StaffRoute><StaffPlaceholder title="Inbound Shipment" /></StaffRoute>} />
-            <Route path="/staff/outbound" element={<StaffRoute><StaffPlaceholder title="Outbound Shipment" /></StaffRoute>} />
+            <Route path="/staff/inbound" element={<StaffRoute><InboundShipment /></StaffRoute>} />
+            <Route path="/staff/outbound" element={<StaffRoute><OutboundShipment /></StaffRoute>} />
             <Route path="/staff/hubs" element={<StaffRoute><HubManagement /></StaffRoute>} />
             <Route path="/staff/customers" element={<StaffRoute><CustomerManagement /></StaffRoute>} />
-            <Route path="/staff/staff-users" element={<StaffRoute><StaffPlaceholder title="Staff Management" /></StaffRoute>} />
+            <Route path="/staff/staff-users" element={<StaffRoute><StaffManagement /></StaffRoute>} />
             <Route path="/staff/settings" element={<StaffRoute><StaffPlaceholder title="Settings" /></StaffRoute>} />
 
             <Route path="/" element={<Navigate to="/login" replace />} />
