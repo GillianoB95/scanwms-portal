@@ -14,14 +14,17 @@ export function AppLayout({ children }: { children: ReactNode }) {
   const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
 
+  const displayName = user?.user_metadata?.full_name || user?.email || '';
+  const initials = displayName.includes('@')
+    ? displayName[0].toUpperCase()
+    : displayName.split(' ').map((n: string) => n[0]).join('').toUpperCase();
+
   return (
     <div className="min-h-screen flex">
-      {/* Mobile overlay */}
       {mobileOpen && (
         <div className="fixed inset-0 bg-foreground/40 z-40 lg:hidden" onClick={() => setMobileOpen(false)} />
       )}
 
-      {/* Sidebar */}
       <aside className={`
         fixed lg:sticky top-0 left-0 z-50 h-screen w-60 flex flex-col
         bg-[hsl(var(--sidebar-bg))] text-[hsl(var(--sidebar-fg))]
@@ -70,9 +73,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
         </div>
       </aside>
 
-      {/* Main */}
       <div className="flex-1 flex flex-col min-w-0">
-        {/* Top bar */}
         <header className="sticky top-0 z-30 h-16 flex items-center justify-between px-4 lg:px-8 bg-card border-b">
           <button className="lg:hidden p-2 -ml-2 rounded-lg hover:bg-muted" onClick={() => setMobileOpen(!mobileOpen)}>
             {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
@@ -80,9 +81,9 @@ export function AppLayout({ children }: { children: ReactNode }) {
           <div className="hidden lg:block" />
           <div className="flex items-center gap-3">
             <div className="h-8 w-8 rounded-full bg-accent flex items-center justify-center text-accent-foreground text-sm font-semibold">
-              {user?.name.split(' ').map(n => n[0]).join('')}
+              {initials}
             </div>
-            <span className="text-sm font-medium hidden sm:block">{user?.name}</span>
+            <span className="text-sm font-medium hidden sm:block">{displayName}</span>
           </div>
         </header>
 

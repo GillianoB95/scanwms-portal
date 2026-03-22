@@ -1,12 +1,13 @@
 import { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Upload, ArrowLeft, ArrowRight, Plane, Truck, AlertTriangle, XCircle, CheckCircle2 } from 'lucide-react';
-import { subklanten } from '@/lib/mock-data';
+import { useSubklanten } from '@/hooks/use-shipment-data';
 
 type Step = 1 | 2;
 
 export default function NewShipment() {
   const navigate = useNavigate();
+  const { data: subklanten = [] } = useSubklanten();
   const [step, setStep] = useState<Step>(1);
   const [mawb, setMawb] = useState('');
   const [subklantId, setSubklantId] = useState('');
@@ -21,9 +22,8 @@ export default function NewShipment() {
 
   const canProceed = mawb.replace(/\D/g, '').length === 11 && subklantId && awbFile && manifestFile;
 
-  // Mock extracted data for step 2
   const extractedData = {
-    mawb: mawb,
+    mawb,
     colli: 24,
     grossWeight: 1680,
     chargeableWeight: 1920,
@@ -45,7 +45,6 @@ export default function NewShipment() {
         <p className="text-muted-foreground text-sm mt-1">Create a new shipment in 2 steps</p>
       </div>
 
-      {/* Step indicator */}
       <div className="flex items-center gap-3 animate-fade-in">
         <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium ${step >= 1 ? 'bg-accent text-accent-foreground' : 'bg-muted text-muted-foreground'}`}>
           <span className="h-5 w-5 rounded-full bg-accent-foreground/20 flex items-center justify-center text-xs">1</span>
@@ -60,7 +59,6 @@ export default function NewShipment() {
 
       {step === 1 && (
         <div className="bg-card rounded-xl border p-6 space-y-5 animate-fade-in">
-          {/* Transport type */}
           <div>
             <label className="block text-sm font-medium mb-2">Transport Type</label>
             <div className="flex gap-2">
@@ -74,7 +72,6 @@ export default function NewShipment() {
             </div>
           </div>
 
-          {/* MAWB */}
           <div>
             <label className="block text-sm font-medium mb-1.5">MAWB Number</label>
             <input
@@ -85,7 +82,6 @@ export default function NewShipment() {
             />
           </div>
 
-          {/* Subklant */}
           <div>
             <label className="block text-sm font-medium mb-1.5">Subklant</label>
             <select
@@ -94,24 +90,13 @@ export default function NewShipment() {
               className="w-full h-10 px-3 rounded-lg border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
             >
               <option value="">Select subklant...</option>
-              {subklanten.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+              {subklanten.map((s: any) => <option key={s.id} value={s.id}>{s.name}</option>)}
             </select>
           </div>
 
-          {/* Uploads side by side */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <UploadZone
-              label="Air Waybill (PDF)"
-              accept=".pdf"
-              file={awbFile}
-              onFile={setAwbFile}
-            />
-            <UploadZone
-              label="Manifest (XLS/XLSX)"
-              accept=".xls,.xlsx"
-              file={manifestFile}
-              onFile={setManifestFile}
-            />
+            <UploadZone label="Air Waybill (PDF)" accept=".pdf" file={awbFile} onFile={setAwbFile} />
+            <UploadZone label="Manifest (XLS/XLSX)" accept=".xls,.xlsx" file={manifestFile} onFile={setManifestFile} />
           </div>
 
           <div className="flex justify-end pt-2">

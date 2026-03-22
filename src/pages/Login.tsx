@@ -1,18 +1,21 @@
 import { useState } from 'react';
 import { useAuth } from '@/lib/auth-context';
-import { Package } from 'lucide-react';
+import { Package, Loader2 } from 'lucide-react';
 
 export default function Login() {
   const { login } = useAuth();
-  const [email, setEmail] = useState('demo@scanwms.com');
-  const [password, setPassword] = useState('password');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [submitting, setSubmitting] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!login(email, password)) {
-      setError('Invalid credentials');
-    }
+    setError('');
+    setSubmitting(true);
+    const err = await login(email, password);
+    if (err) setError(err);
+    setSubmitting(false);
   };
 
   return (
@@ -55,9 +58,10 @@ export default function Login() {
             </div>
             <button
               type="submit"
-              className="w-full h-10 rounded-lg bg-accent text-accent-foreground text-sm font-semibold hover:opacity-90 active:scale-[0.98] transition-all"
+              disabled={submitting}
+              className="w-full h-10 rounded-lg bg-accent text-accent-foreground text-sm font-semibold hover:opacity-90 active:scale-[0.98] transition-all disabled:opacity-60"
             >
-              Sign in
+              {submitting ? <Loader2 className="h-4 w-4 animate-spin mx-auto" /> : 'Sign in'}
             </button>
           </form>
 
@@ -65,10 +69,6 @@ export default function Login() {
             <button className="text-sm text-accent hover:underline">Forgot password?</button>
           </p>
         </div>
-
-        <p className="text-center text-xs text-muted-foreground mt-6">
-          Demo credentials are pre-filled. Just click Sign in.
-        </p>
       </div>
     </div>
   );
