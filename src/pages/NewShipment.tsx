@@ -335,7 +335,7 @@ export default function NewShipment() {
             </div>
           )}
 
-                    {manifestProcessing && <div className="flex items-center gap-2 text-sm text-muted-foreground animate-fade-in"><Loader2 className="h-4 w-4 animate-spin" /> Processing manifest via cleaner...</div>}
+                    {manifestProcessing && <div className="flex items-center gap-2 text-sm text-muted-foreground animate-fade-in"><Loader2 className="h-4 w-4 animate-spin" /> Processing manifest...</div>}
           {manifestError && <div className="text-sm text-destructive bg-destructive/10 rounded-lg px-3 py-2 animate-fade-in flex items-center gap-1.5"><XCircle className="h-4 w-4 shrink-0" />{manifestError}</div>}
           
           {manifestResult && !manifestProcessing && manifestResult.errors.length > 0 && (
@@ -351,7 +351,7 @@ export default function NewShipment() {
           )}
           {manifestResult?.cleanedBlob && !manifestProcessing && (
             <div className="bg-green-500/10 rounded-lg p-3 animate-fade-in flex items-center gap-2 text-sm text-green-700">
-              <CheckCircle2 className="h-4 w-4" /> Manifest cleaned and ready
+              <CheckCircle2 className="h-4 w-4" /> Manifest ready
             </div>
           )}
 
