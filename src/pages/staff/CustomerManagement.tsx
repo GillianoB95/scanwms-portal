@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import { Search, Loader2, Plus, Pencil, Trash2, ChevronDown, ChevronRight, Users, Bell } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
@@ -10,6 +11,7 @@ import { Label } from '@/components/ui/label';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth-context';
+import { useAllWarehouses } from '@/hooks/use-staff-data';
 import { toast } from 'sonner';
 
 function useCustomersWithSubs() {
@@ -120,6 +122,7 @@ function CustomerFormDialog({ open, onOpenChange, customer, parentId, isAdmin }:
 }) {
   const createCustomer = useCreateCustomer();
   const updateCustomer = useUpdateCustomer();
+  const { data: warehouses = [] } = useAllWarehouses();
   const [name, setName] = useState(customer?.name || '');
   const [shortName, setShortName] = useState(customer?.short_name || '');
   const [email, setEmail] = useState(customer?.email || '');
@@ -144,7 +147,6 @@ function CustomerFormDialog({ open, onOpenChange, customer, parentId, isAdmin }:
       } else {
         const newCustomer = await createCustomer.mutateAsync(payload);
 
-        // Create Supabase auth user + customer_users link if email+password provided
         if (userEmail && userPassword) {
           const { data: authData, error: authError } = await supabase.auth.signUp({
             email: userEmail,
@@ -152,7 +154,6 @@ function CustomerFormDialog({ open, onOpenChange, customer, parentId, isAdmin }:
           });
           if (authError) throw authError;
 
-          // Insert into customer_users to link auth user to this customer
           const { error: linkError } = await supabase.from('customer_users').insert({
             email: userEmail,
             customer_id: newCustomer.id,
@@ -197,11 +198,18 @@ function CustomerFormDialog({ open, onOpenChange, customer, parentId, isAdmin }:
             <Input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="contact@company.com" />
           </div>
           <div className="space-y-2">
-            <Label>Warehouse ID</Label>
-            <Input value={warehouseId} onChange={e => setWarehouseId(e.target.value)} placeholder="WH-001" />
+            <Label>Warehouse</Label>
+            <Select value={warehouseId} onValueChange={setWarehouseId}>
+              <SelectTrigger><SelectValue placeholder="Select warehouse" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="">None</SelectItem>
+                {warehouses.map((w: any) => (
+                  <SelectItem key={w.id} value={w.id}>{w.code} — {w.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
-          {/* Login credentials for new accounts */}
           {isNew && (
             <div className="border-t pt-4 space-y-3">
               <p className="text-sm font-medium text-muted-foreground">Login Account (optional)</p>

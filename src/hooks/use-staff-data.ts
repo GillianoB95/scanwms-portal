@@ -104,3 +104,91 @@ export function useUpdateShipment() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['staff-all-shipments'] }),
   });
 }
+
+// Shipment blocks
+export function useShipmentBlocks() {
+  return useQuery({
+    queryKey: ['shipment-blocks'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('shipment_blocks')
+        .select('*')
+        .is('removed_at', null);
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+}
+
+export function useCreateBlock() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (block: { shipment_id: string; block_type: string; reason: string; created_by?: string }) => {
+      const { error } = await supabase.from('shipment_blocks').insert(block);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['shipment-blocks'] });
+    },
+  });
+}
+
+export function useRemoveBlock() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (blockId: string) => {
+      const { error } = await supabase
+        .from('shipment_blocks')
+        .update({ removed_at: new Date().toISOString() })
+        .eq('id', blockId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['shipment-blocks'] });
+    },
+  });
+}
+
+// Inspections
+export function useShipmentInspections() {
+  return useQuery({
+    queryKey: ['all-inspections'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('inspections')
+        .select('*')
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+}
+
+export function useCreateInspections() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (inspections: { shipment_id: string; barcode: string }[]) => {
+      const { error } = await supabase.from('inspections').insert(inspections);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['all-inspections'] });
+      qc.invalidateQueries({ queryKey: ['staff-all-shipments'] });
+    },
+  });
+}
+
+// All warehouses
+export function useAllWarehouses() {
+  return useQuery({
+    queryKey: ['staff-warehouses'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('warehouses')
+        .select('*')
+        .order('code');
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+}

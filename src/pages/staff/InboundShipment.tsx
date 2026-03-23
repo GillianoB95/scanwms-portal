@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { Search, Loader2, Eye, Pencil, Upload, PackageCheck, CalendarIcon, Undo2 } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -457,7 +458,14 @@ export default function InboundShipment() {
                       </span>
                     </TableCell>
                     <TableCell className="text-right">{s.weight ?? '—'}</TableCell>
-                    <TableCell><StatusBadge status={s.status} /></TableCell>
+        <TableCell>
+                      <div className="flex items-center gap-1 flex-wrap">
+                        <StatusBadge status={s.status} />
+                        {s.notes && (
+                          <Badge className="text-[10px] px-1.5 py-0 bg-purple-600 hover:bg-purple-700">Note</Badge>
+                        )}
+                      </div>
+                    </TableCell>
                     <TableCell className="text-sm text-muted-foreground">
                       {s.eta ? format(new Date(s.eta), 'dd/MM/yy') : '—'}
                     </TableCell>

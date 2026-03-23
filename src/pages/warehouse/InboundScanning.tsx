@@ -51,6 +51,17 @@ export default function InboundScanning() {
 
   const scanMutation = useMutation({
     mutationFn: async (code: string) => {
+      // Check for active inbound block
+      const { data: blocks } = await supabase
+        .from('shipment_blocks')
+        .select('reason')
+        .eq('shipment_id', selectedShipment)
+        .eq('block_type', 'inbound')
+        .is('removed_at', null);
+      if (blocks && blocks.length > 0) {
+        throw new Error(`Inbound blocked: ${blocks[0].reason || 'No reason provided'}`);
+      }
+
       const { error } = await supabase.from('outerboxes').insert({
         shipment_id: selectedShipment,
         barcode: code,

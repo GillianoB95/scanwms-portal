@@ -63,11 +63,14 @@ export default function StaffManagement() {
   const updateRole = useUpdateStaffRole();
   const deleteUser = useDeleteStaffUser();
 
+  const qc = useQueryClient();
   const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState('all');
   const [inviteOpen, setInviteOpen] = useState(false);
   const [inviteEmail, setInviteEmail] = useState('');
+  const [invitePassword, setInvitePassword] = useState('');
   const [inviteRole, setInviteRole] = useState('staff');
+  const [creating, setCreating] = useState(false);
 
   const filtered = useMemo(() => {
     return staffUsers.filter((u: any) => {
@@ -77,12 +80,33 @@ export default function StaffManagement() {
     });
   }, [staffUsers, search, roleFilter]);
 
-  const handleInvite = () => {
-    if (!inviteEmail) return;
-    toast.info(`Invite flow for ${inviteEmail} as ${inviteRole} — implement with Supabase Auth invite`);
-    setInviteOpen(false);
-    setInviteEmail('');
-    setInviteRole('staff');
+  const handleCreateUser = async () => {
+    if (!inviteEmail || !invitePassword) return;
+    setCreating(true);
+    try {
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: inviteEmail,
+        password: invitePassword,
+      });
+      if (authError) throw authError;
+
+      const { error: linkError } = await supabase.from('customer_users').insert({
+        email: inviteEmail,
+        role: inviteRole,
+      });
+      if (linkError) throw linkError;
+
+      toast.success(`Staff user ${inviteEmail} created`);
+      setInviteOpen(false);
+      setInviteEmail('');
+      setInvitePassword('');
+      setInviteRole('staff');
+      qc.invalidateQueries({ queryKey: ['staff-users-list'] });
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to create user');
+    } finally {
+      setCreating(false);
+    }
   };
 
   if (isLoading) {
@@ -105,17 +129,21 @@ export default function StaffManagement() {
             <DialogTrigger asChild>
               <Button>
                 <UserPlus className="h-4 w-4 mr-2" />
-                Invite Staff
+                Create Staff User
               </Button>
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>Invite Staff Member</DialogTitle>
+                <DialogTitle>Create Staff User</DialogTitle>
               </DialogHeader>
               <div className="space-y-4 py-4">
                 <div className="space-y-2">
-                  <Label htmlFor="invite-email">Email</Label>
+                  <Label htmlFor="invite-email">Email *</Label>
                   <Input id="invite-email" type="email" placeholder="staff@example.com" value={inviteEmail} onChange={e => setInviteEmail(e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="invite-password">Password *</Label>
+                  <Input id="invite-password" type="password" placeholder="Min 6 characters" value={invitePassword} onChange={e => setInvitePassword(e.target.value)} />
                 </div>
                 <div className="space-y-2">
                   <Label>Role</Label>
@@ -130,7 +158,10 @@ export default function StaffManagement() {
               </div>
               <DialogFooter>
                 <Button variant="outline" onClick={() => setInviteOpen(false)}>Cancel</Button>
-                <Button onClick={handleInvite} disabled={!inviteEmail}>Send Invite</Button>
+                <Button onClick={handleCreateUser} disabled={!inviteEmail || !invitePassword || creating}>
+                  {creating && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+                  Create User
+                </Button>
               </DialogFooter>
             </DialogContent>
           </Dialog>
