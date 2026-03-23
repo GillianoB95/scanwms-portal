@@ -81,6 +81,18 @@ export function useDeleteHub() {
   });
 }
 
+// Delete shipment
+export function useDeleteShipment() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from('shipments').delete().eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['staff-all-shipments'] }),
+  });
+}
+
 // Update shipment (for staff inline edits)
 export function useUpdateShipment() {
   const qc = useQueryClient();
