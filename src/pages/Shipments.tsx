@@ -170,9 +170,7 @@ export default function Shipments() {
             <thead>
               <tr className="border-b text-muted-foreground">
                 <th className="text-left px-5 py-3 font-medium">MAWB</th>
-                <th className="text-left px-5 py-3 font-medium">Sub Client</th>
                 <th className="text-right px-5 py-3 font-medium">Pieces</th>
-                <th className="text-right px-5 py-3 font-medium">Parcels</th>
                 <th className="text-right px-5 py-3 font-medium">Weight</th>
                 <th className="text-left px-5 py-3 font-medium">Status</th>
                 <th className="text-left px-5 py-3 font-medium">Created</th>
