@@ -1,5 +1,5 @@
 // Manifest Cleaner API configuration
-export const MANIFEST_CLEANER_URL = 'https://humble-charisma-production-9829.up.railway.app';
+export const MANIFEST_CLEANER_URL = 'https://scanwms-manifest-cleaner.onrender.com';
 
 export async function processManifest(file: File): Promise<{
   cleanedFile: Blob;
