@@ -146,8 +146,21 @@ export default function NewShipment() {
         }
         if (!res.ok) throw new Error(`Manifest cleaner error: ${res.status}`);
         const blob = await res.blob();
+        // Parse cleaned XLSX to count parcels
+        let parcelsCount = 0;
+        try {
+          const XLSX = await import('xlsx');
+          const arrayBuffer = await blob.arrayBuffer();
+          const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+          const sheet = workbook.Sheets[workbook.SheetNames[0]];
+          const rows: any[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
+          // Count non-empty data rows (skip header)
+          parcelsCount = rows.slice(1).filter((r: any[]) => r.some((cell: any) => cell !== '' && cell != null)).length;
+        } catch (e) {
+          console.warn('Could not count parcels from cleaned manifest:', e);
+        }
         setManifestResult({
-          totalParcels: 0, totalWeight: 0,
+          totalParcels: parcelsCount, totalWeight: 0,
           errors: [], warnings: [],
           cleanedBlob: blob,
         });
@@ -377,8 +390,6 @@ export default function NewShipment() {
               <div><span className="text-muted-foreground text-xs block">MAWB</span><span className="font-mono font-medium">{mawb}</span></div>
               <div><span className="text-muted-foreground text-xs block">Colli</span><span className="font-bold tabular-nums">{colli || '—'}</span></div>
               <div><span className="text-muted-foreground text-xs block">Chargeable Weight</span><span className="font-bold tabular-nums">{chargeableWeight ? `${chargeableWeight.toLocaleString()} kg` : '—'}</span></div>
-              <div><span className="text-muted-foreground text-xs block">Warehouse</span><span className="font-medium">{customer?.warehouse_id || 'DSC'}</span></div>
-              <div><span className="text-muted-foreground text-xs block">Sub Client</span><span className="font-medium">{subklanten.find((s: any) => s.id === subklantId)?.name || '—'}</span></div>
             </div>
           </div>
 

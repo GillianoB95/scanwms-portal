@@ -170,9 +170,7 @@ export default function Shipments() {
             <thead>
               <tr className="border-b text-muted-foreground">
                 <th className="text-left px-5 py-3 font-medium">MAWB</th>
-                <th className="text-left px-5 py-3 font-medium">Sub Client</th>
                 <th className="text-right px-5 py-3 font-medium">Pieces</th>
-                <th className="text-right px-5 py-3 font-medium">Parcels</th>
                 <th className="text-right px-5 py-3 font-medium">Weight</th>
                 <th className="text-left px-5 py-3 font-medium">Status</th>
                 <th className="text-left px-5 py-3 font-medium">Created</th>
@@ -188,9 +186,7 @@ export default function Shipments() {
                   <td className="px-5 py-3">
                     <span className="font-mono font-medium text-accent">{s.mawb}</span>
                   </td>
-                  <td className="px-5 py-3 text-muted-foreground">{s.subklanten?.name ?? '—'}</td>
                   <td className="px-5 py-3 text-right tabular-nums">{s.pieces ?? '—'}</td>
-                  <td className="px-5 py-3 text-right tabular-nums">{s.parcels ?? '—'}</td>
                   <td className="px-5 py-3 text-right tabular-nums">{s.weight != null ? `${s.weight} kg` : '—'}</td>
                   <td className="px-5 py-3">
                     <StatusBadge status={s.status} />
@@ -201,7 +197,7 @@ export default function Shipments() {
                 </tr>
               ))}
               {paginated.length === 0 && (
-                <tr><td colSpan={7} className="px-5 py-12 text-center text-muted-foreground">No shipments found</td></tr>
+                <tr><td colSpan={5} className="px-5 py-12 text-center text-muted-foreground">No shipments found</td></tr>
               )}
             </tbody>
           </table>
