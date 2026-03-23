@@ -19,6 +19,7 @@ import InboundShipment from "./pages/staff/InboundShipment";
 import OutboundShipment from "./pages/staff/OutboundShipment";
 import StaffManagement from "./pages/staff/StaffManagement";
 import WarehouseManagement from "./pages/staff/WarehouseManagement";
+import SettingsPage from "./pages/staff/Settings";
 import StaffPlaceholder from "./pages/staff/StaffPlaceholder";
 import WarehouseDashboard from "./pages/warehouse/WarehouseDashboard";
 import InboundScanning from "./pages/warehouse/InboundScanning";
