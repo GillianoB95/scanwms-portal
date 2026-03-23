@@ -63,11 +63,14 @@ export default function StaffManagement() {
   const updateRole = useUpdateStaffRole();
   const deleteUser = useDeleteStaffUser();
 
+  const qc = useQueryClient();
   const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState('all');
   const [inviteOpen, setInviteOpen] = useState(false);
   const [inviteEmail, setInviteEmail] = useState('');
+  const [invitePassword, setInvitePassword] = useState('');
   const [inviteRole, setInviteRole] = useState('staff');
+  const [creating, setCreating] = useState(false);
 
   const filtered = useMemo(() => {
     return staffUsers.filter((u: any) => {
