@@ -7,12 +7,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { StatusBadge } from '@/components/StatusBadge';
-import { useAllShipments, useUpdateShipment } from '@/hooks/use-staff-data';
+import { useAllShipments, useUpdateShipment, useDeleteShipment } from '@/hooks/use-staff-data';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { CalendarIcon } from 'lucide-react';
+import { toast } from 'sonner';
 
 const ALL_STATUSES = ['Awaiting NOA', 'Partial NOA', 'NOA Complete', 'In Transit', 'In Stock', 'Outbound', 'Needs Action'];
 
@@ -171,7 +173,7 @@ export default function MawbOverview() {
               <TableHead>Customer</TableHead>
               <TableHead>MAWB</TableHead>
               <TableHead>Warehouse</TableHead>
-              <TableHead className="text-right">Parcels</TableHead>
+              <TableHead className="text-right">Colli</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>ETA</TableHead>
               <TableHead>NOA Date</TableHead>
@@ -199,7 +201,9 @@ export default function MawbOverview() {
 
 function ShipmentRow({ shipment, onToggleCleared }: { shipment: any; onToggleCleared: (s: any) => void }) {
   const updateShipment = useUpdateShipment();
+  const deleteShipment = useDeleteShipment();
   const [etaOpen, setEtaOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
 
   const etaDate = shipment.eta ? new Date(shipment.eta) : undefined;
 
@@ -210,66 +214,93 @@ function ShipmentRow({ shipment, onToggleCleared }: { shipment: any; onToggleCle
     setEtaOpen(false);
   };
 
+  const handleDelete = () => {
+    deleteShipment.mutate(shipment.id, {
+      onSuccess: () => toast.success(`Shipment ${shipment.mawb} deleted`),
+      onError: (err) => toast.error(`Delete failed: ${err.message}`),
+    });
+    setDeleteOpen(false);
+  };
+
   return (
-    <TableRow>
-      <TableCell className="font-medium">{shipment.customers?.name || '—'}</TableCell>
-      <TableCell className="font-mono text-sm">{shipment.mawb}</TableCell>
-      <TableCell>{shipment.warehouse_id || '—'}</TableCell>
-      <TableCell className="text-right">{shipment.parcels ?? 0}</TableCell>
-      <TableCell><StatusBadge status={shipment.status} /></TableCell>
-      <TableCell>
-        <Popover open={etaOpen} onOpenChange={setEtaOpen}>
-          <PopoverTrigger asChild>
-            <Button variant="ghost" size="sm" className={cn("h-8 px-2 text-xs font-normal", !etaDate && "text-muted-foreground")}>
-              <CalendarIcon className="mr-1 h-3 w-3" />
-              {etaDate ? format(etaDate, 'dd/MM/yy') : 'Set ETA'}
+    <>
+      <TableRow>
+        <TableCell className="font-medium">{shipment.customers?.name || '—'}</TableCell>
+        <TableCell className="font-mono text-sm">{shipment.mawb}</TableCell>
+        <TableCell>{shipment.warehouse_id || '—'}</TableCell>
+        <TableCell className="text-right">{shipment.parcels ?? 0}</TableCell>
+        <TableCell><StatusBadge status={shipment.status} /></TableCell>
+        <TableCell>
+          <Popover open={etaOpen} onOpenChange={setEtaOpen}>
+            <PopoverTrigger asChild>
+              <Button variant="ghost" size="sm" className={cn("h-8 px-2 text-xs font-normal", !etaDate && "text-muted-foreground")}>
+                <CalendarIcon className="mr-1 h-3 w-3" />
+                {etaDate ? format(etaDate, 'dd/MM/yy') : 'Set ETA'}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <Calendar mode="single" selected={etaDate} onSelect={handleEtaChange} className="p-3 pointer-events-auto" />
+            </PopoverContent>
+          </Popover>
+        </TableCell>
+        <TableCell className="text-sm text-muted-foreground">
+          {shipment.noa_date ? format(new Date(shipment.noa_date), 'dd/MM/yy') : '—'}
+        </TableCell>
+        <TableCell>
+          <Switch
+            checked={!!shipment.customs_cleared}
+            onCheckedChange={() => onToggleCleared(shipment)}
+            className="scale-90"
+          />
+        </TableCell>
+        <TableCell className="text-sm text-muted-foreground">
+          {shipment.unloaded_date ? format(new Date(shipment.unloaded_date), 'dd/MM/yy') : '—'}
+        </TableCell>
+        <TableCell>
+          <div className="flex items-center justify-end gap-1">
+            <Link to={`/shipments/${shipment.id}`}>
+              <Button variant="ghost" size="icon" className="h-8 w-8" title="Detail">
+                <Eye className="h-3.5 w-3.5" />
+              </Button>
+            </Link>
+            <Button variant="ghost" size="icon" className="h-8 w-8" title="Edit">
+              <Pencil className="h-3.5 w-3.5" />
             </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-auto p-0" align="start">
-            <Calendar mode="single" selected={etaDate} onSelect={handleEtaChange} className="p-3 pointer-events-auto" />
-          </PopoverContent>
-        </Popover>
-      </TableCell>
-      <TableCell className="text-sm text-muted-foreground">
-        {shipment.noa_date ? format(new Date(shipment.noa_date), 'dd/MM/yy') : '—'}
-      </TableCell>
-      <TableCell>
-        <Switch
-          checked={!!shipment.customs_cleared}
-          onCheckedChange={() => onToggleCleared(shipment)}
-          className="scale-90"
-        />
-      </TableCell>
-      <TableCell className="text-sm text-muted-foreground">
-        {shipment.unloaded_date ? format(new Date(shipment.unloaded_date), 'dd/MM/yy') : '—'}
-      </TableCell>
-      <TableCell>
-        <div className="flex items-center justify-end gap-1">
-          <Link to={`/shipments/${shipment.id}`}>
-            <Button variant="ghost" size="icon" className="h-8 w-8" title="Detail">
-              <Eye className="h-3.5 w-3.5" />
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 text-accent hover:text-accent/80"
+              title="CC YES"
+              onClick={() => onToggleCleared(shipment)}
+            >
+              <CheckCircle className="h-3.5 w-3.5" />
             </Button>
-          </Link>
-          <Button variant="ghost" size="icon" className="h-8 w-8" title="Edit">
-            <Pencil className="h-3.5 w-3.5" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8 text-accent hover:text-accent/80"
-            title="CC YES"
-            onClick={() => onToggleCleared(shipment)}
-          >
-            <CheckCircle className="h-3.5 w-3.5" />
-          </Button>
-          <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" title="Block">
-            <Ban className="h-3.5 w-3.5" />
-          </Button>
-          <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" title="Delete">
-            <Trash2 className="h-3.5 w-3.5" />
-          </Button>
-        </div>
-      </TableCell>
-    </TableRow>
+            <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" title="Block">
+              <Ban className="h-3.5 w-3.5" />
+            </Button>
+            <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" title="Delete" onClick={() => setDeleteOpen(true)}>
+              <Trash2 className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+        </TableCell>
+      </TableRow>
+
+      <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete shipment?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete shipment <span className="font-mono font-semibold">{shipment.mawb}</span> and all related records (NOAs, pallets, outerboxes). This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }
