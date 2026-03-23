@@ -6,7 +6,7 @@ import { useAuth } from '@/lib/auth-context';
 import { useSubklanten } from '@/hooks/use-shipment-data';
 import { useHubs } from '@/hooks/use-hubs';
 
-const MANIFEST_CLEANER_URL = 'https://humble-charisma-production-9829.up.railway.app';
+const MANIFEST_CLEANER_URL = 'https://scanwms-manifest-cleaner.onrender.com';
 
 type Step = 1 | 2;
 
