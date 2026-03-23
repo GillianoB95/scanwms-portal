@@ -315,40 +315,28 @@ export default function NewShipment() {
             <div className="bg-muted/40 rounded-lg p-4 space-y-3 animate-fade-in">
               <div className="flex items-center justify-between">
                 <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                  {awbData ? 'Extracted from AWB — verify and adjust if needed' : 'AWB Data — enter manually'}
+                  {awbData ? 'Extracted from AWB' : 'AWB Data — enter manually'}
                 </p>
                 {awbExtracting && <div className="flex items-center gap-1 text-xs text-muted-foreground"><Loader2 className="h-3 w-3 animate-spin" />Extracting...</div>}
               </div>
               <div className="grid grid-cols-3 gap-3">
                 <div>
                   <label className="text-xs text-muted-foreground block mb-1">Colli (pieces)</label>
-                  <input
-                    type="number"
-                    value={manualColli !== '' ? manualColli : (awbData?.pieces?.toString() ?? '')}
-                    onChange={e => setManualColli(e.target.value)}
-                    placeholder="e.g. 221"
-                    className="w-full h-9 px-2.5 rounded-md border bg-background text-sm tabular-nums font-mono focus:outline-none focus:ring-2 focus:ring-ring"
-                  />
+                  <div className="w-full h-9 px-2.5 rounded-md border bg-muted text-sm tabular-nums font-mono flex items-center text-foreground">
+                    {awbData?.pieces ?? '—'}
+                  </div>
                 </div>
                 <div>
                   <label className="text-xs text-muted-foreground block mb-1">Gross Weight (kg)</label>
-                  <input
-                    type="number"
-                    value={manualGrossWeight !== '' ? manualGrossWeight : (awbData?.gross_weight?.toString() ?? '')}
-                    onChange={e => setManualGrossWeight(e.target.value)}
-                    placeholder="e.g. 3412"
-                    className="w-full h-9 px-2.5 rounded-md border bg-background text-sm tabular-nums font-mono focus:outline-none focus:ring-2 focus:ring-ring"
-                  />
+                  <div className="w-full h-9 px-2.5 rounded-md border bg-muted text-sm tabular-nums font-mono flex items-center text-foreground">
+                    {awbData?.gross_weight != null ? awbData.gross_weight.toLocaleString() : '—'}
+                  </div>
                 </div>
                 <div>
                   <label className="text-xs text-muted-foreground block mb-1">Chargeable Weight (kg)</label>
-                  <input
-                    type="number"
-                    value={manualChargeableWeight !== '' ? manualChargeableWeight : (awbData?.chargeable_weight?.toString() ?? '')}
-                    onChange={e => setManualChargeableWeight(e.target.value)}
-                    placeholder="e.g. 3412"
-                    className="w-full h-9 px-2.5 rounded-md border bg-background text-sm tabular-nums font-mono focus:outline-none focus:ring-2 focus:ring-ring"
-                  />
+                  <div className="w-full h-9 px-2.5 rounded-md border bg-muted text-sm tabular-nums font-mono flex items-center text-foreground">
+                    {awbData?.chargeable_weight != null ? awbData.chargeable_weight.toLocaleString() : '—'}
+                  </div>
                 </div>
               </div>
             </div>
