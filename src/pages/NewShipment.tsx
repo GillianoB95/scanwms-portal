@@ -86,7 +86,7 @@ export default function NewShipment() {
     return `${digits.slice(0, 3)}-${digits.slice(3)}`;
   }, []);
 
-  // AWB extraction: Railway endpoint only, 15s timeout, fallback to manual
+  // AWB extraction via Supabase edge function
   useEffect(() => {
     if (!awbFile) { setAwbData(null); setAwbError(null); setAwbManualMode(false); return; }
     let cancelled = false;
@@ -98,27 +98,20 @@ export default function NewShipment() {
     const formData = new FormData();
     formData.append('file', awbFile);
 
-    fetchWithTimeout(
-      'https://humble-charisma-production-9829.up.railway.app/extract-awb',
-      { method: 'POST', body: formData },
-      15000
-    )
-      .then(async (res) => {
-        if (!res.ok) throw new Error(`Server error: ${res.status}`);
-        const data = await res.json();
-        if (data.error) throw new Error(data.error);
-        return data as AwbServerData;
-      })
-      .then((result) => {
+    supabase.functions.invoke('extract-awb', { body: formData })
+      .then(({ data, error }) => {
         if (cancelled) return;
-        setAwbData(result);
-        if (result.mawb && !mawb) setMawb(result.mawb);
+        if (error) throw error;
+        if (data?.error) throw new Error(data.error);
+        if (!data) throw new Error('No data returned');
+        setAwbData(data as AwbServerData);
+        if (data.mawb && !mawb) setMawb(data.mawb);
       })
       .catch((err) => {
         if (cancelled) return;
         console.warn('AWB extraction failed:', err);
         setAwbManualMode(true);
-        setAwbError('Could not extract AWB data. Please enter the values manually.');
+        setAwbError('Could not extract AWB data automatically.');
       })
       .finally(() => { if (!cancelled) setAwbExtracting(false); });
 
