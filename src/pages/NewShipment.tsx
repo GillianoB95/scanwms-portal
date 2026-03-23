@@ -172,10 +172,18 @@ export default function NewShipment() {
     return () => { cancelled = true; };
   }, [mawb, customer?.id]);
 
-  const colli = manualColli !== '' ? (parseInt(manualColli) || 0) : (awbData?.pieces ?? 0);
-  const grossWeight = manualGrossWeight !== '' ? (parseFloat(manualGrossWeight) || 0) : (awbData?.gross_weight ?? 0);
-  const chargeableWeight = manualChargeableWeight !== '' ? (parseFloat(manualChargeableWeight) || 0) : (awbData?.chargeable_weight ?? 0);
-  const awbExtracted = awbManualMode || (!!awbData && !awbExtracting && !awbError);
+  // Auto-populate manual fields when extraction succeeds
+  useEffect(() => {
+    if (awbData) {
+      if (awbData.pieces != null && manualColli === '') setManualColli(String(awbData.pieces));
+      if (awbData.gross_weight != null && manualGrossWeight === '') setManualGrossWeight(String(awbData.gross_weight));
+      if (awbData.chargeable_weight != null && manualChargeableWeight === '') setManualChargeableWeight(String(awbData.chargeable_weight));
+    }
+  }, [awbData]);
+
+  const colli = manualColli !== '' ? (parseInt(manualColli) || 0) : 0;
+  const grossWeight = manualGrossWeight !== '' ? (parseFloat(manualGrossWeight) || 0) : 0;
+  const chargeableWeight = manualChargeableWeight !== '' ? (parseFloat(manualChargeableWeight) || 0) : 0;
   const manifestReady = !!manifestResult?.cleanedBlob && !manifestProcessing;
   const hasBlockingErrors = (manifestResult?.errors?.length ?? 0) > 0;
 
@@ -184,7 +192,7 @@ export default function NewShipment() {
     subklantId &&
     awbFile &&
     manifestFile &&
-    (awbExtracted || (manualColli !== '' && manualGrossWeight !== '' && manualChargeableWeight !== '')) &&
+    manualColli !== '' && manualGrossWeight !== '' && manualChargeableWeight !== '' &&
     manifestReady &&
     !duplicateMawb &&
     !hasBlockingErrors;
