@@ -228,7 +228,7 @@ function ShipmentRow({ shipment, onToggleCleared }: { shipment: any; onToggleCle
         <TableCell className="font-medium">{shipment.customers?.name || '—'}</TableCell>
         <TableCell className="font-mono text-sm">{shipment.mawb}</TableCell>
         <TableCell>{shipment.warehouse_id || '—'}</TableCell>
-        <TableCell className="text-right">{shipment.parcels ?? 0}</TableCell>
+        <TableCell className="text-right">{shipment.colli_expected ?? 0}</TableCell>
         <TableCell><StatusBadge status={shipment.status} /></TableCell>
         <TableCell>
           <Popover open={etaOpen} onOpenChange={setEtaOpen}>
