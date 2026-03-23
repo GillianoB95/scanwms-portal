@@ -377,8 +377,6 @@ export default function NewShipment() {
               <div><span className="text-muted-foreground text-xs block">MAWB</span><span className="font-mono font-medium">{mawb}</span></div>
               <div><span className="text-muted-foreground text-xs block">Colli</span><span className="font-bold tabular-nums">{colli || '—'}</span></div>
               <div><span className="text-muted-foreground text-xs block">Chargeable Weight</span><span className="font-bold tabular-nums">{chargeableWeight ? `${chargeableWeight.toLocaleString()} kg` : '—'}</span></div>
-              <div><span className="text-muted-foreground text-xs block">Warehouse</span><span className="font-medium">{customer?.warehouse_id || 'DSC'}</span></div>
-              <div><span className="text-muted-foreground text-xs block">Sub Client</span><span className="font-medium">{subklanten.find((s: any) => s.id === subklantId)?.name || '—'}</span></div>
             </div>
           </div>
 
