@@ -129,17 +129,21 @@ export default function StaffManagement() {
             <DialogTrigger asChild>
               <Button>
                 <UserPlus className="h-4 w-4 mr-2" />
-                Invite Staff
+                Create Staff User
               </Button>
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>Invite Staff Member</DialogTitle>
+                <DialogTitle>Create Staff User</DialogTitle>
               </DialogHeader>
               <div className="space-y-4 py-4">
                 <div className="space-y-2">
-                  <Label htmlFor="invite-email">Email</Label>
+                  <Label htmlFor="invite-email">Email *</Label>
                   <Input id="invite-email" type="email" placeholder="staff@example.com" value={inviteEmail} onChange={e => setInviteEmail(e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="invite-password">Password *</Label>
+                  <Input id="invite-password" type="password" placeholder="Min 6 characters" value={invitePassword} onChange={e => setInvitePassword(e.target.value)} />
                 </div>
                 <div className="space-y-2">
                   <Label>Role</Label>
@@ -154,7 +158,10 @@ export default function StaffManagement() {
               </div>
               <DialogFooter>
                 <Button variant="outline" onClick={() => setInviteOpen(false)}>Cancel</Button>
-                <Button onClick={handleInvite} disabled={!inviteEmail}>Send Invite</Button>
+                <Button onClick={handleCreateUser} disabled={!inviteEmail || !invitePassword || creating}>
+                  {creating && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+                  Create User
+                </Button>
               </DialogFooter>
             </DialogContent>
           </Dialog>
