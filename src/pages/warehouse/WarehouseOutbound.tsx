@@ -85,6 +85,17 @@ export default function WarehouseOutbound() {
         .maybeSingle();
       if (findErr || !pallet) throw new Error('Pallet not found');
 
+      // Check for active outbound block
+      const { data: blocks } = await supabase
+        .from('shipment_blocks')
+        .select('reason')
+        .eq('shipment_id', pallet.shipment_id)
+        .eq('block_type', 'outbound')
+        .is('removed_at', null);
+      if (blocks && blocks.length > 0) {
+        throw new Error(`Outbound blocked: ${blocks[0].reason || 'No reason provided'}`);
+      }
+
       // Validate customs cleared
       if (!(pallet.shipments as any)?.customs_cleared) {
         throw new Error('Shipment not customs cleared — cannot add to outbound');
