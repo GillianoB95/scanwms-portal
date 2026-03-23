@@ -179,9 +179,9 @@ export default function NewShipment() {
     return () => { cancelled = true; };
   }, [mawb, customer?.id]);
 
-  const colli = awbManualMode ? (parseInt(manualColli) || 0) : (awbData?.pieces ?? 0);
-  const grossWeight = awbManualMode ? (parseFloat(manualGrossWeight) || 0) : (awbData?.gross_weight ?? 0);
-  const chargeableWeight = awbManualMode ? (parseFloat(manualChargeableWeight) || 0) : (awbData?.chargeable_weight ?? 0);
+  const colli = manualColli !== '' ? (parseInt(manualColli) || 0) : (awbData?.pieces ?? 0);
+  const grossWeight = manualGrossWeight !== '' ? (parseFloat(manualGrossWeight) || 0) : (awbData?.gross_weight ?? 0);
+  const chargeableWeight = manualChargeableWeight !== '' ? (parseFloat(manualChargeableWeight) || 0) : (awbData?.chargeable_weight ?? 0);
   const awbExtracted = awbManualMode || (!!awbData && !awbExtracting && !awbError);
   const manifestReady = !!manifestResult?.cleanedBlob && !manifestProcessing;
   const hasBlockingErrors = (manifestResult?.errors?.length ?? 0) > 0;
@@ -191,7 +191,7 @@ export default function NewShipment() {
     subklantId &&
     awbFile &&
     manifestFile &&
-    awbExtracted &&
+    (awbExtracted || (manualColli !== '' && manualGrossWeight !== '' && manualChargeableWeight !== '')) &&
     manifestReady &&
     !duplicateMawb &&
     !hasBlockingErrors;
@@ -310,43 +310,51 @@ export default function NewShipment() {
           {awbExtracting && <div className="flex items-center gap-2 text-sm text-muted-foreground animate-fade-in"><Loader2 className="h-4 w-4 animate-spin" /> Extracting AWB data...</div>}
           {awbError && <div className="text-sm text-destructive bg-destructive/10 rounded-lg px-3 py-2 animate-fade-in flex items-center gap-1.5"><AlertTriangle className="h-4 w-4 shrink-0" />{awbError}</div>}
           
-          {/* Extracted AWB data (read-only) */}
-          {awbData && !awbExtracting && !awbManualMode && (
+          {/* AWB Fields — always editable, auto-filled when extraction succeeds */}
+          {awbFile && (
             <div className="bg-muted/40 rounded-lg p-4 space-y-3 animate-fade-in">
-              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Extracted from AWB (read-only)</p>
-              <div className="grid grid-cols-3 gap-3">
-                <div><label className="text-xs text-muted-foreground block mb-1">Colli</label><div className="w-full h-9 px-2.5 rounded-md border bg-muted text-sm tabular-nums font-mono flex items-center">{awbData.pieces ?? '—'}</div></div>
-                <div><label className="text-xs text-muted-foreground block mb-1">Gross Weight (kg)</label><div className="w-full h-9 px-2.5 rounded-md border bg-muted text-sm tabular-nums font-mono flex items-center">{awbData.gross_weight?.toLocaleString() ?? '—'}</div></div>
-                <div><label className="text-xs text-muted-foreground block mb-1">Chargeable Weight (kg)</label><div className="w-full h-9 px-2.5 rounded-md border bg-muted text-sm tabular-nums font-mono flex items-center">{awbData.chargeable_weight?.toLocaleString() ?? '—'}</div></div>
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                  {awbData ? 'Extracted from AWB — verify and adjust if needed' : 'AWB Data — enter manually'}
+                </p>
+                {awbExtracting && <div className="flex items-center gap-1 text-xs text-muted-foreground"><Loader2 className="h-3 w-3 animate-spin" />Extracting...</div>}
               </div>
-            </div>
-          )}
-
-          {/* Manual AWB input (fallback) */}
-          {awbManualMode && awbFile && (
-            <div className="bg-muted/40 rounded-lg p-4 space-y-3 animate-fade-in">
-              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Enter AWB data manually</p>
               <div className="grid grid-cols-3 gap-3">
                 <div>
-                  <label className="text-xs text-muted-foreground block mb-1">Colli</label>
-                  <input type="number" value={manualColli} onChange={e => setManualColli(e.target.value)} placeholder="0"
-                    className="w-full h-9 px-2.5 rounded-md border bg-background text-sm tabular-nums font-mono focus:outline-none focus:ring-2 focus:ring-ring" />
+                  <label className="text-xs text-muted-foreground block mb-1">Colli (pieces)</label>
+                  <input
+                    type="number"
+                    value={manualColli !== '' ? manualColli : (awbData?.pieces?.toString() ?? '')}
+                    onChange={e => setManualColli(e.target.value)}
+                    placeholder="e.g. 221"
+                    className="w-full h-9 px-2.5 rounded-md border bg-background text-sm tabular-nums font-mono focus:outline-none focus:ring-2 focus:ring-ring"
+                  />
                 </div>
                 <div>
                   <label className="text-xs text-muted-foreground block mb-1">Gross Weight (kg)</label>
-                  <input type="number" step="0.1" value={manualGrossWeight} onChange={e => setManualGrossWeight(e.target.value)} placeholder="0"
-                    className="w-full h-9 px-2.5 rounded-md border bg-background text-sm tabular-nums font-mono focus:outline-none focus:ring-2 focus:ring-ring" />
+                  <input
+                    type="number"
+                    value={manualGrossWeight !== '' ? manualGrossWeight : (awbData?.gross_weight?.toString() ?? '')}
+                    onChange={e => setManualGrossWeight(e.target.value)}
+                    placeholder="e.g. 3412"
+                    className="w-full h-9 px-2.5 rounded-md border bg-background text-sm tabular-nums font-mono focus:outline-none focus:ring-2 focus:ring-ring"
+                  />
                 </div>
                 <div>
                   <label className="text-xs text-muted-foreground block mb-1">Chargeable Weight (kg)</label>
-                  <input type="number" step="0.1" value={manualChargeableWeight} onChange={e => setManualChargeableWeight(e.target.value)} placeholder="0"
-                    className="w-full h-9 px-2.5 rounded-md border bg-background text-sm tabular-nums font-mono focus:outline-none focus:ring-2 focus:ring-ring" />
+                  <input
+                    type="number"
+                    value={manualChargeableWeight !== '' ? manualChargeableWeight : (awbData?.chargeable_weight?.toString() ?? '')}
+                    onChange={e => setManualChargeableWeight(e.target.value)}
+                    placeholder="e.g. 3412"
+                    className="w-full h-9 px-2.5 rounded-md border bg-background text-sm tabular-nums font-mono focus:outline-none focus:ring-2 focus:ring-ring"
+                  />
                 </div>
               </div>
             </div>
           )}
 
-          {manifestProcessing && <div className="flex items-center gap-2 text-sm text-muted-foreground animate-fade-in"><Loader2 className="h-4 w-4 animate-spin" /> Processing manifest via cleaner...</div>}
+                    {manifestProcessing && <div className="flex items-center gap-2 text-sm text-muted-foreground animate-fade-in"><Loader2 className="h-4 w-4 animate-spin" /> Processing manifest via cleaner...</div>}
           {manifestError && <div className="text-sm text-destructive bg-destructive/10 rounded-lg px-3 py-2 animate-fade-in flex items-center gap-1.5"><XCircle className="h-4 w-4 shrink-0" />{manifestError}</div>}
           
           {manifestResult && !manifestProcessing && manifestResult.errors.length > 0 && (
