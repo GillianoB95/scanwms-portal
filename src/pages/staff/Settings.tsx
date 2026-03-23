@@ -1,0 +1,411 @@
+import { useState, useMemo } from 'react';
+import { Loader2, Plus, Pencil, Trash2, Save } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { supabase } from '@/lib/supabase';
+import { useAllWarehouses } from '@/hooks/use-staff-data';
+import { toast } from 'sonner';
+
+/* ─── Email Templates ─── */
+const DEFAULT_TEMPLATES = [
+  {
+    key: 'customs_cleared',
+    label: 'Customs Cleared',
+    default_subject: 'Customs Cleared — {{mawb}}',
+    default_body: 'Dear {{customer_name}},\n\nYour shipment {{mawb}} has been cleared by customs.\n\nColli: {{colli_count}}\n\nBest regards',
+  },
+  {
+    key: 'customs_cleared_fyco',
+    label: 'Customs Cleared with Fyco',
+    default_subject: 'Customs Cleared with Inspections — {{mawb}}',
+    default_body: 'Dear {{customer_name}},\n\nYour shipment {{mawb}} has been cleared by customs with {{fyco_count}} inspection(s).\n\nInspected parcels:\n{{parcel_list}}\n\nBest regards',
+  },
+  {
+    key: 'converted_manifest',
+    label: 'Converted Manifest',
+    default_subject: 'Manifest Converted — {{mawb}}',
+    default_body: 'Dear {{customer_name}},\n\nThe manifest for shipment {{mawb}} has been converted and is ready.\n\nColli: {{colli_count}}\n\nBest regards',
+  },
+  {
+    key: 'inbound_finish_scan',
+    label: 'Inbound Finish Scan',
+    default_subject: 'Inbound Scan Complete — {{mawb}}',
+    default_body: 'Dear {{customer_name}},\n\nInbound scanning for shipment {{mawb}} is complete.\n\nColli scanned: {{colli_count}}\n\nBest regards',
+  },
+];
+
+function useEmailTemplates() {
+  return useQuery({
+    queryKey: ['email-templates'],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('email_templates').select('*').order('template_key');
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+}
+
+function useUpsertTemplate() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (tpl: { template_key: string; subject: string; body: string }) => {
+      const { data: existing } = await supabase.from('email_templates').select('id').eq('template_key', tpl.template_key).maybeSingle();
+      if (existing) {
+        const { error } = await supabase.from('email_templates').update({ subject: tpl.subject, body: tpl.body }).eq('id', existing.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from('email_templates').insert(tpl);
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['email-templates'] });
+      toast.success('Template saved');
+    },
+  });
+}
+
+function EmailTemplatesTab() {
+  const { data: templates = [], isLoading } = useEmailTemplates();
+  const upsert = useUpsertTemplate();
+  const [editing, setEditing] = useState<string | null>(null);
+  const [subject, setSubject] = useState('');
+  const [body, setBody] = useState('');
+
+  const startEdit = (key: string) => {
+    const saved = templates.find((t: any) => t.template_key === key);
+    const def = DEFAULT_TEMPLATES.find(d => d.key === key)!;
+    setSubject(saved?.subject ?? def.default_subject);
+    setBody(saved?.body ?? def.default_body);
+    setEditing(key);
+  };
+
+  const handleSave = async () => {
+    if (!editing) return;
+    await upsert.mutateAsync({ template_key: editing, subject, body });
+    setEditing(null);
+  };
+
+  if (isLoading) return <div className="flex justify-center py-8"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>;
+
+  return (
+    <div className="space-y-4">
+      <p className="text-sm text-muted-foreground">
+        Available placeholders: <code className="text-xs bg-muted px-1 rounded">{'{{customer_name}}'}</code> <code className="text-xs bg-muted px-1 rounded">{'{{mawb}}'}</code> <code className="text-xs bg-muted px-1 rounded">{'{{fyco_count}}'}</code> <code className="text-xs bg-muted px-1 rounded">{'{{parcel_list}}'}</code> <code className="text-xs bg-muted px-1 rounded">{'{{colli_count}}'}</code>
+      </p>
+      <div className="bg-card rounded-xl border overflow-hidden">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Template</TableHead>
+              <TableHead>Subject</TableHead>
+              <TableHead className="text-right">Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {DEFAULT_TEMPLATES.map(def => {
+              const saved = templates.find((t: any) => t.template_key === def.key);
+              return (
+                <TableRow key={def.key}>
+                  <TableCell className="font-medium">{def.label}</TableCell>
+                  <TableCell className="text-sm text-muted-foreground">{saved?.subject ?? def.default_subject}</TableCell>
+                  <TableCell className="text-right">
+                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => startEdit(def.key)}>
+                      <Pencil className="h-3.5 w-3.5" />
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
+      </div>
+
+      {editing && (
+        <Dialog open={!!editing} onOpenChange={v => { if (!v) setEditing(null); }}>
+          <DialogContent className="max-w-xl">
+            <DialogHeader>
+              <DialogTitle>Edit Template — {DEFAULT_TEMPLATES.find(d => d.key === editing)?.label}</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label>Subject</Label>
+                <Input value={subject} onChange={e => setSubject(e.target.value)} />
+              </div>
+              <div className="space-y-2">
+                <Label>Body</Label>
+                <Textarea value={body} onChange={e => setBody(e.target.value)} rows={10} className="font-mono text-sm" />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setEditing(null)}>Cancel</Button>
+              <Button onClick={handleSave} disabled={upsert.isPending}>
+                {upsert.isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+                Save Template
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
+    </div>
+  );
+}
+
+/* ─── Email Accounts ─── */
+function useEmailAccounts() {
+  return useQuery({
+    queryKey: ['email-accounts'],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('email_accounts').select('*, customers(name), warehouses(name, code)').order('created_at', { ascending: false });
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+}
+
+function useCreateEmailAccount() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (account: { customer_id?: string; warehouse_id?: string; from_email: string; domain: string }) => {
+      const { error } = await supabase.from('email_accounts').insert(account);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['email-accounts'] });
+      toast.success('Email account created');
+    },
+  });
+}
+
+function useUpdateEmailAccount() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, ...updates }: { id: string; [key: string]: any }) => {
+      const { error } = await supabase.from('email_accounts').update(updates).eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['email-accounts'] });
+      toast.success('Email account updated');
+    },
+  });
+}
+
+function useDeleteEmailAccount() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from('email_accounts').delete().eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['email-accounts'] });
+      toast.success('Email account deleted');
+    },
+  });
+}
+
+function EmailAccountFormDialog({ open, onOpenChange, account }: { open: boolean; onOpenChange: (v: boolean) => void; account?: any }) {
+  const { data: warehouses = [] } = useAllWarehouses();
+  const { data: customers = [] } = useQuery({
+    queryKey: ['staff-customers-simple'],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('customers').select('id, name').order('name');
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+  const createAccount = useCreateEmailAccount();
+  const updateAccount = useUpdateEmailAccount();
+
+  const [customerId, setCustomerId] = useState(account?.customer_id || '');
+  const [warehouseId, setWarehouseId] = useState(account?.warehouse_id || '');
+  const [fromEmail, setFromEmail] = useState(account?.from_email || '');
+  const [domain, setDomain] = useState(account?.domain || '');
+  const [saving, setSaving] = useState(false);
+
+  const isEdit = !!account?.id;
+
+  const handleSave = async () => {
+    if (!fromEmail || !domain) return;
+    setSaving(true);
+    try {
+      const payload = {
+        customer_id: customerId || null,
+        warehouse_id: warehouseId || null,
+        from_email: fromEmail,
+        domain,
+      };
+      if (isEdit) {
+        await updateAccount.mutateAsync({ id: account.id, ...payload });
+      } else {
+        await createAccount.mutateAsync(payload);
+      }
+      onOpenChange(false);
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to save');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{isEdit ? 'Edit Email Account' : 'Add Email Account'}</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4 py-4">
+          <div className="space-y-2">
+            <Label>Customer</Label>
+            <Select value={customerId} onValueChange={setCustomerId}>
+              <SelectTrigger><SelectValue placeholder="Select customer (optional)" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="">None</SelectItem>
+                {customers.map((c: any) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label>Warehouse</Label>
+            <Select value={warehouseId} onValueChange={setWarehouseId}>
+              <SelectTrigger><SelectValue placeholder="Select warehouse (optional)" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="">None</SelectItem>
+                {warehouses.map((w: any) => <SelectItem key={w.id} value={w.id}>{w.code} — {w.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label>From Email *</Label>
+            <Input type="email" value={fromEmail} onChange={e => setFromEmail(e.target.value)} placeholder="noreply@company.com" />
+          </div>
+          <div className="space-y-2">
+            <Label>Domain *</Label>
+            <Input value={domain} onChange={e => setDomain(e.target.value)} placeholder="company.com" />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+          <Button onClick={handleSave} disabled={!fromEmail || !domain || saving}>
+            {saving && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+            {isEdit ? 'Save' : 'Create'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function EmailAccountsTab() {
+  const { data: accounts = [], isLoading } = useEmailAccounts();
+  const deleteAccount = useDeleteEmailAccount();
+  const [formOpen, setFormOpen] = useState(false);
+  const [editAccount, setEditAccount] = useState<any>(null);
+  const [deleteTarget, setDeleteTarget] = useState<any>(null);
+
+  if (isLoading) return <div className="flex justify-center py-8"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>;
+
+  return (
+    <div className="space-y-4">
+      <div className="flex justify-end">
+        <Button onClick={() => { setEditAccount(null); setFormOpen(true); }}>
+          <Plus className="h-4 w-4 mr-2" />
+          Add Email Account
+        </Button>
+      </div>
+      <p className="text-sm text-muted-foreground">SMTP connection is not required — these settings are stored for future use.</p>
+      <div className="bg-card rounded-xl border overflow-hidden">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Customer</TableHead>
+              <TableHead>Warehouse</TableHead>
+              <TableHead>From Email</TableHead>
+              <TableHead>Domain</TableHead>
+              <TableHead className="text-right">Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {accounts.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">No email accounts configured</TableCell>
+              </TableRow>
+            ) : accounts.map((a: any) => (
+              <TableRow key={a.id}>
+                <TableCell>{a.customers?.name || '—'}</TableCell>
+                <TableCell>{a.warehouses ? `${a.warehouses.code} — ${a.warehouses.name}` : '—'}</TableCell>
+                <TableCell className="font-mono text-sm">{a.from_email}</TableCell>
+                <TableCell className="text-muted-foreground">{a.domain}</TableCell>
+                <TableCell>
+                  <div className="flex items-center justify-end gap-1">
+                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setEditAccount(a); setFormOpen(true); }}>
+                      <Pencil className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => setDeleteTarget(a)}>
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+
+      {formOpen && (
+        <EmailAccountFormDialog
+          open={formOpen}
+          onOpenChange={v => { if (!v) { setFormOpen(false); setEditAccount(null); } }}
+          account={editAccount}
+        />
+      )}
+
+      <AlertDialog open={!!deleteTarget} onOpenChange={v => { if (!v) setDeleteTarget(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete email account?</AlertDialogTitle>
+            <AlertDialogDescription>This will remove the email account for {deleteTarget?.from_email}.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => { deleteAccount.mutate(deleteTarget.id); setDeleteTarget(null); }} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Delete</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
+  );
+}
+
+/* ─── Main Settings Page ─── */
+export default function SettingsPage() {
+  return (
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-2xl font-bold">Settings</h1>
+        <p className="text-muted-foreground text-sm mt-1">Manage email templates and accounts</p>
+      </div>
+
+      <Tabs defaultValue="templates">
+        <TabsList>
+          <TabsTrigger value="templates">Email Templates</TabsTrigger>
+          <TabsTrigger value="accounts">Email Accounts</TabsTrigger>
+        </TabsList>
+        <TabsContent value="templates" className="mt-4">
+          <EmailTemplatesTab />
+        </TabsContent>
+        <TabsContent value="accounts" className="mt-4">
+          <EmailAccountsTab />
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+}
