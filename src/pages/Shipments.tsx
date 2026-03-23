@@ -186,9 +186,7 @@ export default function Shipments() {
                   <td className="px-5 py-3">
                     <span className="font-mono font-medium text-accent">{s.mawb}</span>
                   </td>
-                  <td className="px-5 py-3 text-muted-foreground">{s.subklanten?.name ?? '—'}</td>
                   <td className="px-5 py-3 text-right tabular-nums">{s.pieces ?? '—'}</td>
-                  <td className="px-5 py-3 text-right tabular-nums">{s.parcels ?? '—'}</td>
                   <td className="px-5 py-3 text-right tabular-nums">{s.weight != null ? `${s.weight} kg` : '—'}</td>
                   <td className="px-5 py-3">
                     <StatusBadge status={s.status} />
