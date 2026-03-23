@@ -173,7 +173,7 @@ export default function MawbOverview() {
               <TableHead>Customer</TableHead>
               <TableHead>MAWB</TableHead>
               <TableHead>Warehouse</TableHead>
-              <TableHead className="text-right">Parcels</TableHead>
+              <TableHead className="text-right">Colli</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>ETA</TableHead>
               <TableHead>NOA Date</TableHead>
