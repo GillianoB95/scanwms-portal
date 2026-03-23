@@ -124,68 +124,8 @@ export default function NewShipment() {
 
     return () => { cancelled = true; };
   }, [awbFile]);
-  useEffect(() => {
-    if (!awbFile) { setAwbData(null); setAwbError(null); setAwbManualMode(false); return; }
-    let cancelled = false;
-    setAwbExtracting(true);
-    setAwbError(null);
-    setAwbData(null);
-    setAwbManualMode(false);
 
-    const extract = async () => {
-      const formData = new FormData();
-      formData.append('file', awbFile);
 
-      // Try Railway first
-      try {
-        const res = await fetchWithTimeout(
-          `${MANIFEST_CLEANER_URL}/extract-awb`,
-          { method: 'POST', body: formData },
-          15000
-        );
-        if (res.ok) {
-          const data = await res.json();
-          if (!data.error) return data as AwbServerData;
-        }
-      } catch (e) {
-        console.warn('Railway AWB extraction failed, trying Supabase fallback:', e);
-      }
-
-      // Fallback to Supabase edge function
-      const formData2 = new FormData();
-      formData2.append('file', awbFile);
-      const { data, error } = await supabase.functions.invoke('extract-awb', { body: formData2 });
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
-      return data as AwbServerData;
-    };
-
-    // Wrap with overall 15s timeout for the fallback too
-    const timeoutId = setTimeout(() => {
-      if (!cancelled) {
-        setAwbExtracting(false);
-        setAwbManualMode(true);
-        setAwbError('AWB extraction timed out. Please enter the values manually.');
-      }
-    }, 32000); // total budget: ~15s railway + ~15s supabase + buffer
-
-    extract()
-      .then((result) => {
-        if (cancelled) return;
-        clearTimeout(timeoutId);
-        setAwbData(result);
-        if (result.mawb && !mawb) setMawb(result.mawb);
-      })
-      .catch((err) => {
-        if (cancelled) return;
-        clearTimeout(timeoutId);
-        setAwbManualMode(true);
-        setAwbError('Could not extract AWB data. Please enter the values manually.');
-      })
-      .finally(() => { if (!cancelled) setAwbExtracting(false); });
-
-    return () => { cancelled = true; clearTimeout(timeoutId); };
-  }, [awbFile]);
 
   // Manifest processing via Railway manifest cleaner
   useEffect(() => {
