@@ -172,10 +172,18 @@ export default function NewShipment() {
     return () => { cancelled = true; };
   }, [mawb, customer?.id]);
 
-  const colli = manualColli !== '' ? (parseInt(manualColli) || 0) : (awbData?.pieces ?? 0);
-  const grossWeight = manualGrossWeight !== '' ? (parseFloat(manualGrossWeight) || 0) : (awbData?.gross_weight ?? 0);
-  const chargeableWeight = manualChargeableWeight !== '' ? (parseFloat(manualChargeableWeight) || 0) : (awbData?.chargeable_weight ?? 0);
-  const awbExtracted = awbManualMode || (!!awbData && !awbExtracting && !awbError);
+  // Auto-populate manual fields when extraction succeeds
+  useEffect(() => {
+    if (awbData) {
+      if (awbData.pieces != null && manualColli === '') setManualColli(String(awbData.pieces));
+      if (awbData.gross_weight != null && manualGrossWeight === '') setManualGrossWeight(String(awbData.gross_weight));
+      if (awbData.chargeable_weight != null && manualChargeableWeight === '') setManualChargeableWeight(String(awbData.chargeable_weight));
+    }
+  }, [awbData]);
+
+  const colli = manualColli !== '' ? (parseInt(manualColli) || 0) : 0;
+  const grossWeight = manualGrossWeight !== '' ? (parseFloat(manualGrossWeight) || 0) : 0;
+  const chargeableWeight = manualChargeableWeight !== '' ? (parseFloat(manualChargeableWeight) || 0) : 0;
   const manifestReady = !!manifestResult?.cleanedBlob && !manifestProcessing;
   const hasBlockingErrors = (manifestResult?.errors?.length ?? 0) > 0;
 
@@ -184,7 +192,7 @@ export default function NewShipment() {
     subklantId &&
     awbFile &&
     manifestFile &&
-    (awbExtracted || (manualColli !== '' && manualGrossWeight !== '' && manualChargeableWeight !== '')) &&
+    manualColli !== '' && manualGrossWeight !== '' && manualChargeableWeight !== '' &&
     manifestReady &&
     !duplicateMawb &&
     !hasBlockingErrors;
@@ -315,21 +323,18 @@ export default function NewShipment() {
               <div className="grid grid-cols-3 gap-3">
                 <div>
                   <label className="text-xs text-muted-foreground block mb-1">Colli (pieces)</label>
-                  <div className="w-full h-9 px-2.5 rounded-md border bg-muted text-sm tabular-nums font-mono flex items-center text-foreground">
-                    {awbData?.pieces ?? '—'}
-                  </div>
+                  <input type="number" min="0" value={manualColli} onChange={e => setManualColli(e.target.value)} placeholder="0"
+                    className="w-full h-9 px-2.5 rounded-md border bg-background text-sm tabular-nums font-mono text-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
                 </div>
                 <div>
                   <label className="text-xs text-muted-foreground block mb-1">Gross Weight (kg)</label>
-                  <div className="w-full h-9 px-2.5 rounded-md border bg-muted text-sm tabular-nums font-mono flex items-center text-foreground">
-                    {awbData?.gross_weight != null ? awbData.gross_weight.toLocaleString() : '—'}
-                  </div>
+                  <input type="number" min="0" step="0.01" value={manualGrossWeight} onChange={e => setManualGrossWeight(e.target.value)} placeholder="0"
+                    className="w-full h-9 px-2.5 rounded-md border bg-background text-sm tabular-nums font-mono text-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
                 </div>
                 <div>
                   <label className="text-xs text-muted-foreground block mb-1">Chargeable Weight (kg)</label>
-                  <div className="w-full h-9 px-2.5 rounded-md border bg-muted text-sm tabular-nums font-mono flex items-center text-foreground">
-                    {awbData?.chargeable_weight != null ? awbData.chargeable_weight.toLocaleString() : '—'}
-                  </div>
+                  <input type="number" min="0" step="0.01" value={manualChargeableWeight} onChange={e => setManualChargeableWeight(e.target.value)} placeholder="0"
+                    className="w-full h-9 px-2.5 rounded-md border bg-background text-sm tabular-nums font-mono text-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
                 </div>
               </div>
             </div>
