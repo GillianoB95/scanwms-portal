@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import { Search, Loader2, Plus, Pencil, Trash2, ChevronDown, ChevronRight, Users, Bell } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
@@ -10,6 +11,7 @@ import { Label } from '@/components/ui/label';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth-context';
+import { useAllWarehouses } from '@/hooks/use-staff-data';
 import { toast } from 'sonner';
 
 function useCustomersWithSubs() {
