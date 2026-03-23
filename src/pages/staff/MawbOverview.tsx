@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { Search, Loader2, Eye, Pencil, CheckCircle, Ban, Trash2, StickyNote, ShieldAlert, ShieldOff } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Search, Loader2, Eye, Pencil, CheckCircle, Ban, Trash2, X as XIcon } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -17,95 +17,14 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useAuth } from '@/lib/auth-context';
+import { EditShipmentModal } from '@/components/staff/EditShipmentModal';
+import { FycoDetailModal } from '@/components/staff/FycoDetailModal';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { CalendarIcon } from 'lucide-react';
 import { toast } from 'sonner';
 
 const ALL_STATUSES = ['Awaiting NOA', 'Partial NOA', 'NOA Complete', 'In Transit', 'In Stock', 'Outbound', 'Needs Action'];
-
-/* ─── Edit Modal ─── */
-function EditShipmentModal({ shipment, open, onOpenChange }: { shipment: any; open: boolean; onOpenChange: (v: boolean) => void }) {
-  const updateShipment = useUpdateShipment();
-  const [colli, setColli] = useState(String(shipment?.colli_expected ?? 0));
-  const [eta, setEta] = useState<Date | undefined>(shipment?.eta ? new Date(shipment.eta) : undefined);
-  const [status, setStatus] = useState(shipment?.status ?? '');
-  const [notes, setNotes] = useState(shipment?.notes ?? '');
-  const [saving, setSaving] = useState(false);
-
-  const handleSave = async () => {
-    setSaving(true);
-    try {
-      await updateShipment.mutateAsync({
-        id: shipment.id,
-        colli_expected: parseInt(colli) || 0,
-        eta: eta ? format(eta, 'yyyy-MM-dd') : null,
-        status,
-        notes: notes || null,
-      });
-      toast.success('Shipment updated');
-      onOpenChange(false);
-    } catch (err: any) {
-      toast.error(err.message || 'Failed to update');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Edit Shipment — {shipment?.mawb}</DialogTitle>
-        </DialogHeader>
-        <div className="space-y-4 py-4">
-          <div className="space-y-2">
-            <Label>Customer</Label>
-            <Input value={shipment?.customers?.name || '—'} disabled className="bg-muted" />
-          </div>
-          <div className="space-y-2">
-            <Label>Units (Colli)</Label>
-            <Input type="number" value={colli} onChange={e => setColli(e.target.value)} />
-          </div>
-          <div className="space-y-2">
-            <Label>ETA</Label>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !eta && "text-muted-foreground")}>
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {eta ? format(eta, 'dd/MM/yyyy') : 'Pick a date'}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <Calendar mode="single" selected={eta} onSelect={setEta} className="p-3 pointer-events-auto" />
-              </PopoverContent>
-            </Popover>
-          </div>
-          <div className="space-y-2">
-            <Label>Status</Label>
-            <Select value={status} onValueChange={setStatus}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {ALL_STATUSES.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-2">
-            <Label>Notes</Label>
-            <Textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder="Internal notes..." rows={3} />
-          </div>
-        </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button onClick={handleSave} disabled={saving}>
-            {saving && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-            Save Changes
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
 
 /* ─── Block Modal ─── */
 function BlockModal({ shipment, open, onOpenChange }: { shipment: any; open: boolean; onOpenChange: (v: boolean) => void }) {
@@ -121,12 +40,8 @@ function BlockModal({ shipment, open, onOpenChange }: { shipment: any; open: boo
     setSaving(true);
     try {
       const promises: Promise<void>[] = [];
-      if (inbound) {
-        promises.push(createBlock.mutateAsync({ shipment_id: shipment.id, block_type: 'inbound', reason, created_by: user?.id }));
-      }
-      if (outbound) {
-        promises.push(createBlock.mutateAsync({ shipment_id: shipment.id, block_type: 'outbound', reason, created_by: user?.id }));
-      }
+      if (inbound) promises.push(createBlock.mutateAsync({ shipment_id: shipment.id, block_type: 'inbound', reason, created_by: user?.id }));
+      if (outbound) promises.push(createBlock.mutateAsync({ shipment_id: shipment.id, block_type: 'outbound', reason, created_by: user?.id }));
       await Promise.all(promises);
       toast.success('Block(s) applied');
       onOpenChange(false);
@@ -141,9 +56,7 @@ function BlockModal({ shipment, open, onOpenChange }: { shipment: any; open: boo
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Block Shipment — {shipment?.mawb}</DialogTitle>
-        </DialogHeader>
+        <DialogHeader><DialogTitle>Block Shipment — {shipment?.mawb}</DialogTitle></DialogHeader>
         <div className="space-y-4 py-4">
           <div className="space-y-3">
             <div className="flex items-center gap-2">
@@ -181,6 +94,8 @@ function CcYesModal({ shipment, open, onOpenChange }: { shipment: any; open: boo
   const [hasInspections, setHasInspections] = useState<boolean | null>(null);
   const [barcodes, setBarcodes] = useState('');
   const [saving, setSaving] = useState(false);
+
+  const lineCount = barcodes.split('\n').filter(l => l.trim()).length;
 
   const handleSave = async () => {
     setSaving(true);
@@ -222,9 +137,7 @@ function CcYesModal({ shipment, open, onOpenChange }: { shipment: any; open: boo
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Customs Clearance — {shipment?.mawb}</DialogTitle>
-        </DialogHeader>
+        <DialogHeader><DialogTitle>Customs Clearance — {shipment?.mawb}</DialogTitle></DialogHeader>
         <div className="space-y-4 py-4">
           {hasInspections === null ? (
             <div className="space-y-3">
@@ -238,16 +151,14 @@ function CcYesModal({ shipment, open, onOpenChange }: { shipment: any; open: boo
             <div className="space-y-2">
               <Label>Parcel Barcodes (one per line)</Label>
               <Textarea value={barcodes} onChange={e => setBarcodes(e.target.value)} placeholder="Paste barcodes here, one per line..." rows={6} className="font-mono text-sm" />
-              <p className="text-xs text-muted-foreground">{barcodes.split('\n').filter(l => l.trim()).length} barcode(s)</p>
+              <p className="text-xs text-muted-foreground">{lineCount} parcel(s)</p>
             </div>
           ) : (
             <p className="text-sm text-muted-foreground">Shipment will be marked as cleared with no inspections.</p>
           )}
         </div>
         <DialogFooter>
-          {hasInspections !== null && (
-            <Button variant="ghost" onClick={() => setHasInspections(null)}>Back</Button>
-          )}
+          {hasInspections !== null && <Button variant="ghost" onClick={() => setHasInspections(null)}>Back</Button>}
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
           {hasInspections !== null && (
             <Button onClick={handleSave} disabled={saving}>
@@ -264,13 +175,9 @@ function CcYesModal({ shipment, open, onOpenChange }: { shipment: any; open: boo
 /* ─── Unblock Dialog ─── */
 function UnblockDialog({ block, open, onOpenChange }: { block: any; open: boolean; onOpenChange: (v: boolean) => void }) {
   const removeBlock = useRemoveBlock();
-
   const handleUnblock = () => {
     removeBlock.mutate(block.id, {
-      onSuccess: () => {
-        toast.success('Block removed');
-        onOpenChange(false);
-      },
+      onSuccess: () => { toast.success('Block removed'); onOpenChange(false); },
       onError: (err) => toast.error(err.message),
     });
   };
@@ -299,7 +206,6 @@ export default function MawbOverview() {
   const { data: shipments = [], isLoading } = useAllShipments();
   const { data: blocks = [] } = useShipmentBlocks();
   const { data: inspections = [] } = useShipmentInspections();
-  const updateShipment = useUpdateShipment();
 
   const [search, setSearch] = useState('');
   const [customerFilter, setCustomerFilter] = useState('all');
@@ -334,7 +240,6 @@ export default function MawbOverview() {
     });
   }, [shipments, search, customerFilter, warehouseFilter, statusFilter, dateFrom, dateTo]);
 
-  // Build lookup maps
   const blocksByShipment = useMemo(() => {
     const map = new Map<string, any[]>();
     blocks.forEach((b: any) => {
@@ -353,11 +258,7 @@ export default function MawbOverview() {
   }, [inspections]);
 
   if (isLoading) {
-    return (
-      <div className="flex items-center justify-center py-20">
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-      </div>
-    );
+    return <div className="flex items-center justify-center py-20"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>;
   }
 
   return (
@@ -367,7 +268,6 @@ export default function MawbOverview() {
         <p className="text-muted-foreground text-sm mt-1">All shipments across all customers</p>
       </div>
 
-      {/* Filters */}
       <div className="bg-card rounded-xl border p-4">
         <div className="flex flex-wrap gap-3">
           <div className="relative flex-1 min-w-[200px]">
@@ -427,7 +327,6 @@ export default function MawbOverview() {
 
       <p className="text-sm text-muted-foreground">{filtered.length} shipment{filtered.length !== 1 ? 's' : ''}</p>
 
-      {/* Table */}
       <div className="bg-card rounded-xl border overflow-hidden">
         <Table>
           <TableHeader>
@@ -476,6 +375,7 @@ function ShipmentRow({ shipment, blocks, inspectionCount }: { shipment: any; blo
   const [blockOpen, setBlockOpen] = useState(false);
   const [ccOpen, setCcOpen] = useState(false);
   const [unblockTarget, setUnblockTarget] = useState<any>(null);
+  const [fycoOpen, setFycoOpen] = useState(false);
 
   const etaDate = shipment.eta ? new Date(shipment.eta) : undefined;
   const inboundBlock = blocks.find((b: any) => b.block_type === 'inbound');
@@ -483,9 +383,12 @@ function ShipmentRow({ shipment, blocks, inspectionCount }: { shipment: any; blo
   const hasNotes = !!shipment.notes;
 
   const handleEtaChange = (date: Date | undefined) => {
-    if (date) {
-      updateShipment.mutate({ id: shipment.id, eta: format(date, 'yyyy-MM-dd') });
-    }
+    updateShipment.mutate({ id: shipment.id, eta: date ? format(date, 'yyyy-MM-dd') : null });
+    setEtaOpen(false);
+  };
+
+  const handleClearEta = () => {
+    updateShipment.mutate({ id: shipment.id, eta: null });
     setEtaOpen(false);
   };
 
@@ -518,14 +421,12 @@ function ShipmentRow({ shipment, blocks, inspectionCount }: { shipment: any; blo
               </Badge>
             )}
             {inspectionCount > 0 && (
-              <Badge className="text-[10px] px-1.5 py-0 bg-red-600 hover:bg-red-700">
+              <Badge className="text-[10px] px-1.5 py-0 bg-red-600 hover:bg-red-700 cursor-pointer" onClick={() => setFycoOpen(true)}>
                 Fyco {inspectionCount}
               </Badge>
             )}
             {hasNotes && (
-              <Badge className="text-[10px] px-1.5 py-0 bg-purple-600 hover:bg-purple-700">
-                Note
-              </Badge>
+              <Badge className="text-[10px] px-1.5 py-0 bg-purple-600 hover:bg-purple-700">Note</Badge>
             )}
           </div>
         </TableCell>
@@ -539,6 +440,13 @@ function ShipmentRow({ shipment, blocks, inspectionCount }: { shipment: any; blo
             </PopoverTrigger>
             <PopoverContent className="w-auto p-0" align="start">
               <Calendar mode="single" selected={etaDate} onSelect={handleEtaChange} className="p-3 pointer-events-auto" />
+              {etaDate && (
+                <div className="px-3 pb-3">
+                  <Button variant="ghost" size="sm" className="w-full text-destructive" onClick={handleClearEta}>
+                    <XIcon className="h-3 w-3 mr-1" /> Clear ETA
+                  </Button>
+                </div>
+              )}
             </PopoverContent>
           </Popover>
         </TableCell>
@@ -546,12 +454,7 @@ function ShipmentRow({ shipment, blocks, inspectionCount }: { shipment: any; blo
           {shipment.noa_date ? format(new Date(shipment.noa_date), 'dd/MM/yy') : '—'}
         </TableCell>
         <TableCell>
-          <Switch
-            checked={!!shipment.customs_cleared}
-            onCheckedChange={() => {}}
-            className="scale-90"
-            disabled
-          />
+          <Switch checked={!!shipment.customs_cleared} onCheckedChange={() => {}} className="scale-90" disabled />
         </TableCell>
         <TableCell className="text-sm text-muted-foreground">
           {shipment.unloaded_date ? format(new Date(shipment.unloaded_date), 'dd/MM/yy') : '—'}
@@ -564,13 +467,7 @@ function ShipmentRow({ shipment, blocks, inspectionCount }: { shipment: any; blo
             <Button variant="ghost" size="icon" className="h-8 w-8" title="Edit" onClick={() => setEditOpen(true)}>
               <Pencil className="h-3.5 w-3.5" />
             </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8 text-accent hover:text-accent/80"
-              title="CC YES"
-              onClick={() => setCcOpen(true)}
-            >
+            <Button variant="ghost" size="icon" className="h-8 w-8 text-accent hover:text-accent/80" title="CC YES" onClick={() => setCcOpen(true)}>
               <CheckCircle className="h-3.5 w-3.5" />
             </Button>
             <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" title="Block" onClick={() => setBlockOpen(true)}>
@@ -583,32 +480,23 @@ function ShipmentRow({ shipment, blocks, inspectionCount }: { shipment: any; blo
         </TableCell>
       </TableRow>
 
-      {editOpen && (
-        <EditShipmentModal shipment={shipment} open={editOpen} onOpenChange={v => { if (!v) setEditOpen(false); }} />
-      )}
-      {blockOpen && (
-        <BlockModal shipment={shipment} open={blockOpen} onOpenChange={v => { if (!v) setBlockOpen(false); }} />
-      )}
-      {ccOpen && (
-        <CcYesModal shipment={shipment} open={ccOpen} onOpenChange={v => { if (!v) setCcOpen(false); }} />
-      )}
-      {unblockTarget && (
-        <UnblockDialog block={unblockTarget} open={!!unblockTarget} onOpenChange={v => { if (!v) setUnblockTarget(null); }} />
-      )}
+      {editOpen && <EditShipmentModal shipment={shipment} open={editOpen} onOpenChange={v => { if (!v) setEditOpen(false); }} />}
+      {blockOpen && <BlockModal shipment={shipment} open={blockOpen} onOpenChange={v => { if (!v) setBlockOpen(false); }} />}
+      {ccOpen && <CcYesModal shipment={shipment} open={ccOpen} onOpenChange={v => { if (!v) setCcOpen(false); }} />}
+      {unblockTarget && <UnblockDialog block={unblockTarget} open={!!unblockTarget} onOpenChange={v => { if (!v) setUnblockTarget(null); }} />}
+      {fycoOpen && <FycoDetailModal shipment={shipment} open={fycoOpen} onOpenChange={v => { if (!v) setFycoOpen(false); }} />}
 
       <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete shipment?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently delete shipment <span className="font-mono font-semibold">{shipment.mawb}</span> and all related records. This action cannot be undone.
+              This will permanently delete shipment <span className="font-mono font-semibold">{shipment.mawb}</span> and all related records.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-              Delete
-            </AlertDialogAction>
+            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Delete</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

@@ -12,8 +12,8 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Calendar } from '@/components/ui/calendar';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import { useAllShipments, useUpdateShipment } from '@/hooks/use-staff-data';
+import { EditShipmentModal } from '@/components/staff/EditShipmentModal';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { format } from 'date-fns';
@@ -30,9 +30,7 @@ function useCreateNoa() {
       if (error) throw error;
       return data;
     },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['staff-all-shipments'] });
-    },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['staff-all-shipments'] }); },
   });
 }
 
@@ -50,10 +48,8 @@ function NoaUploadModal({ shipment, open, onOpenChange }: { shipment: any; open:
   const handleSave = async () => {
     if (!colli || !weight) return;
     setUploading(true);
-
     try {
       let filePath: string | undefined;
-
       if (file) {
         const ext = file.name.split('.').pop();
         const path = `noas/${shipment.id}/${Date.now()}.${ext}`;
@@ -61,42 +57,19 @@ function NoaUploadModal({ shipment, open, onOpenChange }: { shipment: any; open:
         if (uploadError) throw uploadError;
         filePath = path;
       }
-
       await createNoa.mutateAsync({
-        shipment_id: shipment.id,
-        colli: parseInt(colli),
-        weight: parseFloat(weight),
-        source: source || 'Unknown',
-        file_path: filePath,
-        received_at: new Date(receivedAt).toISOString(),
+        shipment_id: shipment.id, colli: parseInt(colli), weight: parseFloat(weight),
+        source: source || 'Unknown', file_path: filePath, received_at: new Date(receivedAt).toISOString(),
       });
-
-      const { data: allNoas } = await supabase
-        .from('noas')
-        .select('colli')
-        .eq('shipment_id', shipment.id);
-
+      const { data: allNoas } = await supabase.from('noas').select('colli').eq('shipment_id', shipment.id);
       const totalReceived = (allNoas ?? []).reduce((sum: number, n: any) => sum + (n.colli ?? 0), 0);
       const expected = shipment.colli_expected ?? shipment.parcels ?? 0;
-
       let newStatus = shipment.status;
-      if (expected > 0 && totalReceived >= expected) {
-        newStatus = 'NOA Complete';
-      } else if (totalReceived > 0) {
-        newStatus = 'Partial NOA';
-      }
-
-      await updateShipment.mutateAsync({
-        id: shipment.id,
-        colli_received: totalReceived,
-        status: newStatus,
-        noa_date: new Date().toISOString().split('T')[0],
-      });
-
+      if (expected > 0 && totalReceived >= expected) newStatus = 'NOA Complete';
+      else if (totalReceived > 0) newStatus = 'Partial NOA';
+      await updateShipment.mutateAsync({ id: shipment.id, colli_received: totalReceived, status: newStatus, noa_date: new Date().toISOString().split('T')[0] });
       toast.success(`NOA uploaded — ${totalReceived}/${expected} colli received`);
       onOpenChange(false);
-      setColli(''); setWeight(''); setSource(''); setFile(null);
-      setReceivedAt(new Date().toISOString().slice(0, 16));
     } catch (err: any) {
       toast.error(err.message || 'Failed to upload NOA');
     } finally {
@@ -107,37 +80,35 @@ function NoaUploadModal({ shipment, open, onOpenChange }: { shipment: any; open:
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Upload NOA — {shipment?.mawb}</DialogTitle>
-        </DialogHeader>
+        <DialogHeader><DialogTitle>Upload NOA — {shipment?.mawb}</DialogTitle></DialogHeader>
         <div className="space-y-4 py-4">
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="noa-colli">Colli Count *</Label>
-              <Input id="noa-colli" type="number" placeholder="0" value={colli} onChange={e => setColli(e.target.value)} />
+              <Label>Colli Count *</Label>
+              <Input type="number" placeholder="0" value={colli} onChange={e => setColli(e.target.value)} />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="noa-weight">Weight (kg) *</Label>
-              <Input id="noa-weight" type="number" step="0.01" placeholder="0.00" value={weight} onChange={e => setWeight(e.target.value)} />
+              <Label>Weight (kg) *</Label>
+              <Input type="number" step="0.01" placeholder="0.00" value={weight} onChange={e => setWeight(e.target.value)} />
             </div>
           </div>
           <div className="space-y-2">
-            <Label htmlFor="noa-received-at">NOA Received At</Label>
-            <Input id="noa-received-at" type="datetime-local" value={receivedAt} onChange={e => setReceivedAt(e.target.value)} />
+            <Label>NOA Received At</Label>
+            <Input type="datetime-local" value={receivedAt} onChange={e => setReceivedAt(e.target.value)} />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="noa-source">Source / Airline</Label>
-            <Input id="noa-source" placeholder="e.g. KLM, Emirates" value={source} onChange={e => setSource(e.target.value)} />
+            <Label>Source / Airline</Label>
+            <Input placeholder="e.g. KLM, Emirates" value={source} onChange={e => setSource(e.target.value)} />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="noa-file">PDF Document (optional)</Label>
-            <Input id="noa-file" type="file" accept=".pdf" onChange={e => setFile(e.target.files?.[0] || null)} />
+            <Label>PDF Document (optional)</Label>
+            <Input type="file" accept=".pdf" onChange={e => setFile(e.target.files?.[0] || null)} />
           </div>
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
           <Button onClick={handleSave} disabled={!colli || !weight || uploading}>
-            {uploading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+            {uploading && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
             Save NOA
           </Button>
         </DialogFooter>
@@ -152,7 +123,6 @@ function UnloadModal({ shipment, open, onOpenChange }: { shipment: any; open: bo
   const expected = shipment?.colli_expected ?? shipment?.parcels ?? 0;
   const alreadyUnloaded = shipment?.unloaded_colli ?? 0;
   const remaining = Math.max(0, expected - alreadyUnloaded);
-
   const [colliCount, setColliCount] = useState(String(remaining));
   const [unloadedAt, setUnloadedAt] = useState(new Date().toISOString().slice(0, 16));
   const [saving, setSaving] = useState(false);
@@ -164,18 +134,8 @@ function UnloadModal({ shipment, open, onOpenChange }: { shipment: any; open: bo
     try {
       const totalUnloaded = alreadyUnloaded + count;
       const allDone = expected > 0 && totalUnloaded >= expected;
-
-      await updateShipment.mutateAsync({
-        id: shipment.id,
-        unloaded_colli: totalUnloaded,
-        unloaded_at: new Date(unloadedAt).toISOString(),
-        status: allDone ? 'In Stock' : 'Partially Unloaded',
-      });
-
-      toast.success(allDone
-        ? `${shipment.mawb} fully unloaded (${totalUnloaded}/${expected})`
-        : `${shipment.mawb} partially unloaded (${totalUnloaded}/${expected})`
-      );
+      await updateShipment.mutateAsync({ id: shipment.id, unloaded_colli: totalUnloaded, unloaded_at: new Date(unloadedAt).toISOString(), status: allDone ? 'In Stock' : 'Partially Unloaded' });
+      toast.success(allDone ? `${shipment.mawb} fully unloaded` : `${shipment.mawb} partially unloaded (${totalUnloaded}/${expected})`);
       onOpenChange(false);
     } catch (err: any) {
       toast.error(err.message || 'Failed to update');
@@ -187,100 +147,25 @@ function UnloadModal({ shipment, open, onOpenChange }: { shipment: any; open: bo
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Unload Shipment — {shipment?.mawb}</DialogTitle>
-        </DialogHeader>
+        <DialogHeader><DialogTitle>Unload Shipment — {shipment?.mawb}</DialogTitle></DialogHeader>
         <div className="space-y-4 py-4">
           <div className="text-sm text-muted-foreground">
             Expected: <strong>{expected}</strong> colli · Already unloaded: <strong>{alreadyUnloaded}</strong> · Remaining: <strong>{remaining}</strong>
           </div>
           <div className="space-y-2">
-            <Label htmlFor="unload-colli">How many colli are being unloaded?</Label>
-            <Input id="unload-colli" type="number" min="1" max={remaining} value={colliCount} onChange={e => setColliCount(e.target.value)} />
+            <Label>How many colli are being unloaded?</Label>
+            <Input type="number" min="1" max={remaining} value={colliCount} onChange={e => setColliCount(e.target.value)} />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="unload-at">Unloaded At</Label>
-            <Input id="unload-at" type="datetime-local" value={unloadedAt} onChange={e => setUnloadedAt(e.target.value)} />
+            <Label>Unloaded At</Label>
+            <Input type="datetime-local" value={unloadedAt} onChange={e => setUnloadedAt(e.target.value)} />
           </div>
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
           <Button onClick={handleSave} disabled={saving || !colliCount || parseInt(colliCount) <= 0}>
-            {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+            {saving && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
             Confirm Unload
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-/* ─── Edit Shipment Modal ─── */
-function EditShipmentModal({ shipment, open, onOpenChange }: { shipment: any; open: boolean; onOpenChange: (v: boolean) => void }) {
-  const updateShipment = useUpdateShipment();
-  const [eta, setEta] = useState<Date | undefined>(shipment?.eta ? new Date(shipment.eta) : undefined);
-  const [notes, setNotes] = useState(shipment?.notes ?? '');
-  const [status, setStatus] = useState(shipment?.status ?? '');
-  const [saving, setSaving] = useState(false);
-
-  const handleSave = async () => {
-    setSaving(true);
-    try {
-      await updateShipment.mutateAsync({
-        id: shipment.id,
-        eta: eta ? format(eta, 'yyyy-MM-dd') : null,
-        notes: notes || null,
-        status,
-      });
-      toast.success('Shipment updated');
-      onOpenChange(false);
-    } catch (err: any) {
-      toast.error(err.message || 'Failed to update');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Edit Shipment — {shipment?.mawb}</DialogTitle>
-        </DialogHeader>
-        <div className="space-y-4 py-4">
-          <div className="space-y-2">
-            <Label>ETA</Label>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !eta && "text-muted-foreground")}>
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {eta ? format(eta, 'dd/MM/yyyy') : 'Pick a date'}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <Calendar mode="single" selected={eta} onSelect={setEta} className="p-3 pointer-events-auto" />
-              </PopoverContent>
-            </Popover>
-          </div>
-          <div className="space-y-2">
-            <Label>Status</Label>
-            <Select value={status} onValueChange={setStatus}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {ALL_STATUSES.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-2">
-            <Label>Notes</Label>
-            <Textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder="Internal notes..." rows={3} />
-          </div>
-        </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button onClick={handleSave} disabled={saving}>
-            {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-            Save Changes
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -337,11 +222,7 @@ export default function InboundShipment() {
   };
 
   if (isLoading) {
-    return (
-      <div className="flex items-center justify-center py-20">
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-      </div>
-    );
+    return <div className="flex items-center justify-center py-20"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>;
   }
 
   return (
@@ -351,7 +232,6 @@ export default function InboundShipment() {
         <p className="text-muted-foreground text-sm mt-1">Track incoming shipments, NOA status, and scanning progress</p>
       </div>
 
-      {/* Filters */}
       <div className="bg-card rounded-xl border p-4">
         <div className="flex flex-wrap gap-3">
           <div className="relative flex-1 min-w-[200px]">
@@ -411,7 +291,6 @@ export default function InboundShipment() {
 
       <p className="text-sm text-muted-foreground">{filtered.length} shipment{filtered.length !== 1 ? 's' : ''}</p>
 
-      {/* Table */}
       <div className="bg-card rounded-xl border overflow-hidden">
         <Table>
           <TableHeader>
@@ -458,7 +337,7 @@ export default function InboundShipment() {
                       </span>
                     </TableCell>
                     <TableCell className="text-right">{s.weight ?? '—'}</TableCell>
-        <TableCell>
+                    <TableCell>
                       <div className="flex items-center gap-1 flex-wrap">
                         <StatusBadge status={s.status} />
                         {s.notes && (
@@ -481,23 +360,11 @@ export default function InboundShipment() {
                           <Upload className="h-3.5 w-3.5" />
                         </Button>
                         {isUnloaded || isPartiallyUnloaded ? (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8"
-                            title="Undo Unloaded"
-                            onClick={() => handleUndoUnload(s)}
-                          >
+                          <Button variant="ghost" size="icon" className="h-8 w-8" title="Undo Unloaded" onClick={() => handleUndoUnload(s)}>
                             <Undo2 className="h-3.5 w-3.5 text-destructive" />
                           </Button>
                         ) : (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8"
-                            title="Mark as Unloaded"
-                            onClick={() => setUnloadShipment(s)}
-                          >
+                          <Button variant="ghost" size="icon" className="h-8 w-8" title="Mark as Unloaded" onClick={() => setUnloadShipment(s)}>
                             <PackageCheck className="h-3.5 w-3.5" />
                           </Button>
                         )}
@@ -519,16 +386,9 @@ export default function InboundShipment() {
         </Table>
       </div>
 
-      {/* Modals */}
-      {noaShipment && (
-        <NoaUploadModal shipment={noaShipment} open={!!noaShipment} onOpenChange={v => { if (!v) setNoaShipment(null); }} />
-      )}
-      {unloadShipment && (
-        <UnloadModal shipment={unloadShipment} open={!!unloadShipment} onOpenChange={v => { if (!v) setUnloadShipment(null); }} />
-      )}
-      {editShipment && (
-        <EditShipmentModal shipment={editShipment} open={!!editShipment} onOpenChange={v => { if (!v) setEditShipment(null); }} />
-      )}
+      {noaShipment && <NoaUploadModal shipment={noaShipment} open={!!noaShipment} onOpenChange={v => { if (!v) setNoaShipment(null); }} />}
+      {unloadShipment && <UnloadModal shipment={unloadShipment} open={!!unloadShipment} onOpenChange={v => { if (!v) setUnloadShipment(null); }} />}
+      {editShipment && <EditShipmentModal shipment={editShipment} open={!!editShipment} onOpenChange={v => { if (!v) setEditShipment(null); }} />}
     </div>
   );
 }

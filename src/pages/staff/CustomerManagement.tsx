@@ -498,6 +498,7 @@ export default function CustomerManagement() {
       </div>
 
       <CustomerFormDialog
+        key={editCustomer?.id || addSubParentId || 'new'}
         open={dialogOpen}
         onOpenChange={setDialogOpen}
         customer={editCustomer}

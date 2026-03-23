@@ -96,7 +96,7 @@ const App = () => (
             <Route path="/staff/warehouses" element={<StaffRoute><WarehouseManagement /></StaffRoute>} />
             <Route path="/staff/customers" element={<StaffRoute><CustomerManagement /></StaffRoute>} />
             <Route path="/staff/staff-users" element={<StaffRoute><StaffManagement /></StaffRoute>} />
-            <Route path="/staff/settings" element={<StaffRoute><StaffPlaceholder title="Settings" /></StaffRoute>} />
+            <Route path="/staff/settings" element={<StaffRoute><SettingsPage /></StaffRoute>} />
 
             {/* Warehouse Portal */}
             <Route path="/warehouse" element={<WarehouseRoute><WarehouseDashboard /></WarehouseRoute>} />

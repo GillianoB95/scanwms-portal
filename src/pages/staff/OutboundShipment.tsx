@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Search, Loader2, Plus, Eye, Truck, CalendarIcon, ChevronDown, ChevronRight, Undo2 } from 'lucide-react';
+import { Search, Loader2, Plus, Eye, Truck, CalendarIcon, ChevronDown, ChevronRight, Undo2, Trash2 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Label } from '@/components/ui/label';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
@@ -44,10 +45,7 @@ function useMarkPickedUp() {
       const { error } = await supabase.from('outbounds').update({ status: 'Picked Up' }).eq('id', id);
       if (error) throw error;
     },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['staff-all-outbounds'] });
-      toast.success('Outbound marked as picked up');
-    },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['staff-all-outbounds'] }); toast.success('Outbound marked as picked up'); },
   });
 }
 
@@ -58,41 +56,62 @@ function useUndoPickedUp() {
       const { error } = await supabase.from('outbounds').update({ status: 'Pending' }).eq('id', id);
       if (error) throw error;
     },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['staff-all-outbounds'] });
-      toast.success('Pickup status reverted');
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['staff-all-outbounds'] }); toast.success('Pickup status reverted'); },
+  });
+}
+
+function useDeleteOutbound() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from('outbounds').delete().eq('id', id);
+      if (error) throw error;
     },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['staff-all-outbounds'] }); toast.success('Outbound deleted'); },
   });
 }
 
 function useCreateOutbound() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (outbound: { hub_id: string; truck_reference: string; pickup_date: string; pickup_time?: string; outbound_number: string }) => {
+    mutationFn: async (outbound: { hub_id: string; truck_reference: string; pickup_date: string; pickup_time?: string; outbound_number: string; license_plate?: string }) => {
       const { data, error } = await supabase.from('outbounds').insert(outbound).select().single();
       if (error) throw error;
       return data;
     },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['staff-all-outbounds'] });
-      toast.success('Outbound created');
-    },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['staff-all-outbounds'] }); toast.success('Outbound created'); },
   });
 }
 
-function generateOutboundId() {
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-  let result = 'OUT-';
-  for (let i = 0; i < 8; i++) result += chars.charAt(Math.floor(Math.random() * chars.length));
-  return result;
+function useNextOutboundNumber() {
+  return useQuery({
+    queryKey: ['next-outbound-number'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('outbounds')
+        .select('outbound_number')
+        .not('outbound_number', 'is', null)
+        .order('created_at', { ascending: false })
+        .limit(100);
+      if (error) throw error;
+      let maxNum = 0;
+      (data ?? []).forEach((o: any) => {
+        const match = o.outbound_number?.match(/^(\d+)$/);
+        if (match) maxNum = Math.max(maxNum, parseInt(match[1]));
+      });
+      return maxNum + 1;
+    },
+  });
 }
 
 /* ─── Add Outbound Modal ─── */
 function AddOutboundModal({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) {
   const { data: hubs = [] } = useAllHubs();
+  const { data: nextNum = 1 } = useNextOutboundNumber();
   const createOutbound = useCreateOutbound();
   const [hubId, setHubId] = useState('');
   const [truckRef, setTruckRef] = useState('');
+  const [licensePlate, setLicensePlate] = useState('');
   const [pickupDate, setPickupDate] = useState<Date | undefined>(new Date());
   const [pickupTime, setPickupTime] = useState('');
   const [saving, setSaving] = useState(false);
@@ -104,12 +123,13 @@ function AddOutboundModal({ open, onOpenChange }: { open: boolean; onOpenChange:
       await createOutbound.mutateAsync({
         hub_id: hubId,
         truck_reference: truckRef,
+        license_plate: licensePlate || undefined,
         pickup_date: format(pickupDate, 'yyyy-MM-dd'),
         pickup_time: pickupTime || undefined,
-        outbound_number: generateOutboundId(),
+        outbound_number: String(nextNum),
       });
       onOpenChange(false);
-      setHubId(''); setTruckRef(''); setPickupDate(new Date()); setPickupTime('');
+      setHubId(''); setTruckRef(''); setLicensePlate(''); setPickupDate(new Date()); setPickupTime('');
     } catch (err: any) {
       toast.error(err.message || 'Failed to create outbound');
     } finally {
@@ -120,9 +140,7 @@ function AddOutboundModal({ open, onOpenChange }: { open: boolean; onOpenChange:
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Add Outbound</DialogTitle>
-        </DialogHeader>
+        <DialogHeader><DialogTitle>Add Outbound</DialogTitle></DialogHeader>
         <div className="space-y-4 py-4">
           <div className="space-y-2">
             <Label>Hub *</Label>
@@ -138,6 +156,10 @@ function AddOutboundModal({ open, onOpenChange }: { open: boolean; onOpenChange:
           <div className="space-y-2">
             <Label>Truck Reference</Label>
             <Input value={truckRef} onChange={e => setTruckRef(e.target.value)} placeholder="e.g. TRK-2024-001" />
+          </div>
+          <div className="space-y-2">
+            <Label>Truck License Plate</Label>
+            <Input value={licensePlate} onChange={e => setLicensePlate(e.target.value)} placeholder="e.g. AB-123-CD" />
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
@@ -159,11 +181,12 @@ function AddOutboundModal({ open, onOpenChange }: { open: boolean; onOpenChange:
               <Input type="time" value={pickupTime} onChange={e => setPickupTime(e.target.value)} />
             </div>
           </div>
+          <div className="text-sm text-muted-foreground">Outbound #{nextNum}</div>
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
           <Button onClick={handleSave} disabled={!hubId || !pickupDate || saving}>
-            {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+            {saving && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
             Create Outbound
           </Button>
         </DialogFooter>
@@ -174,11 +197,10 @@ function AddOutboundModal({ open, onOpenChange }: { open: boolean; onOpenChange:
 
 /* ─── Main Page ─── */
 export default function OutboundShipment() {
-  const { role } = useAuth();
-  const isAdmin = role === 'admin';
   const { data: outbounds = [], isLoading } = useAllOutbounds();
   const markPickedUp = useMarkPickedUp();
   const undoPickedUp = useUndoPickedUp();
+  const deleteOutbound = useDeleteOutbound();
 
   const [search, setSearch] = useState('');
   const [hubFilter, setHubFilter] = useState('all');
@@ -186,6 +208,7 @@ export default function OutboundShipment() {
   const [dateTo, setDateTo] = useState<Date | undefined>();
   const [expandedDates, setExpandedDates] = useState<Set<string>>(new Set());
   const [addOpen, setAddOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<any>(null);
 
   const hubs = useMemo(() => {
     const set = new Set(outbounds.map((o: any) => o.hub_name).filter(Boolean));
@@ -198,8 +221,7 @@ export default function OutboundShipment() {
       if (hubFilter !== 'all' && o.hub_name !== hubFilter) return false;
       if (dateFrom && new Date(o.pickup_date) < dateFrom) return false;
       if (dateTo) {
-        const to = new Date(dateTo);
-        to.setHours(23, 59, 59, 999);
+        const to = new Date(dateTo); to.setHours(23, 59, 59, 999);
         if (new Date(o.pickup_date) > to) return false;
       }
       return true;
@@ -225,11 +247,7 @@ export default function OutboundShipment() {
   };
 
   if (isLoading) {
-    return (
-      <div className="flex items-center justify-center py-20">
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-      </div>
-    );
+    return <div className="flex items-center justify-center py-20"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>;
   }
 
   return (
@@ -245,7 +263,6 @@ export default function OutboundShipment() {
         </Button>
       </div>
 
-      {/* Filters */}
       <div className="bg-card rounded-xl border p-4">
         <div className="flex flex-wrap gap-3">
           <div className="relative flex-1 min-w-[200px]">
@@ -303,10 +320,7 @@ export default function OutboundShipment() {
 
             return (
               <div key={dateKey} className="bg-card rounded-xl border overflow-hidden">
-                <button
-                  onClick={() => toggleDate(dateKey)}
-                  className="w-full flex items-center justify-between p-4 hover:bg-muted/50 transition-colors"
-                >
+                <button onClick={() => toggleDate(dateKey)} className="w-full flex items-center justify-between p-4 hover:bg-muted/50 transition-colors">
                   <div className="flex items-center gap-3">
                     {expanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
                     <span className="font-semibold">{displayDate}</span>
@@ -322,9 +336,10 @@ export default function OutboundShipment() {
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Outbound ID</TableHead>
+                        <TableHead>Outbound #</TableHead>
                         <TableHead>Carrier / Hub</TableHead>
                         <TableHead>Truck Reference</TableHead>
+                        <TableHead>License Plate</TableHead>
                         <TableHead>Time</TableHead>
                         <TableHead className="text-right">Pieces</TableHead>
                         <TableHead className="text-right">Weight</TableHead>
@@ -335,7 +350,9 @@ export default function OutboundShipment() {
                     <TableBody>
                       {items.map((o: any) => (
                         <TableRow key={o.id}>
-                          <TableCell className="font-mono text-sm text-muted-foreground">{o.outbound_number || '—'}</TableCell>
+                          <TableCell className="font-mono text-sm text-muted-foreground">
+                            {o.outbound_number ? `Outbound #${o.outbound_number}` : '—'}
+                          </TableCell>
                           <TableCell>
                             <div>
                               <span className="font-medium">{o.carrier}</span>
@@ -343,6 +360,7 @@ export default function OutboundShipment() {
                             </div>
                           </TableCell>
                           <TableCell className="font-mono text-sm">{o.truck_reference || '—'}</TableCell>
+                          <TableCell className="text-sm">{o.license_plate || '—'}</TableCell>
                           <TableCell className="text-sm text-muted-foreground">{o.pickup_time || '—'}</TableCell>
                           <TableCell className="text-right">{o.total_pieces ?? 0}</TableCell>
                           <TableCell className="text-right">{o.total_weight ? `${o.total_weight} kg` : '—'}</TableCell>
@@ -353,26 +371,17 @@ export default function OutboundShipment() {
                                 <Eye className="h-3.5 w-3.5" />
                               </Button>
                               {o.status === 'Picked Up' ? (
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-8 w-8"
-                                  title="Undo Picked Up"
-                                  onClick={() => undoPickedUp.mutate(o.id)}
-                                >
+                                <Button variant="ghost" size="icon" className="h-8 w-8" title="Undo Picked Up" onClick={() => undoPickedUp.mutate(o.id)}>
                                   <Undo2 className="h-3.5 w-3.5 text-destructive" />
                                 </Button>
                               ) : (
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-8 w-8"
-                                  title="Mark as Picked Up"
-                                  onClick={() => markPickedUp.mutate(o.id)}
-                                >
+                                <Button variant="ghost" size="icon" className="h-8 w-8" title="Mark as Picked Up" onClick={() => markPickedUp.mutate(o.id)}>
                                   <Truck className="h-3.5 w-3.5" />
                                 </Button>
                               )}
+                              <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" title="Delete" onClick={() => setDeleteTarget(o)}>
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </Button>
                             </div>
                           </TableCell>
                         </TableRow>
@@ -387,6 +396,21 @@ export default function OutboundShipment() {
       )}
 
       <AddOutboundModal open={addOpen} onOpenChange={setAddOpen} />
+
+      <AlertDialog open={!!deleteTarget} onOpenChange={v => { if (!v) setDeleteTarget(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete outbound?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete outbound {deleteTarget?.outbound_number ? `#${deleteTarget.outbound_number}` : deleteTarget?.id}.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => { deleteOutbound.mutate(deleteTarget.id); setDeleteTarget(null); }} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Delete</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
