@@ -77,12 +77,33 @@ export default function StaffManagement() {
     });
   }, [staffUsers, search, roleFilter]);
 
-  const handleInvite = () => {
-    if (!inviteEmail) return;
-    toast.info(`Invite flow for ${inviteEmail} as ${inviteRole} — implement with Supabase Auth invite`);
-    setInviteOpen(false);
-    setInviteEmail('');
-    setInviteRole('staff');
+  const handleCreateUser = async () => {
+    if (!inviteEmail || !invitePassword) return;
+    setCreating(true);
+    try {
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: inviteEmail,
+        password: invitePassword,
+      });
+      if (authError) throw authError;
+
+      const { error: linkError } = await supabase.from('customer_users').insert({
+        email: inviteEmail,
+        role: inviteRole,
+      });
+      if (linkError) throw linkError;
+
+      toast.success(`Staff user ${inviteEmail} created`);
+      setInviteOpen(false);
+      setInviteEmail('');
+      setInvitePassword('');
+      setInviteRole('staff');
+      qc.invalidateQueries({ queryKey: ['staff-users-list'] });
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to create user');
+    } finally {
+      setCreating(false);
+    }
   };
 
   if (isLoading) {
