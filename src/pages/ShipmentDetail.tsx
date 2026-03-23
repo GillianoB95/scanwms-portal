@@ -185,7 +185,7 @@ export default function ShipmentDetail() {
           <div><span className="text-muted-foreground block text-xs mb-0.5">Weight</span>{Number(shipment.chargeable_weight).toLocaleString()} kg</div>
         </div>
         <div className="flex gap-2 mt-4 pt-4 border-t">
-          {['Air Waybill', 'Original Manifest', 'Cleaned Manifest'].map(f => (
+          {['Air Waybill', 'Original Manifest'].map(f => (
             <button key={f} className="inline-flex items-center gap-1.5 text-xs font-medium text-accent hover:underline">
               <Download className="h-3.5 w-3.5" /> {f}
             </button>

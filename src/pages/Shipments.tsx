@@ -197,7 +197,7 @@ export default function Shipments() {
                 </tr>
               ))}
               {paginated.length === 0 && (
-                <tr><td colSpan={7} className="px-5 py-12 text-center text-muted-foreground">No shipments found</td></tr>
+                <tr><td colSpan={5} className="px-5 py-12 text-center text-muted-foreground">No shipments found</td></tr>
               )}
             </tbody>
           </table>
