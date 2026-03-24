@@ -276,15 +276,19 @@ export default function InboundScanning() {
 
       const normalizedCode = normalizeBoxBarcode(code);
 
+      const freshManifestData = await fetchManifestDataForShipment(shipment.id);
+      const effectiveHubMap = freshManifestData.hubMap.size > 0 ? freshManifestData.hubMap : hubMap;
+      const effectiveWeightMap = freshManifestData.weightMap.size > 0 ? freshManifestData.weightMap : weightMap;
+
       // Look up hub + weight from manifest
-      const boxHub = hubMap.get(normalizedCode) || null;
+      const boxHub = effectiveHubMap.get(normalizedCode) || null;
 
       // Hub consistency check
       if (boxHub && currentHub && boxHub !== currentHub) {
         throw new Error(`Cannot mix hubs on one pallet. Hub "${currentHub}" is active. Print the pallet label first to close this pallet, then you can scan "${boxHub}" boxes.`);
       }
 
-      const boxWeight = weightMap.get(normalizedCode) || null;
+      const boxWeight = effectiveWeightMap.get(normalizedCode) || null;
       console.log(`[Scan] Barcode: ${code}, hubMap size: ${hubMap.size}, weightMap size: ${weightMap.size}, weight: ${boxWeight}`);
 
       const insertData: any = {
