@@ -21,6 +21,7 @@ import StaffManagement from "./pages/staff/StaffManagement";
 import WarehouseManagement from "./pages/staff/WarehouseManagement";
 import SettingsPage from "./pages/staff/Settings";
 import StaffPlaceholder from "./pages/staff/StaffPlaceholder";
+import StaffShipmentDetail from "./pages/staff/StaffShipmentDetail";
 import WarehouseDashboard from "./pages/warehouse/WarehouseDashboard";
 import InboundScanning from "./pages/warehouse/InboundScanning";
 import WarehouseOutbound from "./pages/warehouse/WarehouseOutbound";
@@ -97,7 +98,7 @@ const App = () => (
             <Route path="/staff/customers" element={<StaffRoute><CustomerManagement /></StaffRoute>} />
             <Route path="/staff/staff-users" element={<StaffRoute><StaffManagement /></StaffRoute>} />
             <Route path="/staff/settings" element={<StaffRoute><SettingsPage /></StaffRoute>} />
-            <Route path="/staff/shipments/:id" element={<StaffRoute><ShipmentDetail /></StaffRoute>} />
+            <Route path="/staff/shipments/:id" element={<StaffRoute><StaffShipmentDetail /></StaffRoute>} />
 
             {/* Warehouse Portal */}
             <Route path="/warehouse" element={<WarehouseRoute><WarehouseDashboard /></WarehouseRoute>} />
