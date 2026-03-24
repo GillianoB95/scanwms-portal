@@ -32,14 +32,29 @@ async function parseManifestData(blob: Blob): Promise<{ hubMap: Map<string, stri
     const header = rows[0].map((h: any) => String(h).trim().toLowerCase());
     let boxBagCol = 2; // BoxBagbarcode
     let waybillCol = 3; // Waybill = hub
-    let weightCol = 13; // Total weight
+    let weightCol = -1; // Total weight — no fallback, must find by header
+
+    console.log('[Manifest] Headers:', header.map((h: string, i: number) => `[${i}]=${h}`).join(', '));
 
     const bbIdx = header.findIndex(h => h.includes('boxbagbarcode') || h.includes('boxbag'));
     if (bbIdx >= 0) boxBagCol = bbIdx;
     const wIdx = header.findIndex(h => h === 'waybill' || h.includes('waybill'));
     if (wIdx >= 0) waybillCol = wIdx;
-    const twIdx = header.findIndex(h => h.includes('total weight') || h === 'totalweight');
+    // Try multiple header name patterns for weight
+    const twIdx = header.findIndex(h =>
+      h === 'total weight' || h === 'totalweight' || h === 'total_weight' ||
+      h === 'totweight' || h === 'totaalgewicht' || h === 'totalkg' ||
+      h === 'total kg' || h === 'gewicht' || h === 'weight'
+    );
     if (twIdx >= 0) weightCol = twIdx;
+    // If no header match, fall back to index 13
+    if (weightCol < 0) weightCol = 13;
+
+    console.log(`[Manifest] Columns: boxBag=${boxBagCol}, waybill=${waybillCol}, weight=${weightCol}`);
+    // Log first data row for debugging
+    if (rows.length > 1) {
+      console.log('[Manifest] Sample row 1:', rows[1].map((v: any, i: number) => `[${i}]=${v}`).join(', '));
+    }
 
     for (let i = 1; i < rows.length; i++) {
       const row = rows[i];
