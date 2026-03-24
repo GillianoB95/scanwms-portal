@@ -53,11 +53,19 @@ async function parseManifestData(blob: Blob): Promise<{ hubMap: Map<string, stri
     if (twIdx >= 0) weightCol = twIdx;
     if (weightCol < 0) weightCol = 13;
 
+    let lastBoxBag = '';
+    let lastHub = '';
+
     for (let i = 1; i < rows.length; i++) {
       const row = rows[i];
-      const boxBag = normalizeBoxBarcode(row[boxBagCol]);
-      const hub = String(row[waybillCol] || '').trim();
+      const rawBoxBag = normalizeBoxBarcode(row[boxBagCol]);
+      const rawHub = String(row[waybillCol] || '').trim();
+      const boxBag = rawBoxBag || lastBoxBag;
+      const hub = rawHub || lastHub;
       const weight = parseFloat(String(row[weightCol] || '').replace(',', '.')) || 0;
+
+      if (rawBoxBag) lastBoxBag = rawBoxBag;
+      if (rawHub) lastHub = rawHub;
 
       if (boxBag && hub) hubMap.set(boxBag, hub);
       if (boxBag && weight > 0) {
