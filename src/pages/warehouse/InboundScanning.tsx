@@ -389,7 +389,7 @@ export default function InboundScanning() {
 
   // Print Label logic — hub is auto-set from current session hub
   const handleGenerateLabel = async () => {
-    const unassigned = scannedBoxes.filter((b: any) => !b.pallet_id);
+    const unassigned = scannedBoxes.filter((b: any) => !b.pallet_id && b.status !== 'deleted');
     if (unassigned.length === 0) {
       toast({ title: 'No unassigned boxes to palletize', variant: 'destructive' });
       return;
