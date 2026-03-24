@@ -8,7 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
-import { useUpdateShipment } from '@/hooks/use-staff-data';
+import { useUpdateShipment, useAllCustomers } from '@/hooks/use-staff-data';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -17,12 +17,14 @@ const ALL_STATUSES = ['Awaiting NOA', 'Partial NOA', 'NOA Complete', 'In Transit
 
 export function EditShipmentModal({ shipment, open, onOpenChange }: { shipment: any; open: boolean; onOpenChange: (v: boolean) => void }) {
   const updateShipment = useUpdateShipment();
+  const { data: customers = [] } = useAllCustomers();
+  const [customerId, setCustomerId] = useState(shipment?.customer_id ?? '');
   const [colli, setColli] = useState(String(shipment?.colli_expected ?? 0));
   const [eta, setEta] = useState<Date | undefined>(shipment?.eta ? new Date(shipment.eta) : undefined);
   const [status, setStatus] = useState(shipment?.status ?? '');
   const [notes, setNotes] = useState(shipment?.notes ?? '');
-  const [grossWeight, setGrossWeight] = useState(String(shipment?.gross_weight != null ? shipment.gross_weight : ''));
-  const [chargeableWeight, setChargeableWeight] = useState(String(shipment?.chargeable_weight != null ? shipment.chargeable_weight : ''));
+  const [grossWeight, setGrossWeight] = useState(shipment?.gross_weight != null ? String(shipment.gross_weight) : '');
+  const [chargeableWeight, setChargeableWeight] = useState(shipment?.chargeable_weight != null ? String(shipment.chargeable_weight) : '');
   const [saving, setSaving] = useState(false);
 
   const handleSave = async () => {
@@ -30,6 +32,7 @@ export function EditShipmentModal({ shipment, open, onOpenChange }: { shipment: 
     try {
       await updateShipment.mutateAsync({
         id: shipment.id,
+        customer_id: customerId || shipment.customer_id,
         colli_expected: parseInt(colli) || 0,
         eta: eta ? format(eta, 'yyyy-MM-dd') : null,
         status,
@@ -55,7 +58,14 @@ export function EditShipmentModal({ shipment, open, onOpenChange }: { shipment: 
         <div className="space-y-4 py-4">
           <div className="space-y-2">
             <Label>Customer</Label>
-            <Input value={shipment?.customers?.name || '—'} disabled className="bg-muted" />
+            <Select value={customerId} onValueChange={setCustomerId}>
+              <SelectTrigger><SelectValue placeholder="Select customer" /></SelectTrigger>
+              <SelectContent>
+                {customers.map((c: any) => (
+                  <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
           <div className="space-y-2">
             <Label>Units (Colli)</Label>
