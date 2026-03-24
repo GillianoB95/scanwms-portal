@@ -181,7 +181,7 @@ export default function InboundScanning() {
       // Use ilike for partial/suffix matching
       const { data, error } = await supabase
         .from('shipments')
-        .select('id, mawb, colli_expected, status, created_at, customers(name, short_name)')
+        .select('id, mawb, warehouse_id, colli_expected, status, created_at, customers(name, short_name)')
         .ilike('mawb', `%${q}`)
         .order('created_at', { ascending: false })
         .limit(10);
