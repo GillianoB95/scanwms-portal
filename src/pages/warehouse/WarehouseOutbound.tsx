@@ -27,6 +27,8 @@ export default function WarehouseOutbound() {
   const [pickupDate, setPickupDate] = useState('');
   const [activeOutbound, setActiveOutbound] = useState<string | null>(null);
   const [palletBarcode, setPalletBarcode] = useState('');
+  const [licensePlate, setLicensePlate] = useState('');
+  const [pickupTime, setPickupTime] = useState('');
 
   const { data: outbounds = [] } = useQuery({
     queryKey: ['warehouse-outbounds', warehouseId],
@@ -59,7 +61,9 @@ export default function WarehouseOutbound() {
       const { data, error } = await supabase.from('outbounds').insert({
         hub_code: hub,
         truck_reference: truckRef,
+        license_plate: licensePlate || null,
         pickup_date: pickupDate,
+        pickup_time: pickupTime || null,
         status: 'preparing',
       }).select().single();
       if (error) throw error;
@@ -68,7 +72,7 @@ export default function WarehouseOutbound() {
     onSuccess: (data) => {
       setShowCreate(false);
       setActiveOutbound(data.id);
-      setHub(''); setTruckRef(''); setPickupDate('');
+      setHub(''); setTruckRef(''); setPickupDate(''); setLicensePlate(''); setPickupTime('');
       qc.invalidateQueries({ queryKey: ['warehouse-outbounds'] });
       toast({ title: 'Outbound created' });
     },
@@ -235,19 +239,23 @@ export default function WarehouseOutbound() {
               <TableRow>
                 <TableHead>Hub</TableHead>
                 <TableHead>Truck Ref</TableHead>
+                <TableHead>License Plate</TableHead>
                 <TableHead>Pickup Date</TableHead>
+                <TableHead>Time</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {outbounds.length === 0 ? (
-                <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-8">No outbounds yet</TableCell></TableRow>
+                <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-8">No outbounds yet</TableCell></TableRow>
               ) : outbounds.map((o: any) => (
                 <TableRow key={o.id}>
                   <TableCell className="font-medium">{o.hub_code}</TableCell>
                   <TableCell>{o.truck_reference ?? '—'}</TableCell>
+                  <TableCell>{o.license_plate ?? '—'}</TableCell>
                   <TableCell>{o.pickup_date ?? '—'}</TableCell>
+                  <TableCell>{o.pickup_time ?? '—'}</TableCell>
                   <TableCell className="capitalize">{o.status?.replace('_', ' ')}</TableCell>
                   <TableCell>
                     {o.status === 'preparing' && (
@@ -281,8 +289,18 @@ export default function WarehouseOutbound() {
               <Input value={truckRef} onChange={e => setTruckRef(e.target.value)} placeholder="e.g. TR-2026-001" />
             </div>
             <div className="space-y-2">
-              <Label>Pickup Date</Label>
-              <Input type="date" value={pickupDate} onChange={e => setPickupDate(e.target.value)} />
+              <Label>License Plate</Label>
+              <Input value={licensePlate} onChange={e => setLicensePlate(e.target.value)} placeholder="e.g. AB-123-CD" />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Pickup Date</Label>
+                <Input type="date" value={pickupDate} onChange={e => setPickupDate(e.target.value)} />
+              </div>
+              <div className="space-y-2">
+                <Label>Pickup Time</Label>
+                <Input type="time" value={pickupTime} onChange={e => setPickupTime(e.target.value)} />
+              </div>
             </div>
           </div>
           <DialogFooter>

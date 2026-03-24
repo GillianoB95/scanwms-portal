@@ -6,42 +6,51 @@ import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { StatusBadge } from '@/components/StatusBadge';
 import { Link } from 'react-router-dom';
-import { Package, ScanBarcode, ArrowUpFromLine, Layers } from 'lucide-react';
+import { Package, ScanBarcode, ArrowUpFromLine, Layers, Boxes } from 'lucide-react';
 
 export default function WarehouseDashboard() {
   const { data: auth } = useWarehouseAuth();
   const warehouseId = auth?.warehouseId;
   const today = new Date().toISOString().split('T')[0];
 
-  const { data: shipments = [] } = useQuery({
-    queryKey: ['warehouse-shipments', warehouseId],
+  // Expected Today: NOA Complete or Partial NOA, not yet unloaded
+  const { data: expectedData } = useQuery({
+    queryKey: ['warehouse-expected-today', warehouseId],
     queryFn: async () => {
-      if (!warehouseId) return [];
-      const { data } = await supabase
+      const query = supabase
         .from('shipments')
-        .select('*, customers(name, short_name)')
-        .eq('warehouse_id', warehouseId)
-        .in('status', ['Awaiting NOA', 'Partial NOA', 'NOA Complete', 'In Transit', 'In Stock'])
-        .order('created_at', { ascending: false });
-      return data ?? [];
+        .select('id, colli_expected, chargeable_weight')
+        .in('status', ['NOA Complete', 'Partial NOA'])
+        .is('unloaded_at', null);
+      if (warehouseId) query.eq('warehouse_id', warehouseId);
+      const { data } = await query;
+      const items = data ?? [];
+      return {
+        count: items.length,
+        totalColli: items.reduce((s, r: any) => s + (r.colli_expected ?? 0), 0),
+        totalWeight: items.reduce((s, r: any) => s + (r.chargeable_weight ?? 0), 0),
+      };
     },
-    enabled: !!warehouseId,
+    enabled: !!auth,
   });
 
-  const { data: scannedToday = 0 } = useQuery({
+  // Scanned In Today
+  const { data: scannedData } = useQuery({
     queryKey: ['warehouse-scanned-today', warehouseId, today],
     queryFn: async () => {
-      if (!warehouseId) return 0;
-      const { count } = await supabase
+      const { data } = await supabase
         .from('outerboxes')
-        .select('*', { count: 'exact', head: true })
+        .select('id, shipment_id')
         .gte('scanned_in_at', `${today}T00:00:00`)
         .lte('scanned_in_at', `${today}T23:59:59`);
-      return count ?? 0;
+      const items = data ?? [];
+      const uniqueShipments = new Set(items.map((b: any) => b.shipment_id));
+      return { count: items.length, shipments: uniqueShipments.size };
     },
-    enabled: !!warehouseId,
+    enabled: !!auth,
   });
 
+  // Pallets Created Today
   const { data: palletsToday = 0 } = useQuery({
     queryKey: ['warehouse-pallets-today', today],
     queryFn: async () => {
@@ -52,9 +61,10 @@ export default function WarehouseDashboard() {
         .lte('created_at', `${today}T23:59:59`);
       return count ?? 0;
     },
-    enabled: !!warehouseId,
+    enabled: !!auth,
   });
 
+  // Pallet Outbound Today
   const { data: outboundsToday = 0 } = useQuery({
     queryKey: ['warehouse-outbounds-today', today],
     queryFn: async () => {
@@ -64,16 +74,54 @@ export default function WarehouseDashboard() {
         .eq('pickup_date', today);
       return count ?? 0;
     },
-    enabled: !!warehouseId,
+    enabled: !!auth,
   });
 
-  const expectedToday = shipments.filter((s: any) => s.eta === today).length;
+  // Active Shipments assigned to this warehouse
+  const { data: shipments = [] } = useQuery({
+    queryKey: ['warehouse-shipments', warehouseId],
+    queryFn: async () => {
+      const query = supabase
+        .from('shipments')
+        .select('*, customers(name, short_name)')
+        .in('status', ['Awaiting NOA', 'Partial NOA', 'NOA Complete', 'In Transit', 'In Stock'])
+        .order('created_at', { ascending: false });
+      if (warehouseId) query.eq('warehouse_id', warehouseId);
+      const { data } = await query;
+      return data ?? [];
+    },
+    enabled: !!auth,
+  });
 
   const stats = [
-    { label: 'Expected Today', value: expectedToday, icon: Package, color: 'text-[hsl(var(--status-noa-complete))]' },
-    { label: 'Scanned In Today', value: scannedToday, icon: ScanBarcode, color: 'text-[hsl(var(--status-delivered))]' },
-    { label: 'Pallets Created Today', value: palletsToday, icon: Layers, color: 'text-[hsl(var(--status-instock))]' },
-    { label: 'Outbound Today', value: outboundsToday, icon: ArrowUpFromLine, color: 'text-[hsl(var(--status-outbound))]' },
+    {
+      label: 'Expected Today',
+      value: `${expectedData?.count ?? 0} shipments`,
+      sub: `${expectedData?.totalColli ?? 0} colli · ${(expectedData?.totalWeight ?? 0).toFixed(0)} kg`,
+      icon: Package,
+      color: 'text-[hsl(var(--status-noa-complete))]',
+    },
+    {
+      label: 'Scanned In Today',
+      value: `${scannedData?.count ?? 0} boxes`,
+      sub: `${scannedData?.shipments ?? 0} shipments`,
+      icon: ScanBarcode,
+      color: 'text-[hsl(var(--status-delivered))]',
+    },
+    {
+      label: 'Pallets Created Today',
+      value: String(palletsToday),
+      sub: '',
+      icon: Layers,
+      color: 'text-[hsl(var(--status-instock))]',
+    },
+    {
+      label: 'Pallet Outbound Today',
+      value: String(outboundsToday),
+      sub: '',
+      icon: ArrowUpFromLine,
+      color: 'text-[hsl(var(--status-outbound))]',
+    },
   ];
 
   return (
@@ -100,6 +148,7 @@ export default function WarehouseDashboard() {
               <div>
                 <p className="text-sm text-muted-foreground">{s.label}</p>
                 <p className="text-2xl font-bold">{s.value}</p>
+                {s.sub && <p className="text-xs text-muted-foreground">{s.sub}</p>}
               </div>
             </CardContent>
           </Card>

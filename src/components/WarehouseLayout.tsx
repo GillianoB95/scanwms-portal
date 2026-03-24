@@ -3,14 +3,13 @@ import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '@/lib/auth-context';
 import {
   LayoutDashboard, ScanBarcode, ArrowUpFromLine,
-  Printer, PackageSearch, LogOut, Menu, X, Warehouse
+  PackageSearch, LogOut, Menu, X, Warehouse
 } from 'lucide-react';
 
 const navItems = [
   { to: '/warehouse', label: 'Dashboard', icon: LayoutDashboard, exact: true },
   { to: '/warehouse/inbound', label: 'Inbound Scanning', icon: ScanBarcode },
   { to: '/warehouse/outbound', label: 'Outbound', icon: ArrowUpFromLine },
-  { to: '/warehouse/labels', label: 'Print Labels', icon: Printer },
   { to: '/warehouse/stock', label: 'Stock Overview', icon: PackageSearch },
 ];
 
