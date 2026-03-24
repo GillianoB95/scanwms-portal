@@ -237,7 +237,7 @@ export default function InboundScanning() {
       if (!shipment?.id) return [];
       const { data } = await supabase
         .from('outerboxes')
-        .select('id, barcode, scanned_in_at, hub, pallet_id, status')
+        .select('id, barcode, scanned_in_at, hub, pallet_id, status, weight')
         .eq('shipment_id', shipment.id)
         .in('status', ['scanned_in', 'deleted'])
         .order('scanned_in_at', { ascending: false });
@@ -386,6 +386,8 @@ export default function InboundScanning() {
   const totalExpected = shipment?.colli_expected ?? 0;
   const totalScanned = scannedBoxes.filter((b: any) => b.status !== 'deleted').length;
   const subklant = shipment?.customers?.short_name || shipment?.customers?.name || '—';
+  const unassignedBoxes = scannedBoxes.filter((b: any) => !b.pallet_id && b.status !== 'deleted');
+  const sessionWeight = unassignedBoxes.reduce((sum: number, b: any) => sum + (b.weight || 0), 0);
 
   // Print Label logic — hub is auto-set from current session hub
   const handleGenerateLabel = async () => {
@@ -408,7 +410,7 @@ export default function InboundScanning() {
     }
     try {
       const colli = unassigned.length;
-      const weightKg = unassigned.reduce((sum: number, b: any) => sum + (weightMap.get(b.barcode) || 0), 0);
+      const weightKg = unassigned.reduce((sum: number, b: any) => sum + (b.weight || weightMap.get(b.barcode) || 0), 0);
 
       const { data: palletNumber, error: rpcError } = await supabase.rpc('generate_pallet_number', {
         p_warehouse_code: effectiveWarehouseCode,
@@ -574,6 +576,11 @@ export default function InboundScanning() {
                   <span className={totalScanned >= totalExpected && totalExpected > 0 ? 'text-[hsl(var(--status-delivered))]' : ''}>{totalScanned}</span>
                   <span className="text-muted-foreground text-2xl"> / {totalExpected}</span>
                 </p>
+                {unassignedBoxes.length > 0 && (
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Current pallet: <span className="font-semibold text-foreground">{unassignedBoxes.length} boxes</span> · <span className="font-semibold text-foreground">{sessionWeight.toFixed(2)} kg</span>
+                  </p>
+                )}
                 <div className="w-full bg-muted rounded-full h-3 mt-4">
                   <div
                     className="bg-accent h-3 rounded-full transition-all"
