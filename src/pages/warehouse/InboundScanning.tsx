@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
+import Barcode from 'react-barcode';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useWarehouseAuth } from '@/hooks/use-warehouse-auth';
@@ -684,26 +685,23 @@ export default function InboundScanning() {
           <DialogHeader><DialogTitle>Label Preview</DialogTitle></DialogHeader>
           {previewData && (
             <div className="border-2 border-foreground p-4 font-mono mx-auto" style={{ width: '100%', maxWidth: '380px' }}>
-              <div className="text-center text-xl font-bold border-2 p-2 mb-2" style={{ color: '#dc2626', borderColor: '#dc2626' }}>
+              <div className="text-center text-xl font-bold border-2 border-foreground p-2 mb-2">
                 {previewData.subklant}
               </div>
-              <div className="text-center text-lg font-bold mb-1" style={{ color: '#ca8a04' }}>
+              <div className="text-center text-lg font-bold mb-1">
                 {previewData.palletId}
               </div>
-              <div className="text-center text-xs mb-2" style={{ color: '#ea580c' }}>
+              <div className="text-center text-xs mb-2">
                 {(previewData.printedAt || new Date()).toLocaleDateString('nl-NL', { day: '2-digit', month: '2-digit', year: 'numeric' })}{' '}
                 {(previewData.printedAt || new Date()).toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' })}
               </div>
-              <div className="text-center p-2 my-2 border-2" style={{ borderColor: '#2563eb' }}>
-                <div className="text-4xl tracking-widest" style={{ fontFamily: "'Libre Barcode 128', monospace" }}>
-                  {previewData.palletId}
-                </div>
-                <div className="text-xs">{previewData.palletId}</div>
+              <div className="flex justify-center p-2 my-2 border-2 border-foreground">
+                <Barcode value={previewData.palletId} format="CODE128" width={1.5} height={50} displayValue={false} margin={0} />
               </div>
-              <div className="text-center text-sm font-bold my-1" style={{ color: '#92400e' }}>
+              <div className="text-center text-sm font-bold my-1">
                 MAWB: {previewData.mawb}
               </div>
-              <div className="text-center text-sm font-bold text-white p-2 my-1" style={{ backgroundColor: '#15803d' }}>
+              <div className="text-center text-sm font-bold border-2 border-foreground p-2 my-1">
                 {previewData.colli} CTN | {previewData.weight.toFixed(2)} KG
               </div>
               <div className="text-center text-xl font-bold mt-2 border-[3px] border-foreground p-2">
