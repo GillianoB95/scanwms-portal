@@ -138,7 +138,7 @@ function CustomerFormDialog({ open, onOpenChange, customer, parentId, isAdmin }:
     if (!name) return;
     setSaving(true);
     try {
-      const payload: any = { name, short_name: shortName || null, email: email || null, warehouse_id: warehouseId || null };
+      const payload: any = { name, short_name: shortName || null, email: email || null, warehouse_id: warehouseId === '__none__' ? null : warehouseId || null };
       if (parentId) payload.parent_customer_id = parentId;
 
       if (customer?.id) {
