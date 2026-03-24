@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import Barcode from 'react-barcode';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth-context';
