@@ -64,6 +64,12 @@ async function parseManifestData(blob: Blob): Promise<{ hubMap: Map<string, stri
       if (boxBag && hub) hubMap.set(boxBag, hub);
       if (boxBag && weight > 0) weightMap.set(boxBag, (weightMap.get(boxBag) || 0) + weight);
     }
+    // Debug: log total weights for a few boxes
+    const sampleBoxes = [...weightMap.entries()].slice(0, 3);
+    console.log('[Manifest] Sample weights:', sampleBoxes.map(([k, v]) => `${k}=${v}`).join(', '));
+    console.log('[Manifest] Total boxes in weightMap:', weightMap.size);
+    // Log specific box
+    console.log('[Manifest] KS10385-AMS-001 weight:', weightMap.get('KS10385-AMS-001'));
   } catch (err) {
     console.error('Failed to parse manifest:', err);
   }
@@ -268,6 +274,7 @@ export default function InboundScanning() {
       }
 
       const boxWeight = weightMap.get(code) || null;
+      console.log(`[Scan] Barcode: ${code}, hubMap size: ${hubMap.size}, weightMap size: ${weightMap.size}, weight: ${boxWeight}`);
 
       const insertData: any = {
         shipment_id: shipment.id,
