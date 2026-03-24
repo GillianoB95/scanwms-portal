@@ -267,6 +267,20 @@ export default function WarehouseOutbound() {
     },
   });
 
+  const markPickup = async (id: string) => {
+    const { error } = await supabase.from('outbounds').update({ status: 'picked_up' }).eq('id', id);
+    if (error) { toast({ title: 'Error', description: error.message, variant: 'destructive' }); return; }
+    qc.invalidateQueries({ queryKey: ['warehouse-outbounds'] });
+    toast({ title: 'Outbound marked as picked up' });
+  };
+
+  const undoPickup = async (id: string) => {
+    const { error } = await supabase.from('outbounds').update({ status: 'preparing' }).eq('id', id);
+    if (error) { toast({ title: 'Error', description: error.message, variant: 'destructive' }); return; }
+    qc.invalidateQueries({ queryKey: ['warehouse-outbounds'] });
+    toast({ title: 'Pickup status reverted' });
+  };
+
   const handlePalletScan = (e: React.FormEvent) => {
     e.preventDefault();
     if (!palletBarcode.trim() || !activeOutbound) return;
