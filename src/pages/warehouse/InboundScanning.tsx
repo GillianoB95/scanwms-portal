@@ -72,9 +72,6 @@ export default function InboundScanning() {
   const qc = useQueryClient();
 
   // Print label state
-  const [labelOpen, setLabelOpen] = useState(false);
-  const [labelColli, setLabelColli] = useState('');
-  const [labelWeight, setLabelWeight] = useState('');
   const [previewData, setPreviewData] = useState<PalletLabelData | null>(null);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [printing, setPrinting] = useState(false);
