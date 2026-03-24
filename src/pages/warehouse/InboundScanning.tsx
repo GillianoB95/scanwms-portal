@@ -59,6 +59,7 @@ export default function InboundScanning() {
   const { data: auth } = useWarehouseAuth();
   const { customer } = useAuth();
   const [mawbInput, setMawbInput] = useState('');
+  const [mawbResults, setMawbResults] = useState<any[]>([]);
   const [shipment, setShipment] = useState<any>(null);
   const [shipmentError, setShipmentError] = useState('');
   const [barcode, setBarcode] = useState('');
@@ -124,55 +125,67 @@ export default function InboundScanning() {
   }, []);
 
   const handleMawbSearch = async () => {
-    if (!mawbInput.trim()) return;
+    const q = mawbInput.trim();
+    if (!q) return;
     setSearching(true);
     setShipmentError('');
     setShipment(null);
+    setMawbResults([]);
     setScanningBlocked(null);
     setCurrentHub(null);
     setHubMap(new Map());
     setWeightMap(new Map());
     try {
+      // Use ilike for partial/suffix matching
       const { data, error } = await supabase
         .from('shipments')
-        .select('id, mawb, colli_expected, status, customers(name, short_name)')
-        .eq('mawb', mawbInput.trim())
-        .maybeSingle();
+        .select('id, mawb, colli_expected, status, created_at, customers(name, short_name)')
+        .ilike('mawb', `%${q}`)
+        .order('created_at', { ascending: false })
+        .limit(10);
       if (error) throw error;
-      if (!data) {
-        setShipmentError('No shipment found for this MAWB');
+      if (!data || data.length === 0) {
+        setShipmentError('No shipments found matching this MAWB');
         return;
       }
-
-      // Strict status check
-      const allowedStatuses = ['In Stock', 'In Transit'];
-      if (!allowedStatuses.includes(data.status)) {
-        setShipment(data);
-        setScanningBlocked('This shipment must be marked as Unloaded by staff before scanning can begin.');
-        return;
+      if (data.length === 1) {
+        selectShipment(data[0]);
+      } else {
+        setMawbResults(data);
       }
-
-      // Check inbound blocks
-      const { data: blocks } = await supabase
-        .from('shipment_blocks')
-        .select('reason')
-        .eq('shipment_id', data.id)
-        .eq('block_type', 'inbound')
-        .is('removed_at', null);
-
-      if (blocks && blocks.length > 0) {
-        setShipment(data);
-        setScanningBlocked(`Inbound blocked: ${blocks[0].reason || 'No reason provided'}`);
-        return;
-      }
-
-      setShipment(data);
-      loadManifestHubs(data.id);
     } catch (err: any) {
       setShipmentError(err.message);
     } finally {
       setSearching(false);
     }
+  };
+
+  const selectShipment = async (s: any) => {
+    setMawbResults([]);
+    setMawbInput(s.mawb);
+
+    const allowedStatuses = ['In Stock', 'In Transit'];
+    if (!allowedStatuses.includes(s.status)) {
+      setShipment(s);
+      setScanningBlocked('This shipment must be marked as Unloaded by staff before scanning can begin.');
+      return;
+    }
+
+    const { data: blocks } = await supabase
+      .from('shipment_blocks')
+      .select('reason')
+      .eq('shipment_id', s.id)
+      .eq('block_type', 'inbound')
+      .is('removed_at', null);
+
+    if (blocks && blocks.length > 0) {
+      setShipment(s);
+      setScanningBlocked(`Inbound blocked: ${blocks[0].reason || 'No reason provided'}`);
+      return;
+    }
+
+    setShipment(s);
+    loadManifestHubs(s.id);
   };
 
   const { data: scannedBoxes = [] } = useQuery({
@@ -423,7 +436,7 @@ export default function InboundScanning() {
               value={mawbInput}
               onChange={e => setMawbInput(e.target.value)}
               onKeyDown={handleMawbKeyDown}
-              placeholder="Enter MAWB number (e.g. 607-50842772)"
+              placeholder="Enter full or last digits of MAWB (e.g. 2772)"
               className="font-mono"
             />
             <Button onClick={handleMawbSearch} disabled={searching}>
@@ -432,6 +445,23 @@ export default function InboundScanning() {
           </div>
           {shipmentError && (
             <p className="text-sm text-destructive mt-2">{shipmentError}</p>
+          )}
+          {mawbResults.length > 0 && !shipment && (
+            <div className="mt-3 border rounded-lg divide-y max-h-64 overflow-y-auto">
+              {mawbResults.map((s: any) => (
+                <button
+                  key={s.id}
+                  className="w-full text-left px-4 py-3 hover:bg-muted transition-colors flex items-center justify-between"
+                  onClick={() => selectShipment(s)}
+                >
+                  <div>
+                    <span className="font-mono font-medium">{s.mawb}</span>
+                    <span className="text-sm text-muted-foreground ml-3">{(s.customers as any)?.name ?? ''}</span>
+                  </div>
+                  <span className="text-xs text-muted-foreground">{s.status}</span>
+                </button>
+              ))}
+            </div>
           )}
           {shipment && (
             <div className="mt-4 p-3 rounded-lg bg-muted text-sm space-y-1">
