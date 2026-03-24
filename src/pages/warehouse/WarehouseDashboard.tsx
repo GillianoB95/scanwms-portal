@@ -40,23 +40,14 @@ export default function WarehouseDashboard() {
     queryFn: async () => {
       const { data } = await supabase
         .from('outerboxes')
-        .select('id, shipment_id')
+        .select('id, shipment_id, weight')
         .gte('scanned_in_at', `${today}T00:00:00`)
         .lte('scanned_in_at', `${today}T23:59:59`);
       const items = data ?? [];
-      const uniqueShipmentIds = [...new Set(items.map((b: any) => b.shipment_id))];
+      const uniqueShipmentIds = new Set(items.map((b: any) => b.shipment_id));
+      const totalKg = items.reduce((s: number, b: any) => s + (parseFloat(b.weight) || 0), 0);
 
-      // Get total weight from shipments' chargeable_weight as approximation
-      let totalKg = 0;
-      if (uniqueShipmentIds.length > 0) {
-        const { data: shipmentRows } = await supabase
-          .from('shipments')
-          .select('chargeable_weight')
-          .in('id', uniqueShipmentIds);
-        totalKg = (shipmentRows ?? []).reduce((s: number, r: any) => s + (r.chargeable_weight ?? 0), 0);
-      }
-
-      return { count: items.length, shipments: uniqueShipmentIds.length, totalKg };
+      return { count: items.length, shipments: uniqueShipmentIds.size, totalKg };
     },
     enabled: !!auth,
   });
