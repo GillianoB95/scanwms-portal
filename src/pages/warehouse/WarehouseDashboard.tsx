@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { StatusBadge } from '@/components/StatusBadge';
 import { Link } from 'react-router-dom';
-import { Package, ScanBarcode, ArrowUpFromLine, Layers, Boxes } from 'lucide-react';
+import { Package, ScanBarcode, ArrowUpFromLine, Truck, PackageCheck } from 'lucide-react';
 
 export default function WarehouseDashboard() {
   const { data: auth } = useWarehouseAuth();
@@ -34,6 +34,39 @@ export default function WarehouseDashboard() {
     enabled: !!auth,
   });
 
+  // Shipments Unloaded Today: shipments with unloaded_at today
+  const { data: unloadedData } = useQuery({
+    queryKey: ['warehouse-unloaded-today', warehouseId, today],
+    queryFn: async () => {
+      const query = supabase
+        .from('shipments')
+        .select('id, colli_expected, chargeable_weight')
+        .gte('unloaded_at', `${today}T00:00:00`)
+        .lte('unloaded_at', `${today}T23:59:59`);
+      if (warehouseId) query.eq('warehouse_id', warehouseId);
+      const { data } = await query;
+      const items = data ?? [];
+
+      // Also get NOA colli for these shipments
+      let totalNoaColli = 0;
+      if (items.length > 0) {
+        const shipmentIds = items.map((s: any) => s.id);
+        const { data: noas } = await supabase
+          .from('noas')
+          .select('colli, shipment_id')
+          .in('shipment_id', shipmentIds);
+        totalNoaColli = (noas ?? []).reduce((s: number, n: any) => s + (n.colli ?? 0), 0);
+      }
+
+      return {
+        shipments: items.length,
+        boxes: totalNoaColli,
+        weight: items.reduce((s, r: any) => s + (r.chargeable_weight ?? 0), 0),
+      };
+    },
+    enabled: !!auth,
+  });
+
   // Scanned In Today
   const { data: scannedData } = useQuery({
     queryKey: ['warehouse-scanned-today', warehouseId, today],
@@ -52,29 +85,36 @@ export default function WarehouseDashboard() {
     enabled: !!auth,
   });
 
-  // Pallets Created Today
-  const { data: palletsToday = 0 } = useQuery({
-    queryKey: ['warehouse-pallets-today', today],
+  // Outbound Prepared Today
+  const { data: preparedData } = useQuery({
+    queryKey: ['warehouse-prepared-today', warehouseId, today],
     queryFn: async () => {
-      const { count } = await supabase
-        .from('pallets')
-        .select('*', { count: 'exact', head: true })
-        .gte('created_at', `${today}T00:00:00`)
-        .lte('created_at', `${today}T23:59:59`);
-      return count ?? 0;
+      const query = supabase
+        .from('outbounds')
+        .select('id')
+        .eq('status', 'prepared')
+        .gte('updated_at', `${today}T00:00:00`)
+        .lte('updated_at', `${today}T23:59:59`);
+      if (warehouseId) query.eq('warehouse_id', warehouseId);
+      const { data } = await query;
+      return (data ?? []).length;
     },
     enabled: !!auth,
   });
 
-  // Pallet Outbound Today
-  const { data: outboundsToday = 0 } = useQuery({
-    queryKey: ['warehouse-outbounds-today', today],
+  // Outbound Departed Today
+  const { data: departedData } = useQuery({
+    queryKey: ['warehouse-departed-today', warehouseId, today],
     queryFn: async () => {
-      const { count } = await supabase
+      const query = supabase
         .from('outbounds')
-        .select('*', { count: 'exact', head: true })
-        .eq('pickup_date', today);
-      return count ?? 0;
+        .select('id')
+        .eq('status', 'departed')
+        .gte('updated_at', `${today}T00:00:00`)
+        .lte('updated_at', `${today}T23:59:59`);
+      if (warehouseId) query.eq('warehouse_id', warehouseId);
+      const { data } = await query;
+      return (data ?? []).length;
     },
     enabled: !!auth,
   });
@@ -95,6 +135,9 @@ export default function WarehouseDashboard() {
     enabled: !!auth,
   });
 
+  const preparedCount = preparedData ?? 0;
+  const departedCount = departedData ?? 0;
+
   const stats = [
     {
       label: 'Expected Today',
@@ -104,6 +147,13 @@ export default function WarehouseDashboard() {
       color: 'text-[hsl(var(--status-noa-complete))]',
     },
     {
+      label: 'Shipments Unloaded',
+      value: `${unloadedData?.shipments ?? 0} shipments`,
+      sub: `${unloadedData?.boxes ?? 0} colli · ${(unloadedData?.weight ?? 0).toFixed(0)} kg`,
+      icon: PackageCheck,
+      color: 'text-[hsl(var(--status-intransit))]',
+    },
+    {
       label: 'Scanned In Today',
       value: `${scannedData?.count ?? 0} boxes`,
       sub: `${scannedData?.shipments ?? 0} shipments · ${(scannedData?.totalKg ?? 0).toFixed(2)} kg`,
@@ -111,18 +161,18 @@ export default function WarehouseDashboard() {
       color: 'text-[hsl(var(--status-delivered))]',
     },
     {
-      label: 'Pallets Created Today',
-      value: String(palletsToday),
-      sub: '',
-      icon: Layers,
-      color: 'text-[hsl(var(--status-instock))]',
-    },
-    {
-      label: 'Pallet Outbound Today',
-      value: String(outboundsToday),
+      label: 'Outbound Prepared',
+      value: `${preparedCount} ${preparedCount === 1 ? 'truck' : 'trucks'}`,
       sub: '',
       icon: ArrowUpFromLine,
-      color: 'text-[hsl(var(--status-outbound))]',
+      color: 'text-[hsl(var(--status-prepared))]',
+    },
+    {
+      label: 'Outbound Departed',
+      value: `${departedCount} ${departedCount === 1 ? 'truck' : 'trucks'}`,
+      sub: '',
+      icon: Truck,
+      color: 'text-[hsl(var(--status-departed))]',
     },
   ];
 
@@ -140,7 +190,7 @@ export default function WarehouseDashboard() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
         {stats.map(s => (
           <Card key={s.label}>
             <CardContent className="p-6 flex items-center gap-4">
