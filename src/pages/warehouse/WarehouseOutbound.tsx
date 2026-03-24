@@ -11,7 +11,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { useHubs } from '@/hooks/use-hubs';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, ScanBarcode, Truck, AlertTriangle } from 'lucide-react';
+import { Plus, ScanBarcode, Truck, FileText, Download, Printer } from 'lucide-react';
+import * as XLSX from 'xlsx';
+import { generateCmrWorkbook, downloadCmrWorkbook, printCmrViaPrintNode, type CmrData } from '@/lib/cmr-generator';
+import JSZip from 'jszip';
 
 export default function WarehouseOutbound() {
   const { data: auth } = useWarehouseAuth();
@@ -29,6 +32,12 @@ export default function WarehouseOutbound() {
   const [palletBarcode, setPalletBarcode] = useState('');
   const [licensePlate, setLicensePlate] = useState('');
   const [pickupTime, setPickupTime] = useState('');
+
+  // CMR state
+  const [cmrOutbound, setCmrOutbound] = useState<any>(null);
+  const [cmrAddressId, setCmrAddressId] = useState('');
+  const [cmrSealNumber, setCmrSealNumber] = useState('');
+  const [cmrGenerating, setCmrGenerating] = useState(false);
 
   const { data: outbounds = [] } = useQuery({
     queryKey: ['warehouse-outbounds', warehouseId],
@@ -56,6 +65,45 @@ export default function WarehouseOutbound() {
     enabled: !!activeOutbound,
   });
 
+  // Hub addresses for CMR modal
+  const { data: hubAddresses = [] } = useQuery({
+    queryKey: ['hub-addresses-for-cmr', cmrOutbound?.hub_code],
+    queryFn: async () => {
+      if (!cmrOutbound?.hub_code) return [];
+      // Find hub id by code
+      const { data: hubData } = await supabase.from('hubs').select('id').eq('code', cmrOutbound.hub_code).maybeSingle();
+      if (!hubData) return [];
+      const { data } = await supabase.from('hub_addresses').select('*').eq('hub_id', hubData.id).order('name');
+      return data ?? [];
+    },
+    enabled: !!cmrOutbound?.hub_code,
+  });
+
+  // Warehouse data for CMR
+  const { data: warehouseData } = useQuery({
+    queryKey: ['warehouse-cmr-data', warehouseId],
+    queryFn: async () => {
+      if (!warehouseId) return null;
+      const { data } = await supabase.from('warehouses').select('*').eq('id', warehouseId).maybeSingle();
+      return data;
+    },
+    enabled: !!warehouseId,
+  });
+
+  // CMR pallets for the selected outbound
+  const { data: cmrPallets = [] } = useQuery({
+    queryKey: ['cmr-pallets', cmrOutbound?.id],
+    queryFn: async () => {
+      if (!cmrOutbound?.id) return [];
+      const { data } = await supabase
+        .from('pallets')
+        .select('*, shipments(mawb, customers(short_name))')
+        .eq('outbound_id', cmrOutbound.id);
+      return data ?? [];
+    },
+    enabled: !!cmrOutbound?.id,
+  });
+
   const createOutbound = useMutation({
     mutationFn: async () => {
       const { data, error } = await supabase.from('outbounds').insert({
@@ -81,7 +129,6 @@ export default function WarehouseOutbound() {
 
   const addPallet = useMutation({
     mutationFn: async (code: string) => {
-      // Find pallet
       const { data: pallet, error: findErr } = await supabase
         .from('pallets')
         .select('id, shipment_id, shipments(customs_cleared)')
@@ -89,7 +136,6 @@ export default function WarehouseOutbound() {
         .maybeSingle();
       if (findErr || !pallet) throw new Error('Pallet not found');
 
-      // Check for active outbound block
       const { data: blocks } = await supabase
         .from('shipment_blocks')
         .select('reason')
@@ -100,12 +146,10 @@ export default function WarehouseOutbound() {
         throw new Error(`Outbound blocked: ${blocks[0].reason || 'No reason provided'}`);
       }
 
-      // Validate customs cleared
       if (!(pallet.shipments as any)?.customs_cleared) {
         throw new Error('Shipment not customs cleared — cannot add to outbound');
       }
 
-      // Check open inspections
       const { count } = await supabase
         .from('inspections')
         .select('*', { count: 'exact', head: true })
@@ -139,7 +183,6 @@ export default function WarehouseOutbound() {
         .eq('id', activeOutbound);
       if (error) throw error;
 
-      // Mark all boxes in pallets as scanned_out
       const palletIds = pallets.map((p: any) => p.id);
       if (palletIds.length > 0) {
         const shipmentIds = [...new Set(pallets.map((p: any) => p.shipment_id))];
@@ -164,6 +207,132 @@ export default function WarehouseOutbound() {
     if (!palletBarcode.trim() || !activeOutbound) return;
     addPallet.mutate(palletBarcode.trim());
   };
+
+  // Build CMR data grouped by sub-client
+  const buildCmrDataPerSubClient = (): Map<string, CmrData> => {
+    const selectedAddress = hubAddresses.find((a: any) => a.id === cmrAddressId);
+    if (!selectedAddress || !warehouseData) return new Map();
+
+    // Group pallets by sub-client
+    const subClientGroups = new Map<string, typeof cmrPallets>();
+    for (const p of cmrPallets) {
+      const subClient = (p.shipments as any)?.customers?.short_name || 'Unknown';
+      if (!subClientGroups.has(subClient)) subClientGroups.set(subClient, []);
+      subClientGroups.get(subClient)!.push(p);
+    }
+
+    const result = new Map<string, CmrData>();
+    for (const [subClient, scPallets] of subClientGroups) {
+      // Group by MAWB within this sub-client
+      const mawbMap = new Map<string, { colli: number; weight: number }>();
+      for (const p of scPallets) {
+        const mawb = (p.shipments as any)?.mawb || 'Unknown';
+        const existing = mawbMap.get(mawb) || { colli: 0, weight: 0 };
+        existing.colli += p.colli_count || 0;
+        existing.weight += parseFloat(p.weight_kg) || 0;
+        mawbMap.set(mawb, existing);
+      }
+
+      const lines = Array.from(mawbMap.entries()).map(([mawb, data]) => ({
+        mawb,
+        colli: data.colli,
+        weightKg: Math.round(data.weight * 100) / 100,
+      }));
+
+      result.set(subClient, {
+        warehouseName: warehouseData.cmr_name || warehouseData.name || '',
+        warehouseStreet: warehouseData.cmr_street || '',
+        warehousePostalCity: warehouseData.cmr_postal_city || '',
+        warehouseCountry: warehouseData.cmr_country || '',
+        warehouseCity: warehouseData.cmr_city || '',
+        hubName: selectedAddress.name,
+        hubStreet: selectedAddress.street || '',
+        hubHouseNumber: selectedAddress.house_number || '',
+        hubPostalCode: selectedAddress.postal_code || '',
+        hubCity: selectedAddress.city || '',
+        hubCountry: selectedAddress.country || '',
+        truckReference: cmrOutbound?.truck_reference || '',
+        outboundNumber: cmrOutbound?.outbound_number || '',
+        sealNumber: cmrSealNumber,
+        lines,
+      });
+    }
+    return result;
+  };
+
+  const handleDownloadCmr = async () => {
+    setCmrGenerating(true);
+    try {
+      const cmrMap = buildCmrDataPerSubClient();
+      if (cmrMap.size === 0) {
+        toast({ title: 'No data', description: 'No pallets found for CMR generation', variant: 'destructive' });
+        return;
+      }
+
+      if (cmrMap.size === 1) {
+        const [subClient, data] = cmrMap.entries().next().value!;
+        const wb = generateCmrWorkbook(data);
+        downloadCmrWorkbook(wb, `CMR_${subClient}_${cmrOutbound?.outbound_number || ''}.xlsx`);
+      } else {
+        // Multiple sub-clients → zip
+        const zip = new JSZip();
+        for (const [subClient, data] of cmrMap) {
+          const wb = generateCmrWorkbook(data);
+          const xlsxData = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+          zip.file(`CMR_${subClient}_${cmrOutbound?.outbound_number || ''}.xlsx`, xlsxData);
+        }
+        const blob = await zip.generateAsync({ type: 'blob' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `CMR_${cmrOutbound?.outbound_number || 'outbound'}.zip`;
+        a.click();
+        URL.revokeObjectURL(url);
+      }
+      toast({ title: 'CMR files downloaded' });
+    } catch (err: any) {
+      toast({ title: 'Error generating CMR', description: err.message, variant: 'destructive' });
+    } finally {
+      setCmrGenerating(false);
+    }
+  };
+
+  const handlePrintCmr = async () => {
+    if (!warehouseData?.cmr_printer_id || !warehouseData?.cmr_printer_key) {
+      toast({ title: 'No CMR printer configured', description: 'Set CMR printer in warehouse settings', variant: 'destructive' });
+      return;
+    }
+    setCmrGenerating(true);
+    try {
+      const cmrMap = buildCmrDataPerSubClient();
+      if (cmrMap.size === 0) {
+        toast({ title: 'No data', description: 'No pallets found', variant: 'destructive' });
+        return;
+      }
+      let printed = 0;
+      for (const [subClient, data] of cmrMap) {
+        const wb = generateCmrWorkbook(data);
+        const result = await printCmrViaPrintNode(
+          wb,
+          warehouseData.cmr_printer_id,
+          warehouseData.cmr_printer_key,
+          `CMR ${subClient} - ${cmrOutbound?.outbound_number || ''}`,
+          4,
+        );
+        if (!result.success) {
+          toast({ title: `Print failed for ${subClient}`, description: result.error, variant: 'destructive' });
+        } else {
+          printed++;
+        }
+      }
+      toast({ title: `${printed} CMR(s) sent to printer (4 copies each)` });
+    } catch (err: any) {
+      toast({ title: 'Print error', description: err.message, variant: 'destructive' });
+    } finally {
+      setCmrGenerating(false);
+    }
+  };
+
 
   return (
     <div className="space-y-6">
@@ -222,7 +391,7 @@ export default function WarehouseOutbound() {
               </TableBody>
             </Table>
 
-            <div className="flex justify-end">
+            <div className="flex justify-end gap-2">
               <Button onClick={() => confirmOutbound.mutate()} disabled={pallets.length === 0 || confirmOutbound.isPending}>
                 Confirm Outbound — Mark as Picked Up
               </Button>
@@ -237,6 +406,7 @@ export default function WarehouseOutbound() {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead>Nr</TableHead>
                 <TableHead>Hub</TableHead>
                 <TableHead>Truck Ref</TableHead>
                 <TableHead>License Plate</TableHead>
@@ -248,9 +418,10 @@ export default function WarehouseOutbound() {
             </TableHeader>
             <TableBody>
               {outbounds.length === 0 ? (
-                <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-8">No outbounds yet</TableCell></TableRow>
+                <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground py-8">No outbounds yet</TableCell></TableRow>
               ) : outbounds.map((o: any) => (
                 <TableRow key={o.id}>
+                  <TableCell className="font-mono">{o.outbound_number ?? '—'}</TableCell>
                   <TableCell className="font-medium">{o.hub_code}</TableCell>
                   <TableCell>{o.truck_reference ?? '—'}</TableCell>
                   <TableCell>{o.license_plate ?? '—'}</TableCell>
@@ -258,11 +429,16 @@ export default function WarehouseOutbound() {
                   <TableCell>{o.pickup_time ?? '—'}</TableCell>
                   <TableCell className="capitalize">{o.status?.replace('_', ' ')}</TableCell>
                   <TableCell>
-                    {o.status === 'preparing' && (
-                      <Button size="sm" variant="ghost" onClick={() => setActiveOutbound(o.id)}>
-                        Continue
+                    <div className="flex items-center gap-1">
+                      {o.status === 'preparing' && (
+                        <Button size="sm" variant="ghost" onClick={() => setActiveOutbound(o.id)}>
+                          Continue
+                        </Button>
+                      )}
+                      <Button size="sm" variant="outline" onClick={() => { setCmrOutbound(o); setCmrAddressId(''); setCmrSealNumber(''); }}>
+                        <FileText className="h-3.5 w-3.5 mr-1" />CMR
                       </Button>
-                    )}
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}
@@ -271,6 +447,7 @@ export default function WarehouseOutbound() {
         </CardContent>
       </Card>
 
+      {/* New Outbound Dialog */}
       <Dialog open={showCreate} onOpenChange={setShowCreate}>
         <DialogContent>
           <DialogHeader><DialogTitle>New Outbound</DialogTitle></DialogHeader>
@@ -307,6 +484,56 @@ export default function WarehouseOutbound() {
             <Button variant="outline" onClick={() => setShowCreate(false)}>Cancel</Button>
             <Button onClick={() => createOutbound.mutate()} disabled={!hub || !pickupDate || createOutbound.isPending}>
               Create Outbound
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* CMR Dialog */}
+      <Dialog open={!!cmrOutbound} onOpenChange={v => { if (!v) setCmrOutbound(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Create CMR — {cmrOutbound?.outbound_number || cmrOutbound?.hub_code}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Hub Address</Label>
+              <Select value={cmrAddressId} onValueChange={setCmrAddressId}>
+                <SelectTrigger><SelectValue placeholder="Select delivery address" /></SelectTrigger>
+                <SelectContent>
+                  {hubAddresses.map((a: any) => (
+                    <SelectItem key={a.id} value={a.id}>
+                      {a.name} — {a.street} {a.house_number}, {a.city}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {hubAddresses.length === 0 && (
+                <p className="text-xs text-muted-foreground">No addresses configured for this hub. Add them in Hub Management.</p>
+              )}
+            </div>
+            <div className="space-y-2">
+              <Label>Seal Number</Label>
+              <Input value={cmrSealNumber} onChange={e => setCmrSealNumber(e.target.value)} placeholder="Seal number" />
+            </div>
+            <div className="space-y-2">
+              <Label>Loading Reference</Label>
+              <Input value={cmrOutbound?.truck_reference || ''} disabled className="bg-muted" />
+            </div>
+
+            {cmrPallets.length > 0 && (
+              <div className="text-sm text-muted-foreground">
+                {cmrPallets.length} pallet(s), {new Set(cmrPallets.map((p: any) => (p.shipments as any)?.customers?.short_name)).size} sub-client(s)
+              </div>
+            )}
+          </div>
+          <DialogFooter className="flex gap-2">
+            <Button variant="outline" onClick={() => setCmrOutbound(null)}>Cancel</Button>
+            <Button variant="outline" onClick={handleDownloadCmr} disabled={!cmrAddressId || cmrGenerating}>
+              <Download className="h-4 w-4 mr-1" /> Download
+            </Button>
+            <Button onClick={handlePrintCmr} disabled={!cmrAddressId || cmrGenerating}>
+              <Printer className="h-4 w-4 mr-1" /> Print (4x)
             </Button>
           </DialogFooter>
         </DialogContent>
