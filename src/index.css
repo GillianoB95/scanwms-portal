@@ -123,4 +123,12 @@
     background-color: hsl(var(--status-delivered) / 0.15);
     color: hsl(var(--status-delivered));
   }
+  .status-prepared {
+    background-color: hsl(var(--status-prepared) / 0.15);
+    color: hsl(var(--status-prepared));
+  }
+  .status-departed {
+    background-color: hsl(var(--status-departed) / 0.15);
+    color: hsl(var(--status-departed));
+  }
 }
