@@ -61,12 +61,37 @@ export default function WarehouseOutbound() {
         .from('outbounds')
         .select('*, hubs(name, code, carrier)')
         .order('pickup_date', { ascending: false });
-      return (data ?? []).map((o: any) => ({
+      const outboundList = (data ?? []).map((o: any) => ({
         ...o,
         hub_name: o.hubs?.name ?? o.hub_code ?? '—',
         hub_code_display: o.hubs?.code ?? o.hub_code ?? '—',
         carrier: o.hubs?.carrier ?? '—',
       }));
+
+      // Fetch pallet totals per outbound
+      const outboundIds = outboundList.map((o: any) => o.id);
+      if (outboundIds.length > 0) {
+        const { data: allPallets } = await supabase
+          .from('pallets')
+          .select('outbound_id, pieces, weight')
+          .in('outbound_id', outboundIds);
+        const palletMap = new Map<string, { colli: number; weight: number; palletCount: number }>();
+        for (const p of (allPallets ?? [])) {
+          const entry = palletMap.get(p.outbound_id) || { colli: 0, weight: 0, palletCount: 0 };
+          entry.colli += p.pieces || 0;
+          entry.weight += parseFloat(p.weight) || 0;
+          entry.palletCount += 1;
+          palletMap.set(p.outbound_id, entry);
+        }
+        for (const o of outboundList) {
+          const totals = palletMap.get(o.id);
+          o.total_colli = totals?.colli ?? 0;
+          o.total_weight = totals?.weight ?? 0;
+          o.pallet_count = totals?.palletCount ?? 0;
+        }
+      }
+
+      return outboundList;
     },
     enabled: !!auth?.isWarehouse,
   });
@@ -604,6 +629,9 @@ export default function WarehouseOutbound() {
                         <TableHead>Truck Reference</TableHead>
                         <TableHead>License Plate</TableHead>
                         <TableHead>Time</TableHead>
+                        <TableHead className="text-right">Pallets</TableHead>
+                        <TableHead className="text-right">Colli</TableHead>
+                        <TableHead className="text-right">Weight</TableHead>
                         <TableHead>Status</TableHead>
                         <TableHead className="text-right">Actions</TableHead>
                       </TableRow>
@@ -623,6 +651,9 @@ export default function WarehouseOutbound() {
                           <TableCell className="font-mono text-sm">{o.truck_reference || '—'}</TableCell>
                           <TableCell className="text-sm">{o.license_plate || '—'}</TableCell>
                           <TableCell className="text-sm text-muted-foreground">{o.pickup_time || '—'}</TableCell>
+                          <TableCell className="text-right tabular-nums">{o.pallet_count || 0}</TableCell>
+                          <TableCell className="text-right tabular-nums">{o.total_colli || 0}</TableCell>
+                          <TableCell className="text-right tabular-nums">{o.total_weight ? `${Number(o.total_weight).toFixed(2)} kg` : '0 kg'}</TableCell>
                           <TableCell><StatusBadge status={o.status || 'Pending'} /></TableCell>
                           <TableCell>
                             <div className="flex items-center justify-end gap-1">
