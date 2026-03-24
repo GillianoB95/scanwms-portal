@@ -17,36 +17,42 @@ import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { printPalletLabel, type PalletLabelData } from '@/lib/printnode';
 import * as XLSX from 'xlsx';
 
-// Parse a cleaned manifest XLSX blob and return a map of BoxBagbarcode -> Waybill (hub)
-async function parseManifestForHubs(blob: Blob): Promise<Map<string, string>> {
-  const map = new Map<string, string>();
+// Parse a cleaned manifest XLSX blob and return maps: BoxBagbarcode -> hub, BoxBagbarcode -> weight
+async function parseManifestData(blob: Blob): Promise<{ hubMap: Map<string, string>; weightMap: Map<string, number> }> {
+  const hubMap = new Map<string, string>();
+  const weightMap = new Map<string, number>();
   try {
     const arrayBuffer = await blob.arrayBuffer();
     const workbook = XLSX.read(arrayBuffer, { type: 'array' });
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
     const rows: any[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
-    if (rows.length < 2) return map;
+    if (rows.length < 2) return { hubMap, weightMap };
 
     // Find columns by header name, fallback to known indices
     const header = rows[0].map((h: any) => String(h).trim().toLowerCase());
     let boxBagCol = 2; // BoxBagbarcode
     let waybillCol = 3; // Waybill = hub
+    let weightCol = 13; // Total weight
 
     const bbIdx = header.findIndex(h => h.includes('boxbagbarcode') || h.includes('boxbag'));
     if (bbIdx >= 0) boxBagCol = bbIdx;
     const wIdx = header.findIndex(h => h === 'waybill' || h.includes('waybill'));
     if (wIdx >= 0) waybillCol = wIdx;
+    const twIdx = header.findIndex(h => h.includes('total weight') || h === 'totalweight');
+    if (twIdx >= 0) weightCol = twIdx;
 
     for (let i = 1; i < rows.length; i++) {
       const row = rows[i];
       const boxBag = String(row[boxBagCol] || '').trim();
       const hub = String(row[waybillCol] || '').trim();
-      if (boxBag && hub) map.set(boxBag, hub);
+      const weight = parseFloat(String(row[weightCol] || '')) || 0;
+      if (boxBag && hub) hubMap.set(boxBag, hub);
+      if (boxBag && weight > 0) weightMap.set(boxBag, (weightMap.get(boxBag) || 0) + weight);
     }
   } catch (err) {
-    console.error('Failed to parse manifest for hubs:', err);
+    console.error('Failed to parse manifest:', err);
   }
-  return map;
+  return { hubMap, weightMap };
 }
 
 export default function InboundScanning() {
@@ -60,14 +66,12 @@ export default function InboundScanning() {
   const [scanningBlocked, setScanningBlocked] = useState<string | null>(null);
   const [currentHub, setCurrentHub] = useState<string | null>(null);
   const [hubMap, setHubMap] = useState<Map<string, string>>(new Map());
+  const [weightMap, setWeightMap] = useState<Map<string, number>>(new Map());
   const barcodeRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const qc = useQueryClient();
 
   // Print label state
-  const [labelOpen, setLabelOpen] = useState(false);
-  const [labelColli, setLabelColli] = useState('');
-  const [labelWeight, setLabelWeight] = useState('');
   const [previewData, setPreviewData] = useState<PalletLabelData | null>(null);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [printing, setPrinting] = useState(false);
@@ -111,8 +115,9 @@ export default function InboundScanning() {
         return;
       }
 
-      const map = await parseManifestForHubs(blob);
-      setHubMap(map);
+      const { hubMap: hMap, weightMap: wMap } = await parseManifestData(blob);
+      setHubMap(hMap);
+      setWeightMap(wMap);
     } catch (err) {
       console.warn('Failed to load manifest hubs:', err);
     }
@@ -126,6 +131,7 @@ export default function InboundScanning() {
     setScanningBlocked(null);
     setCurrentHub(null);
     setHubMap(new Map());
+    setWeightMap(new Map());
     try {
       const { data, error } = await supabase
         .from('shipments')
@@ -314,8 +320,9 @@ export default function InboundScanning() {
 
   // Print Label logic — hub is auto-set from current session hub
   const handleGenerateLabel = async () => {
-    if (!labelColli || !labelWeight) {
-      toast({ title: 'Fill colli and weight fields', variant: 'destructive' });
+    const unassigned = scannedBoxes.filter((b: any) => !b.pallet_id);
+    if (unassigned.length === 0) {
+      toast({ title: 'No unassigned boxes to palletize', variant: 'destructive' });
       return;
     }
     if (!currentHub) {
@@ -327,14 +334,14 @@ export default function InboundScanning() {
       return;
     }
     try {
+      const colli = unassigned.length;
+      const weightKg = unassigned.reduce((sum: number, b: any) => sum + (weightMap.get(b.barcode) || 0), 0);
+
       const { data: palletNumber, error: rpcError } = await supabase.rpc('generate_pallet_number', {
         p_warehouse_code: warehouse.code,
       });
       if (rpcError) throw rpcError;
       if (!palletNumber) throw new Error('No pallet number returned');
-
-      const colli = parseInt(labelColli);
-      const weightKg = parseFloat(labelWeight);
 
       const { data: palletRow, error: insertError } = await supabase.from('pallets').insert({
         shipment_id: shipment.id,
@@ -347,11 +354,7 @@ export default function InboundScanning() {
       }).select('id').single();
       if (insertError) throw insertError;
 
-      // Assign all unassigned scanned outerboxes to this pallet
-      const unassignedIds = scannedBoxes
-        .filter((b: any) => !b.pallet_id)
-        .map((b: any) => b.id);
-
+      const unassignedIds = unassigned.map((b: any) => b.id);
       if (unassignedIds.length > 0 && palletRow) {
         await supabase
           .from('outerboxes')
@@ -371,7 +374,6 @@ export default function InboundScanning() {
 
       setPendingPalletNumber(palletNumber);
       setPreviewData(labelData);
-      setLabelOpen(false);
       setPreviewOpen(true);
 
       // Reset hub session so next scans start a new pallet
@@ -499,11 +501,7 @@ export default function InboundScanning() {
                   </Button>
                   <Button
                     variant="outline"
-                    onClick={() => {
-                      setLabelColli('');
-                      setLabelWeight('');
-                      setLabelOpen(true);
-                    }}
+                    onClick={handleGenerateLabel}
                     disabled={!!scanningBlocked}
                   >
                     <Printer className="mr-2 h-4 w-4" />
@@ -593,35 +591,6 @@ export default function InboundScanning() {
           </Card>
         </>
       )}
-
-      {/* Print Label Modal */}
-      <Dialog open={labelOpen} onOpenChange={setLabelOpen}>
-        <DialogContent>
-          <DialogHeader><DialogTitle>Create Pallet Label</DialogTitle></DialogHeader>
-          <div className="space-y-4">
-            <div className="p-3 rounded-lg bg-muted text-sm">
-              <span className="font-medium">Hub:</span>{' '}
-              <span className="font-mono font-bold">{currentHub || 'No hub detected — scan a box first'}</span>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Colli on Pallet</Label>
-                <Input type="number" value={labelColli} onChange={e => setLabelColli(e.target.value)} placeholder="0" />
-              </div>
-              <div className="space-y-2">
-                <Label>Weight (kg)</Label>
-                <Input type="number" step="0.1" value={labelWeight} onChange={e => setLabelWeight(e.target.value)} placeholder="0.0" />
-              </div>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setLabelOpen(false)}>Cancel</Button>
-            <Button onClick={handleGenerateLabel} disabled={!currentHub}>
-              <Printer className="h-4 w-4 mr-2" />Generate & Print
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       {/* Print Preview Modal */}
       <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>

@@ -44,8 +44,19 @@ export default function WarehouseDashboard() {
         .gte('scanned_in_at', `${today}T00:00:00`)
         .lte('scanned_in_at', `${today}T23:59:59`);
       const items = data ?? [];
-      const uniqueShipments = new Set(items.map((b: any) => b.shipment_id));
-      return { count: items.length, shipments: uniqueShipments.size };
+      const uniqueShipmentIds = [...new Set(items.map((b: any) => b.shipment_id))];
+
+      // Get total weight from shipments' chargeable_weight as approximation
+      let totalKg = 0;
+      if (uniqueShipmentIds.length > 0) {
+        const { data: shipmentRows } = await supabase
+          .from('shipments')
+          .select('chargeable_weight')
+          .in('id', uniqueShipmentIds);
+        totalKg = (shipmentRows ?? []).reduce((s: number, r: any) => s + (r.chargeable_weight ?? 0), 0);
+      }
+
+      return { count: items.length, shipments: uniqueShipmentIds.length, totalKg };
     },
     enabled: !!auth,
   });
@@ -104,7 +115,7 @@ export default function WarehouseDashboard() {
     {
       label: 'Scanned In Today',
       value: `${scannedData?.count ?? 0} boxes`,
-      sub: `${scannedData?.shipments ?? 0} shipments`,
+      sub: `${scannedData?.shipments ?? 0} shipments · ${(scannedData?.totalKg ?? 0).toFixed(0)} kg`,
       icon: ScanBarcode,
       color: 'text-[hsl(var(--status-delivered))]',
     },
