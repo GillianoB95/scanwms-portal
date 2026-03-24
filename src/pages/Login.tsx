@@ -53,7 +53,7 @@ export default function Login() {
               <span className="text-accent">SCAN</span>
               <span className="text-foreground">WMS</span>
             </h1>
-            <p className="text-muted-foreground text-sm mt-1">Customer Portal</p>
+            
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
