@@ -16,7 +16,7 @@ import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import {
   Plus, ScanBarcode, FileText, Download, Printer, Upload, ArrowLeft,
-  Search, ChevronDown, ChevronRight, Loader2
+  Search, ChevronDown, ChevronRight, Loader2, Truck, Undo2
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { generateCmrWorkbook, downloadCmrWorkbook, printCmrViaPrintNode, type CmrData } from '@/lib/cmr-generator';
@@ -266,6 +266,20 @@ export default function WarehouseOutbound() {
       setActiveOutbound(null);
     },
   });
+
+  const markPickup = async (id: string) => {
+    const { error } = await supabase.from('outbounds').update({ status: 'picked_up' }).eq('id', id);
+    if (error) { toast({ title: 'Error', description: error.message, variant: 'destructive' }); return; }
+    qc.invalidateQueries({ queryKey: ['warehouse-outbounds'] });
+    toast({ title: 'Outbound marked as picked up' });
+  };
+
+  const undoPickup = async (id: string) => {
+    const { error } = await supabase.from('outbounds').update({ status: 'preparing' }).eq('id', id);
+    if (error) { toast({ title: 'Error', description: error.message, variant: 'destructive' }); return; }
+    qc.invalidateQueries({ queryKey: ['warehouse-outbounds'] });
+    toast({ title: 'Pickup status reverted' });
+  };
 
   const handlePalletScan = (e: React.FormEvent) => {
     e.preventDefault();
@@ -615,6 +629,15 @@ export default function WarehouseOutbound() {
                               <Button variant="ghost" size="icon" className="h-8 w-8" title="Scan pallets" onClick={() => setActiveOutbound(o.id)}>
                                 <ScanBarcode className="h-3.5 w-3.5" />
                               </Button>
+                              {o.status === 'picked_up' || o.status === 'Picked Up' ? (
+                                <Button variant="ghost" size="icon" className="h-8 w-8" title="Undo Picked Up" onClick={() => undoPickup(o.id)}>
+                                  <Undo2 className="h-3.5 w-3.5 text-destructive" />
+                                </Button>
+                              ) : (
+                                <Button variant="ghost" size="icon" className="h-8 w-8" title="Mark as Picked Up" onClick={() => markPickup(o.id)}>
+                                  <Truck className="h-3.5 w-3.5" />
+                                </Button>
+                              )}
                               <Button variant="ghost" size="icon" className="h-8 w-8" title="Create CMR" onClick={() => { setCmrOutbound(o); setCmrAddressId(''); setCmrSealNumber(''); }}>
                                 <FileText className="h-3.5 w-3.5" />
                               </Button>
