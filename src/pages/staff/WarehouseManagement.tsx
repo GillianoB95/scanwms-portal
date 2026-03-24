@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
+import { Separator } from '@/components/ui/separator';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { toast } from 'sonner';
@@ -13,10 +14,7 @@ function useWarehouses() {
   return useQuery({
     queryKey: ['staff-warehouses'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('warehouses')
-        .select('*')
-        .order('code');
+      const { data, error } = await supabase.from('warehouses').select('*').order('code');
       if (error) throw error;
       return data ?? [];
     },
@@ -40,7 +38,7 @@ function useUpdateWarehouse() {
 function useCreateWarehouse() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (warehouse: { code: string; name: string; email?: string; printnode_id?: string; printnode_key?: string; printnode_name?: string }) => {
+    mutationFn: async (warehouse: Record<string, any>) => {
       const { data, error } = await supabase.from('warehouses').insert(warehouse).select().single();
       if (error) throw error;
       return data;
@@ -61,6 +59,14 @@ function WarehouseFormDialog({ open, onOpenChange, warehouse }: { open: boolean;
   const [printnodeId, setPrintnodeId] = useState(warehouse?.printnode_id || '');
   const [printnodeKey, setPrintnodeKey] = useState(warehouse?.printnode_key || '');
   const [printnodeName, setPrintnodeName] = useState(warehouse?.printnode_name || '');
+  // CMR fields
+  const [cmrName, setCmrName] = useState(warehouse?.cmr_name || '');
+  const [cmrStreet, setCmrStreet] = useState(warehouse?.cmr_street || '');
+  const [cmrPostalCity, setCmrPostalCity] = useState(warehouse?.cmr_postal_city || '');
+  const [cmrCountry, setCmrCountry] = useState(warehouse?.cmr_country || '');
+  const [cmrCity, setCmrCity] = useState(warehouse?.cmr_city || '');
+  const [cmrPrinterId, setCmrPrinterId] = useState(warehouse?.cmr_printer_id || '');
+  const [cmrPrinterKey, setCmrPrinterKey] = useState(warehouse?.cmr_printer_key || '');
   const [saving, setSaving] = useState(false);
 
   const isEdit = !!warehouse?.id;
@@ -69,12 +75,19 @@ function WarehouseFormDialog({ open, onOpenChange, warehouse }: { open: boolean;
     if (!code || !name) return;
     setSaving(true);
     try {
-      const payload = {
+      const payload: Record<string, any> = {
         name, code,
         email: email || null,
         printnode_id: printnodeId || null,
         printnode_key: printnodeKey || null,
         printnode_name: printnodeName || null,
+        cmr_name: cmrName || null,
+        cmr_street: cmrStreet || null,
+        cmr_postal_city: cmrPostalCity || null,
+        cmr_country: cmrCountry || null,
+        cmr_city: cmrCity || null,
+        cmr_printer_id: cmrPrinterId || null,
+        cmr_printer_key: cmrPrinterKey || null,
       };
       if (isEdit) {
         await updateWarehouse.mutateAsync({ id: warehouse.id, ...payload });
@@ -91,11 +104,11 @@ function WarehouseFormDialog({ open, onOpenChange, warehouse }: { open: boolean;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{isEdit ? `Edit Warehouse — ${warehouse?.code}` : 'Create Warehouse'}</DialogTitle>
         </DialogHeader>
-        <div className="space-y-4 py-4 max-h-[70vh] overflow-y-auto">
+        <div className="space-y-4 py-4">
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>Code *</Label>
@@ -110,19 +123,57 @@ function WarehouseFormDialog({ open, onOpenChange, warehouse }: { open: boolean;
             <Label>Email</Label>
             <Input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="warehouse@example.com" />
           </div>
-          <div className="border-t pt-4 space-y-3">
-            <p className="text-sm font-medium text-muted-foreground">PrintNode Configuration</p>
+
+          <Separator />
+          <p className="text-sm font-medium text-muted-foreground">PrintNode — Label Printer</p>
+          <div className="space-y-2">
+            <Label>PrintNode Print ID</Label>
+            <Input value={printnodeId} onChange={e => setPrintnodeId(e.target.value)} placeholder="Printer ID" />
+          </div>
+          <div className="space-y-2">
+            <Label>PrintNode Print Key</Label>
+            <Input value={printnodeKey} onChange={e => setPrintnodeKey(e.target.value)} placeholder="API Key" />
+          </div>
+          <div className="space-y-2">
+            <Label>PrintNode Print Name</Label>
+            <Input value={printnodeName} onChange={e => setPrintnodeName(e.target.value)} placeholder="Printer name" />
+          </div>
+
+          <Separator />
+          <p className="text-sm font-medium text-muted-foreground">CMR Configuration</p>
+          <div className="space-y-2">
+            <Label>CMR Name</Label>
+            <Input value={cmrName} onChange={e => setCmrName(e.target.value)} placeholder="Company name on CMR" />
+          </div>
+          <div className="space-y-2">
+            <Label>CMR Street</Label>
+            <Input value={cmrStreet} onChange={e => setCmrStreet(e.target.value)} placeholder="Street + number" />
+          </div>
+          <div className="space-y-2">
+            <Label>CMR Postal + City</Label>
+            <Input value={cmrPostalCity} onChange={e => setCmrPostalCity(e.target.value)} placeholder="1234 AB Amsterdam" />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label>PrintNode Print ID</Label>
-              <Input value={printnodeId} onChange={e => setPrintnodeId(e.target.value)} placeholder="Printer ID" />
+              <Label>CMR City</Label>
+              <Input value={cmrCity} onChange={e => setCmrCity(e.target.value)} placeholder="Amsterdam" />
             </div>
             <div className="space-y-2">
-              <Label>PrintNode Print Key</Label>
-              <Input value={printnodeKey} onChange={e => setPrintnodeKey(e.target.value)} placeholder="API Key" />
+              <Label>CMR Country</Label>
+              <Input value={cmrCountry} onChange={e => setCmrCountry(e.target.value)} placeholder="The Netherlands" />
+            </div>
+          </div>
+
+          <Separator />
+          <p className="text-sm font-medium text-muted-foreground">PrintNode — CMR Printer</p>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>CMR Printer ID</Label>
+              <Input value={cmrPrinterId} onChange={e => setCmrPrinterId(e.target.value)} placeholder="Printer ID" />
             </div>
             <div className="space-y-2">
-              <Label>PrintNode Print Name</Label>
-              <Input value={printnodeName} onChange={e => setPrintnodeName(e.target.value)} placeholder="Printer name" />
+              <Label>CMR Printer Key</Label>
+              <Input value={cmrPrinterKey} onChange={e => setCmrPrinterKey(e.target.value)} placeholder="API Key" />
             </div>
           </div>
         </div>
