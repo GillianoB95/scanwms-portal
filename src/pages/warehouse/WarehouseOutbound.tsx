@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { useHubs } from '@/hooks/use-hubs';
 import { useToast } from '@/hooks/use-toast';
 import { Plus, ScanBarcode, Truck, FileText, Download, Printer } from 'lucide-react';
+import * as XLSX from 'xlsx';
 import { generateCmrWorkbook, downloadCmrWorkbook, printCmrViaPrintNode, type CmrData } from '@/lib/cmr-generator';
 import JSZip from 'jszip';
 
