@@ -244,7 +244,7 @@ export default function WarehouseOutbound() {
       if (!activeOutbound) return;
       const { error } = await supabase
         .from('outbounds')
-        .update({ status: 'picked_up' })
+        .update({ status: 'prepared' })
         .eq('id', activeOutbound);
       if (error) throw error;
 
