@@ -17,36 +17,42 @@ import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { printPalletLabel, type PalletLabelData } from '@/lib/printnode';
 import * as XLSX from 'xlsx';
 
-// Parse a cleaned manifest XLSX blob and return a map of BoxBagbarcode -> Waybill (hub)
-async function parseManifestForHubs(blob: Blob): Promise<Map<string, string>> {
-  const map = new Map<string, string>();
+// Parse a cleaned manifest XLSX blob and return maps: BoxBagbarcode -> hub, BoxBagbarcode -> weight
+async function parseManifestData(blob: Blob): Promise<{ hubMap: Map<string, string>; weightMap: Map<string, number> }> {
+  const hubMap = new Map<string, string>();
+  const weightMap = new Map<string, number>();
   try {
     const arrayBuffer = await blob.arrayBuffer();
     const workbook = XLSX.read(arrayBuffer, { type: 'array' });
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
     const rows: any[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
-    if (rows.length < 2) return map;
+    if (rows.length < 2) return { hubMap, weightMap };
 
     // Find columns by header name, fallback to known indices
     const header = rows[0].map((h: any) => String(h).trim().toLowerCase());
     let boxBagCol = 2; // BoxBagbarcode
     let waybillCol = 3; // Waybill = hub
+    let weightCol = 13; // Total weight
 
     const bbIdx = header.findIndex(h => h.includes('boxbagbarcode') || h.includes('boxbag'));
     if (bbIdx >= 0) boxBagCol = bbIdx;
     const wIdx = header.findIndex(h => h === 'waybill' || h.includes('waybill'));
     if (wIdx >= 0) waybillCol = wIdx;
+    const twIdx = header.findIndex(h => h.includes('total weight') || h === 'totalweight');
+    if (twIdx >= 0) weightCol = twIdx;
 
     for (let i = 1; i < rows.length; i++) {
       const row = rows[i];
       const boxBag = String(row[boxBagCol] || '').trim();
       const hub = String(row[waybillCol] || '').trim();
-      if (boxBag && hub) map.set(boxBag, hub);
+      const weight = parseFloat(String(row[weightCol] || '')) || 0;
+      if (boxBag && hub) hubMap.set(boxBag, hub);
+      if (boxBag && weight > 0) weightMap.set(boxBag, (weightMap.get(boxBag) || 0) + weight);
     }
   } catch (err) {
-    console.error('Failed to parse manifest for hubs:', err);
+    console.error('Failed to parse manifest:', err);
   }
-  return map;
+  return { hubMap, weightMap };
 }
 
 export default function InboundScanning() {
