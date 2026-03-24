@@ -143,6 +143,21 @@ function CustomerFormDialog({ open, onOpenChange, customer, parentId, isAdmin }:
 
       if (customer?.id) {
         await updateCustomer.mutateAsync({ id: customer.id, ...payload });
+
+        // Cascade warehouse change to sub-accounts if this is a parent account
+        if (!customer.parent_customer_id && payload.warehouse_id) {
+          const { error: cascadeError } = await supabase
+            .from('customers')
+            .update({ warehouse_id: payload.warehouse_id })
+            .eq('parent_customer_id', customer.id);
+          if (cascadeError) {
+            console.error('Failed to cascade warehouse to sub-accounts:', cascadeError);
+            toast.error('Warehouse updated but failed to sync sub-accounts');
+          } else {
+            toast.success('Sub-accounts warehouse synced automatically');
+          }
+        }
+
         onOpenChange(false);
       } else {
         const newCustomer = await createCustomer.mutateAsync(payload);
