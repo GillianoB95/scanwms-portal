@@ -289,7 +289,7 @@ export default function InboundScanning() {
       }
 
       const boxWeight = effectiveWeightMap.get(normalizedCode) || null;
-      console.log(`[Scan] Barcode: ${code}, hubMap size: ${hubMap.size}, weightMap size: ${weightMap.size}, weight: ${boxWeight}`);
+      console.log(`[Scan] Barcode: ${code}, hubMap size: ${effectiveHubMap.size}, weightMap size: ${effectiveWeightMap.size}, weight: ${boxWeight}`);
 
       const insertData: any = {
         shipment_id: shipment.id,
