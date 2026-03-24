@@ -113,14 +113,16 @@ export default function WarehouseOutbound() {
 
   const createOutbound = useMutation({
     mutationFn: async () => {
-      const { data, error } = await supabase.from('outbounds').insert({
+      const insertData: any = {
         hub_code: hub,
         truck_reference: truckRef,
         license_plate: licensePlate || null,
         pickup_date: pickupDate,
         pickup_time: pickupTime || null,
         status: 'preparing',
-      }).select().single();
+      };
+      if (warehouseId) insertData.warehouse_id = warehouseId;
+      const { data, error } = await supabase.from('outbounds').insert(insertData).select().single();
       if (error) throw error;
       return data;
     },
