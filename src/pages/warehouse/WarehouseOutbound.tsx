@@ -262,7 +262,7 @@ export default function WarehouseOutbound() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['warehouse-outbounds'] });
-      toast({ title: 'Outbound confirmed as picked up' });
+      toast({ title: 'Scan finished — outbound prepared' });
       setActiveOutbound(null);
     },
   });
