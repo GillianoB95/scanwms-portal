@@ -410,7 +410,7 @@ export default function InboundScanning() {
     }
     try {
       const colli = unassigned.length;
-      const weightKg = unassigned.reduce((sum: number, b: any) => sum + (weightMap.get(b.barcode) || 0), 0);
+      const weightKg = unassigned.reduce((sum: number, b: any) => sum + (b.weight || weightMap.get(b.barcode) || 0), 0);
 
       const { data: palletNumber, error: rpcError } = await supabase.rpc('generate_pallet_number', {
         p_warehouse_code: effectiveWarehouseCode,
