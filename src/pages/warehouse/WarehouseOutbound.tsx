@@ -271,7 +271,7 @@ export default function WarehouseOutbound() {
     const { error } = await supabase.from('outbounds').update({ status: 'departed' }).eq('id', id);
     if (error) { toast({ title: 'Error', description: error.message, variant: 'destructive' }); return; }
     qc.invalidateQueries({ queryKey: ['warehouse-outbounds'] });
-    toast({ title: 'Outbound marked as picked up' });
+    toast({ title: 'Outbound marked as departed' });
   };
 
   const undoPickup = async (id: string) => {
