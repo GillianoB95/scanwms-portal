@@ -281,8 +281,18 @@ export default function WarehouseOutbound() {
               <Input value={truckRef} onChange={e => setTruckRef(e.target.value)} placeholder="e.g. TR-2026-001" />
             </div>
             <div className="space-y-2">
-              <Label>Pickup Date</Label>
-              <Input type="date" value={pickupDate} onChange={e => setPickupDate(e.target.value)} />
+              <Label>License Plate</Label>
+              <Input value={licensePlate} onChange={e => setLicensePlate(e.target.value)} placeholder="e.g. AB-123-CD" />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Pickup Date</Label>
+                <Input type="date" value={pickupDate} onChange={e => setPickupDate(e.target.value)} />
+              </div>
+              <div className="space-y-2">
+                <Label>Pickup Time</Label>
+                <Input type="time" value={pickupTime} onChange={e => setPickupTime(e.target.value)} />
+              </div>
             </div>
           </div>
           <DialogFooter>

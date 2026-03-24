@@ -3,7 +3,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '@/lib/auth-context';
 import {
   LayoutDashboard, ScanBarcode, ArrowUpFromLine,
-  Printer, PackageSearch, LogOut, Menu, X, Warehouse
+  PackageSearch, LogOut, Menu, X, Warehouse
 } from 'lucide-react';
 
 const navItems = [
