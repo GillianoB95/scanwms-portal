@@ -23,6 +23,7 @@ interface HubForm {
 interface HubAddress {
   id?: string;
   hub_id?: string;
+  hub_name: string;
   name: string;
   street: string;
   house_number: string;
@@ -32,7 +33,7 @@ interface HubAddress {
 }
 
 const emptyForm: HubForm = { code: '', name: '', carrier: '', active: true };
-const emptyAddress: HubAddress = { name: '', street: '', house_number: '', postal_code: '', city: '', country: '' };
+const emptyAddress: HubAddress = { hub_name: '', name: '', street: '', house_number: '', postal_code: '', city: '', country: '' };
 
 export default function HubManagement() {
   const { role } = useAuth();
@@ -105,12 +106,12 @@ export default function HubManagement() {
         for (const addr of addresses) {
           if (addr.id) {
             await supabase.from('hub_addresses').update({
-              name: addr.name, street: addr.street, house_number: addr.house_number,
+              hub_name: addr.hub_name, name: addr.name, street: addr.street, house_number: addr.house_number,
               postal_code: addr.postal_code, city: addr.city, country: addr.country,
             }).eq('id', addr.id);
           } else {
             await supabase.from('hub_addresses').insert({
-              hub_id: hubId, name: addr.name, street: addr.street, house_number: addr.house_number,
+              hub_id: hubId, hub_name: addr.hub_name, name: addr.name, street: addr.street, house_number: addr.house_number,
               postal_code: addr.postal_code, city: addr.city, country: addr.country,
             });
           }
@@ -262,7 +263,10 @@ export default function HubManagement() {
                     </Button>
                   </div>
                   <div className="space-y-2">
-                    <Input placeholder="Name" value={addr.name} onChange={e => updateAddress(idx, 'name', e.target.value)} />
+                    <Input placeholder="Hub Name (voor CMR dropdown)" value={addr.hub_name} onChange={e => updateAddress(idx, 'hub_name', e.target.value)} />
+                  </div>
+                  <div className="space-y-2">
+                    <Input placeholder="Bedrijfsnaam / Naam" value={addr.name} onChange={e => updateAddress(idx, 'name', e.target.value)} />
                   </div>
                   <div className="grid grid-cols-3 gap-2">
                     <Input placeholder="Street" value={addr.street} onChange={e => updateAddress(idx, 'street', e.target.value)} className="col-span-2" />
