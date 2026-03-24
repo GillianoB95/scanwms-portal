@@ -311,6 +311,14 @@ export default function InboundScanning() {
 
       {shipment && (
         <>
+          {scanningBlocked && (
+            <Alert variant="destructive">
+              <AlertTriangle className="h-4 w-4" />
+              <AlertTitle>Scanning Disabled</AlertTitle>
+              <AlertDescription>{scanningBlocked}</AlertDescription>
+            </Alert>
+          )}
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Card>
               <CardContent className="p-6">
@@ -321,11 +329,12 @@ export default function InboundScanning() {
                       ref={barcodeRef}
                       value={barcode}
                       onChange={e => setBarcode(e.target.value)}
-                      placeholder="Scan or type barcode..."
+                      placeholder={scanningBlocked ? 'Scanning disabled' : 'Scan or type barcode...'}
                       className="text-lg h-14 font-mono"
                       autoFocus
+                      disabled={!!scanningBlocked}
                     />
-                    <Button type="submit" size="lg" className="h-14" disabled={scanMutation.isPending}>
+                    <Button type="submit" size="lg" className="h-14" disabled={scanMutation.isPending || !!scanningBlocked}>
                       <ScanBarcode className="h-5 w-5" />
                     </Button>
                   </div>
