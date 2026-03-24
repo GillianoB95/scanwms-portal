@@ -104,19 +104,20 @@ export default function InboundScanning() {
   const [pendingPalletNumber, setPendingPalletNumber] = useState('');
   const { data: hubs = [] } = useHubs();
 
-  // Warehouse details for PrintNode
+  // Warehouse details for PrintNode — use customer.warehouse_id or fall back to shipment.warehouse_id
+  const warehouseId = customer?.warehouse_id || shipment?.warehouse_id || null;
   const { data: warehouse } = useQuery({
-    queryKey: ['warehouse-detail', customer?.warehouse_id],
+    queryKey: ['warehouse-detail', warehouseId],
     queryFn: async () => {
-      if (!customer?.warehouse_id) return null;
+      if (!warehouseId) return null;
       const { data } = await supabase
         .from('warehouses')
         .select('id, code, name, printnode_id, printnode_key, printnode_name')
-        .eq('id', customer.warehouse_id)
+        .eq('id', warehouseId)
         .single();
       return data;
     },
-    enabled: !!customer?.warehouse_id,
+    enabled: !!warehouseId,
   });
 
   const fetchManifestDataForShipment = useCallback(async (shipmentId: string) => {
