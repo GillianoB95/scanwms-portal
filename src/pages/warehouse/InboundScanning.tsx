@@ -237,9 +237,9 @@ export default function InboundScanning() {
       if (!shipment?.id) return [];
       const { data } = await supabase
         .from('outerboxes')
-        .select('id, barcode, scanned_in_at, hub, pallet_id')
+        .select('id, barcode, scanned_in_at, hub, pallet_id, status')
         .eq('shipment_id', shipment.id)
-        .eq('status', 'scanned_in')
+        .in('status', ['scanned_in', 'deleted'])
         .order('scanned_in_at', { ascending: false });
 
       // Fetch pallet numbers for boxes with pallet_id
@@ -335,12 +335,15 @@ export default function InboundScanning() {
 
   const deleteMutation = useMutation({
     mutationFn: async (boxId: string) => {
-      const { error } = await supabase.from('outerboxes').delete().eq('id', boxId);
+      const { error } = await supabase
+        .from('outerboxes')
+        .update({ status: 'deleted' })
+        .eq('id', boxId);
       if (error) throw error;
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['scanned-boxes', shipment?.id] });
-      toast({ title: 'Scan deleted' });
+      toast({ title: 'Scan removed' });
     },
     onError: (err: any) => {
       toast({ title: 'Delete failed', description: err.message, variant: 'destructive' });
@@ -381,12 +384,12 @@ export default function InboundScanning() {
   }, [shipment, scanningBlocked]);
 
   const totalExpected = shipment?.colli_expected ?? 0;
-  const totalScanned = scannedBoxes.length;
+  const totalScanned = scannedBoxes.filter((b: any) => b.status !== 'deleted').length;
   const subklant = shipment?.customers?.short_name || shipment?.customers?.name || '—';
 
   // Print Label logic — hub is auto-set from current session hub
   const handleGenerateLabel = async () => {
-    const unassigned = scannedBoxes.filter((b: any) => !b.pallet_id);
+    const unassigned = scannedBoxes.filter((b: any) => !b.pallet_id && b.status !== 'deleted');
     if (unassigned.length === 0) {
       toast({ title: 'No unassigned boxes to palletize', variant: 'destructive' });
       return;
@@ -649,26 +652,33 @@ export default function InboundScanning() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {scannedBoxes.map((box: any, i: number) => (
-                    <TableRow key={box.id}>
-                      <TableCell>{i + 1}</TableCell>
-                      <TableCell className="font-mono">{box.barcode}</TableCell>
-                      <TableCell className="font-mono">{box.hub || '—'}</TableCell>
-                      <TableCell>{new Date(box.scanned_in_at).toLocaleTimeString()}</TableCell>
-                      <TableCell className="font-mono">{box.pallet_number || '—'}</TableCell>
+                {scannedBoxes.map((box: any, i: number) => {
+                    const isDeleted = box.status === 'deleted';
+                    return (
+                    <TableRow key={box.id} className={isDeleted ? 'opacity-40' : ''}>
+                      <TableCell className={isDeleted ? 'line-through' : ''}>{i + 1}</TableCell>
+                      <TableCell className={`font-mono ${isDeleted ? 'line-through' : ''}`}>{box.barcode}</TableCell>
+                      <TableCell className={`font-mono ${isDeleted ? 'line-through' : ''}`}>{box.hub || '—'}</TableCell>
+                      <TableCell className={isDeleted ? 'line-through' : ''}>{new Date(box.scanned_in_at).toLocaleTimeString()}</TableCell>
+                      <TableCell className={`font-mono ${isDeleted ? 'line-through' : ''}`}>{box.pallet_number || '—'}</TableCell>
                       <TableCell>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-7 w-7 text-destructive hover:text-destructive"
-                          onClick={() => deleteMutation.mutate(box.id)}
-                          disabled={deleteMutation.isPending}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        {isDeleted ? (
+                          <span className="text-xs text-destructive font-medium">Removed</span>
+                        ) : (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 text-destructive hover:text-destructive"
+                            onClick={() => deleteMutation.mutate(box.id)}
+                            disabled={deleteMutation.isPending}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        )}
                       </TableCell>
                     </TableRow>
-                  ))}
+                    );
+                  })}
                   {scannedBoxes.length === 0 && (
                     <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-6">No boxes scanned yet</TableCell></TableRow>
                   )}
