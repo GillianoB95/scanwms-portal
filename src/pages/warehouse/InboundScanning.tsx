@@ -386,8 +386,6 @@ export default function InboundScanning() {
   const totalExpected = shipment?.colli_expected ?? 0;
   const totalScanned = scannedBoxes.filter((b: any) => b.status !== 'deleted').length;
   const subklant = shipment?.customers?.short_name || shipment?.customers?.name || '—';
-  const unassignedBoxes = scannedBoxes.filter((b: any) => !b.pallet_id && b.status !== 'deleted');
-  const sessionWeight = unassignedBoxes.reduce((sum: number, b: any) => sum + (b.weight || 0), 0);
 
   // Print Label logic — hub is auto-set from current session hub
   const handleGenerateLabel = async () => {
