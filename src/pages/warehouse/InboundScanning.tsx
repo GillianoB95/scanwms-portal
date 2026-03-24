@@ -25,6 +25,7 @@ export default function InboundScanning() {
   const [shipmentError, setShipmentError] = useState('');
   const [barcode, setBarcode] = useState('');
   const [searching, setSearching] = useState(false);
+  const [scanningBlocked, setScanningBlocked] = useState<string | null>(null);
   const barcodeRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const qc = useQueryClient();
