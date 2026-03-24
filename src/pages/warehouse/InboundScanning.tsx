@@ -104,20 +104,31 @@ export default function InboundScanning() {
   const [pendingPalletNumber, setPendingPalletNumber] = useState('');
   const { data: hubs = [] } = useHubs();
 
-  // Warehouse details for PrintNode — use customer.warehouse_id or fall back to shipment.warehouse_id
-  const warehouseId = customer?.warehouse_id || shipment?.warehouse_id || null;
+  // Warehouse details for PrintNode — use customer.warehouse_id or fall back to shipment.warehouse_id (which is a code like 'DSC')
+  const warehouseIdFromCustomer = customer?.warehouse_id || null;
+  const warehouseCodeFromShipment = shipment?.warehouse_id || null;
   const { data: warehouse } = useQuery({
-    queryKey: ['warehouse-detail', warehouseId],
+    queryKey: ['warehouse-detail', warehouseIdFromCustomer, warehouseCodeFromShipment],
     queryFn: async () => {
-      if (!warehouseId) return null;
-      const { data } = await supabase
-        .from('warehouses')
-        .select('id, code, name, printnode_id, printnode_key, printnode_name')
-        .eq('id', warehouseId)
-        .single();
-      return data;
+      if (warehouseIdFromCustomer) {
+        const { data } = await supabase
+          .from('warehouses')
+          .select('id, code, name, printnode_id, printnode_key, printnode_name')
+          .eq('id', warehouseIdFromCustomer)
+          .single();
+        if (data) return data;
+      }
+      if (warehouseCodeFromShipment) {
+        const { data } = await supabase
+          .from('warehouses')
+          .select('id, code, name, printnode_id, printnode_key, printnode_name')
+          .eq('code', warehouseCodeFromShipment)
+          .single();
+        if (data) return data;
+      }
+      return null;
     },
-    enabled: !!warehouseId,
+    enabled: !!warehouseIdFromCustomer || !!warehouseCodeFromShipment,
   });
 
   const fetchManifestDataForShipment = useCallback(async (shipmentId: string) => {
