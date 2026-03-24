@@ -363,131 +363,138 @@ export default function WarehouseOutbound() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Outbound</h1>
-        <Button onClick={() => setShowCreate(true)}>
-          <Plus className="mr-2 h-4 w-4" />New Outbound
-        </Button>
-      </div>
+      {activeOutbound ? (
+        <>
+          <div className="flex items-center gap-3">
+            <Button variant="ghost" size="sm" onClick={() => setActiveOutbound(null)}>
+              <ArrowLeft className="h-4 w-4 mr-1" />Back
+            </Button>
+            <h1 className="text-2xl font-bold">
+              Outbound {activeOutboundRecord?.outbound_number ?? ''}
+              {activeOutboundRecord?.hub_code && <span className="text-base font-mono text-muted-foreground ml-2">({activeOutboundRecord.hub_code})</span>}
+            </h1>
+          </div>
 
-      {activeOutbound && (
-        <Card className="border-accent">
-          <CardHeader>
-            <CardTitle className="text-lg flex items-center gap-2">
-              <Truck className="h-5 w-5 text-accent" />
-              Active Outbound {activeOutboundRecord?.outbound_number ? `— ${activeOutboundRecord.outbound_number}` : ''} 
-              {activeOutboundRecord?.hub_code && <span className="text-sm font-mono text-muted-foreground">({activeOutboundRecord.hub_code})</span>}
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <form onSubmit={handlePalletScan} className="flex gap-2 max-w-md">
-              <Input
-                ref={palletRef}
-                value={palletBarcode}
-                onChange={e => setPalletBarcode(e.target.value)}
-                placeholder="Scan pallet number..."
-                className="font-mono"
-                autoFocus
-              />
-              <Button type="submit" disabled={addPallet.isPending}>
-                <ScanBarcode className="h-4 w-4" />
-              </Button>
-            </form>
-
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Pallet</TableHead>
-                  <TableHead>Subklant</TableHead>
-                  <TableHead>Hub</TableHead>
-                  <TableHead className="text-right">Colli</TableHead>
-                  <TableHead className="text-right">Weight</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {pallets.length === 0 ? (
-                  <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-6">Scan pallets to add</TableCell></TableRow>
-                ) : pallets.map((p: any) => (
-                  <TableRow key={p.id}>
-                    <TableCell className="font-mono font-medium">{p.pallet_number}</TableCell>
-                    <TableCell>{(p.shipments as any)?.customers?.short_name ?? '—'}</TableCell>
-                    <TableCell>{p.hub_code}</TableCell>
-                    <TableCell className="text-right">{p.pieces ?? '—'}</TableCell>
-                    <TableCell className="text-right">{p.weight != null ? `${Number(p.weight).toFixed(2)} kg` : '—'}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-              {pallets.length > 0 && (
-                <TableFooter>
-                  <TableRow>
-                    <TableCell colSpan={3} className="font-semibold">Total ({pallets.length} pallets)</TableCell>
-                    <TableCell className="text-right font-semibold">{totalColli}</TableCell>
-                    <TableCell className="text-right font-semibold">{totalWeight.toFixed(2)} kg</TableCell>
-                  </TableRow>
-                </TableFooter>
-              )}
-            </Table>
-
-            <div className="flex justify-end gap-2">
-              {pallets.length > 0 && (
-                <Button variant="outline" onClick={openCmrForActiveOutbound}>
-                  <FileText className="mr-2 h-4 w-4" />Create CMR
+          <Card>
+            <CardContent className="pt-6 space-y-4">
+              <form onSubmit={handlePalletScan} className="flex gap-2 max-w-md">
+                <Input
+                  ref={palletRef}
+                  value={palletBarcode}
+                  onChange={e => setPalletBarcode(e.target.value)}
+                  placeholder="Scan pallet number..."
+                  className="font-mono"
+                  autoFocus
+                />
+                <Button type="submit" disabled={addPallet.isPending}>
+                  <ScanBarcode className="h-4 w-4" />
                 </Button>
-              )}
-              <Button onClick={() => confirmOutbound.mutate()} disabled={pallets.length === 0 || confirmOutbound.isPending}>
-                Confirm Outbound — Mark as Picked Up
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+              </form>
 
-      <Card>
-        <CardHeader><CardTitle className="text-lg">Recent Outbounds</CardTitle></CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Nr</TableHead>
-                <TableHead>Hub</TableHead>
-                <TableHead>Truck Ref</TableHead>
-                <TableHead>License Plate</TableHead>
-                <TableHead>Pickup Date</TableHead>
-                <TableHead>Time</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead></TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {outbounds.length === 0 ? (
-                <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground py-8">No outbounds yet</TableCell></TableRow>
-              ) : outbounds.map((o: any) => (
-                <TableRow key={o.id}>
-                  <TableCell className="font-mono">{o.outbound_number ?? '—'}</TableCell>
-                  <TableCell className="font-medium">{o.hub_code}</TableCell>
-                  <TableCell>{o.truck_reference ?? '—'}</TableCell>
-                  <TableCell>{o.license_plate ?? '—'}</TableCell>
-                  <TableCell>{o.pickup_date ?? '—'}</TableCell>
-                  <TableCell>{o.pickup_time ?? '—'}</TableCell>
-                  <TableCell className="capitalize">{o.status?.replace('_', ' ')}</TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-1">
-                      {o.status === 'preparing' && (
-                        <Button size="sm" variant="ghost" onClick={() => setActiveOutbound(o.id)}>
-                          Continue
-                        </Button>
-                      )}
-                      <Button size="sm" variant="outline" onClick={() => { setCmrOutbound(o); setCmrAddressId(''); setCmrSealNumber(''); }}>
-                        <FileText className="h-3.5 w-3.5 mr-1" />CMR
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Pallet</TableHead>
+                    <TableHead>Subklant</TableHead>
+                    <TableHead>Hub</TableHead>
+                    <TableHead className="text-right">Colli</TableHead>
+                    <TableHead className="text-right">Weight</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {pallets.length === 0 ? (
+                    <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-6">Scan pallets to add</TableCell></TableRow>
+                  ) : pallets.map((p: any) => (
+                    <TableRow key={p.id}>
+                      <TableCell className="font-mono font-medium">{p.pallet_number}</TableCell>
+                      <TableCell>{(p.shipments as any)?.customers?.short_name ?? '—'}</TableCell>
+                      <TableCell>{p.hub_code}</TableCell>
+                      <TableCell className="text-right">{p.pieces ?? '—'}</TableCell>
+                      <TableCell className="text-right">{p.weight != null ? `${Number(p.weight).toFixed(2)} kg` : '—'}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+                {pallets.length > 0 && (
+                  <TableFooter>
+                    <TableRow>
+                      <TableCell colSpan={3} className="font-semibold">Total ({pallets.length} pallets)</TableCell>
+                      <TableCell className="text-right font-semibold">{totalColli}</TableCell>
+                      <TableCell className="text-right font-semibold">{totalWeight.toFixed(2)} kg</TableCell>
+                    </TableRow>
+                  </TableFooter>
+                )}
+              </Table>
+
+              <div className="flex justify-end">
+                <Button onClick={() => confirmOutbound.mutate()} disabled={pallets.length === 0 || confirmOutbound.isPending}>
+                  Confirm Outbound — Mark as Picked Up
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </>
+      ) : (
+        <>
+          <div className="flex items-center justify-between">
+            <h1 className="text-2xl font-bold">Outbound</h1>
+            <Button onClick={() => setShowCreate(true)}>
+              <Plus className="mr-2 h-4 w-4" />New Outbound
+            </Button>
+          </div>
+
+          <Card>
+            <CardContent className="pt-6">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Nr</TableHead>
+                    <TableHead>Hub</TableHead>
+                    <TableHead>Truck Ref</TableHead>
+                    <TableHead>License Plate</TableHead>
+                    <TableHead>Pickup</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {outbounds.length === 0 ? (
+                    <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-8">No outbounds yet</TableCell></TableRow>
+                  ) : outbounds.map((o: any) => (
+                    <TableRow
+                      key={o.id}
+                      className="cursor-pointer hover:bg-muted/50"
+                      onClick={() => setActiveOutbound(o.id)}
+                    >
+                      <TableCell className="font-mono font-medium">{o.outbound_number ?? '—'}</TableCell>
+                      <TableCell>{o.hub_code}</TableCell>
+                      <TableCell>{o.truck_reference ?? '—'}</TableCell>
+                      <TableCell>{o.license_plate ?? '—'}</TableCell>
+                      <TableCell>{o.pickup_date ?? '—'}{o.pickup_time ? ` ${o.pickup_time}` : ''}</TableCell>
+                      <TableCell className="capitalize">{o.status?.replace('_', ' ')}</TableCell>
+                      <TableCell className="text-right" onClick={e => e.stopPropagation()}>
+                        <div className="flex items-center justify-end gap-1">
+                          <Button size="sm" variant="ghost" title="Create CMR" onClick={() => { setCmrOutbound(o); setCmrAddressId(''); setCmrSealNumber(''); }}>
+                            <FileText className="h-4 w-4" />
+                          </Button>
+                          <Button size="sm" variant="ghost" title="Download CMR" onClick={() => { setCmrOutbound(o); setCmrAddressId(''); setCmrSealNumber(''); }}>
+                            <Download className="h-4 w-4" />
+                          </Button>
+                          <Button size="sm" variant="ghost" title="Print CMR" onClick={() => { setCmrOutbound(o); setCmrAddressId(''); setCmrSealNumber(''); }}>
+                            <Printer className="h-4 w-4" />
+                          </Button>
+                          <Button size="sm" variant="ghost" title="Upload CMR" onClick={() => toast({ title: 'Coming soon', description: 'Upload signed CMR PDF — feature in development' })}>
+                            <Upload className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </>
+      )}
 
       {/* New Outbound Dialog */}
       <Dialog open={showCreate} onOpenChange={setShowCreate}>
