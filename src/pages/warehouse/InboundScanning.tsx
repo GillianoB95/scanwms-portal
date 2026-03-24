@@ -424,7 +424,7 @@ export default function InboundScanning() {
         mawb: shipment.mawb || '',
         colli,
         weight: weightKg,
-        hub: currentHub,
+        hub: effectiveHub,
         printedAt: new Date(),
       };
 
