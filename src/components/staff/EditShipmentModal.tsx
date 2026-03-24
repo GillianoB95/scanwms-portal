@@ -21,8 +21,8 @@ export function EditShipmentModal({ shipment, open, onOpenChange }: { shipment: 
   const [eta, setEta] = useState<Date | undefined>(shipment?.eta ? new Date(shipment.eta) : undefined);
   const [status, setStatus] = useState(shipment?.status ?? '');
   const [notes, setNotes] = useState(shipment?.notes ?? '');
-  const [grossWeight, setGrossWeight] = useState(String(shipment?.gross_weight ?? ''));
-  const [chargeableWeight, setChargeableWeight] = useState(String(shipment?.chargeable_weight ?? ''));
+  const [grossWeight, setGrossWeight] = useState(String(shipment?.gross_weight != null ? shipment.gross_weight : ''));
+  const [chargeableWeight, setChargeableWeight] = useState(String(shipment?.chargeable_weight != null ? shipment.chargeable_weight : ''));
   const [saving, setSaving] = useState(false);
 
   const handleSave = async () => {

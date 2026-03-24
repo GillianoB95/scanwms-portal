@@ -357,9 +357,14 @@ export default function CustomerManagement() {
   };
 
   const openEditDialog = (customer: any) => {
-    setEditCustomer(customer);
-    setAddSubParentId(undefined);
-    setDialogOpen(true);
+    try {
+      setEditCustomer(customer);
+      setAddSubParentId(customer.parent_customer_id || undefined);
+      setDialogOpen(true);
+    } catch (err: any) {
+      console.error('Failed to open edit dialog:', err);
+      toast.error('Failed to open edit dialog');
+    }
   };
 
   if (isLoading) {
