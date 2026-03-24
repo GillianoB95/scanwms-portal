@@ -33,6 +33,7 @@ export default function WarehouseOutbound() {
   // List state
   const [search, setSearch] = useState('');
   const [hubFilter, setHubFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState('active');
   const [expandedDates, setExpandedDates] = useState<Set<string>>(new Set());
 
   // Create dialog state
@@ -161,12 +162,15 @@ export default function WarehouseOutbound() {
   }, [outbounds]);
 
   const filtered = useMemo(() => {
+    const activeStatuses = ['preparing', 'prepared'];
     return outbounds.filter((o: any) => {
       if (search && !o.truck_reference?.toLowerCase().includes(search.toLowerCase()) && !o.outbound_number?.toLowerCase().includes(search.toLowerCase()) && !o.license_plate?.toLowerCase().includes(search.toLowerCase())) return false;
       if (hubFilter !== 'all' && o.hub_name !== hubFilter) return false;
+      if (statusFilter === 'active' && !activeStatuses.includes(o.status)) return false;
+      if (statusFilter !== 'all' && statusFilter !== 'active' && o.status !== statusFilter) return false;
       return true;
     });
-  }, [outbounds, search, hubFilter]);
+  }, [outbounds, search, hubFilter, statusFilter]);
 
   const grouped = useMemo(() => {
     const map = new Map<string, any[]>();
@@ -592,8 +596,18 @@ export default function WarehouseOutbound() {
               {hubOptions.map(h => <SelectItem key={h} value={h}>{h}</SelectItem>)}
             </SelectContent>
           </Select>
-          {(search || hubFilter !== 'all') && (
-            <Button variant="ghost" size="sm" onClick={() => { setSearch(''); setHubFilter('all'); }}>
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="w-[180px]"><SelectValue placeholder="Status" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Statuses</SelectItem>
+              <SelectItem value="active">Active (Preparing + Prepared)</SelectItem>
+              <SelectItem value="preparing">Preparing</SelectItem>
+              <SelectItem value="prepared">Prepared</SelectItem>
+              <SelectItem value="departed">Departed</SelectItem>
+            </SelectContent>
+          </Select>
+          {(search || hubFilter !== 'all' || statusFilter !== 'active') && (
+            <Button variant="ghost" size="sm" onClick={() => { setSearch(''); setHubFilter('all'); setStatusFilter('active'); }}>
               Clear filters
             </Button>
           )}
