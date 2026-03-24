@@ -244,7 +244,7 @@ export default function WarehouseOutbound() {
       if (!activeOutbound) return;
       const { error } = await supabase
         .from('outbounds')
-        .update({ status: 'picked_up' })
+        .update({ status: 'prepared' })
         .eq('id', activeOutbound);
       if (error) throw error;
 
@@ -262,7 +262,7 @@ export default function WarehouseOutbound() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['warehouse-outbounds'] });
-      toast({ title: 'Outbound confirmed as picked up' });
+      toast({ title: 'Scan finished — outbound prepared' });
       setActiveOutbound(null);
     },
   });
@@ -482,7 +482,7 @@ export default function WarehouseOutbound() {
 
             <div className="flex justify-end">
               <Button onClick={() => confirmOutbound.mutate()} disabled={pallets.length === 0 || confirmOutbound.isPending}>
-                Confirm Outbound — Mark as Picked Up
+                Scan finished
               </Button>
             </div>
           </CardContent>
