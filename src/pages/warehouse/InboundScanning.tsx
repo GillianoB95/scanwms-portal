@@ -335,12 +335,15 @@ export default function InboundScanning() {
 
   const deleteMutation = useMutation({
     mutationFn: async (boxId: string) => {
-      const { error } = await supabase.from('outerboxes').delete().eq('id', boxId);
+      const { error } = await supabase
+        .from('outerboxes')
+        .update({ status: 'deleted' })
+        .eq('id', boxId);
       if (error) throw error;
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['scanned-boxes', shipment?.id] });
-      toast({ title: 'Scan deleted' });
+      toast({ title: 'Scan removed' });
     },
     onError: (err: any) => {
       toast({ title: 'Delete failed', description: err.message, variant: 'destructive' });
