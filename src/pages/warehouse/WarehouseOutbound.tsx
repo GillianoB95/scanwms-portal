@@ -510,7 +510,7 @@ export default function WarehouseOutbound() {
                 <SelectContent>
                   {hubAddresses.map((a: any) => (
                     <SelectItem key={a.id} value={a.id}>
-                      {a.name} — {a.street} {a.house_number}, {a.city}
+                      {a.hub_name || a.name} — {a.street} {a.house_number}, {a.city}
                     </SelectItem>
                   ))}
                 </SelectContent>
