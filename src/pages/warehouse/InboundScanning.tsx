@@ -379,7 +379,9 @@ export default function InboundScanning() {
       toast({ title: 'No unassigned boxes to palletize', variant: 'destructive' });
       return;
     }
-    if (!currentHub) {
+    // Derive hub from currentHub state or from scanned boxes' hub field
+    const effectiveHub = currentHub || unassigned.find((b: any) => b.hub)?.hub || null;
+    if (!effectiveHub) {
       toast({ title: 'No hub detected from scanned barcodes. Scan at least one box first.', variant: 'destructive' });
       return;
     }
@@ -404,7 +406,7 @@ export default function InboundScanning() {
         pieces: colli,
         weight: weightKg,
         status: 'Palletized',
-        hub_code: currentHub,
+        hub_code: effectiveHub,
       }).select('id').single();
       if (insertError) throw insertError;
 
@@ -422,7 +424,7 @@ export default function InboundScanning() {
         mawb: shipment.mawb || '',
         colli,
         weight: weightKg,
-        hub: currentHub,
+        hub: effectiveHub,
         printedAt: new Date(),
       };
 
