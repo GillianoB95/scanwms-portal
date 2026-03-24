@@ -97,7 +97,13 @@ export default function WarehouseDashboard() {
         .lte('updated_at', `${today}T23:59:59`);
       if (warehouseId) query.eq('warehouse_id', warehouseId);
       const { data } = await query;
-      return (data ?? []).length;
+      const ids = (data ?? []).map((o: any) => o.id);
+      let colli = 0, weight = 0;
+      if (ids.length > 0) {
+        const { data: pallets } = await supabase.from('pallets').select('pieces, weight').in('outbound_id', ids);
+        for (const p of (pallets ?? [])) { colli += p.pieces || 0; weight += parseFloat(p.weight) || 0; }
+      }
+      return { trucks: ids.length, colli, weight };
     },
     enabled: !!auth,
   });
@@ -114,7 +120,16 @@ export default function WarehouseDashboard() {
         .lte('updated_at', `${today}T23:59:59`);
       if (warehouseId) query.eq('warehouse_id', warehouseId);
       const { data } = await query;
-      return (data ?? []).length;
+      const ids = (data ?? []).map((o: any) => o.id);
+      let colli = 0, weight = 0;
+      if (ids.length > 0) {
+        const { data: pallets } = await supabase.from('pallets').select('pieces, weight').in('outbound_id', ids);
+        for (const p of (pallets ?? [])) { colli += p.pieces || 0; weight += parseFloat(p.weight) || 0; }
+      }
+      return { trucks: ids.length, colli, weight };
+    },
+    enabled: !!auth,
+  });
     },
     enabled: !!auth,
   });
