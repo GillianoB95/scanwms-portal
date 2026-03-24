@@ -228,7 +228,7 @@ export default function HubManagement() {
               <Input value={form.code} onChange={e => setForm(f => ({ ...f, code: e.target.value.toUpperCase() }))} placeholder="e.g. UPS-NL" />
             </div>
             <div className="space-y-2">
-              <Label>Hub Name <span className="text-xs text-muted-foreground">(wordt getoond in CMR dropdown)</span></Label>
+              <Label>Hub Name</Label>
               <Input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="e.g. DHL Duitsland" />
             </div>
             <div className="space-y-2">
