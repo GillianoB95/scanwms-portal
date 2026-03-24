@@ -65,18 +65,25 @@ export default function WarehouseOutbound() {
     enabled: !!activeOutbound,
   });
 
-  // Hub addresses for CMR modal
-  const { data: hubAddresses = [] } = useQuery({
-    queryKey: ['hub-addresses-for-cmr', cmrOutbound?.hub_code],
+  // Hub data + addresses for CMR modal
+  const { data: cmrHubData } = useQuery({
+    queryKey: ['hub-data-for-cmr', cmrOutbound?.hub_code],
     queryFn: async () => {
-      if (!cmrOutbound?.hub_code) return [];
-      // Find hub id by code
-      const { data: hubData } = await supabase.from('hubs').select('id').eq('code', cmrOutbound.hub_code).maybeSingle();
-      if (!hubData) return [];
-      const { data } = await supabase.from('hub_addresses').select('*').eq('hub_id', hubData.id).order('name');
-      return data ?? [];
+      if (!cmrOutbound?.hub_code) return null;
+      const { data } = await supabase.from('hubs').select('id, code, name').eq('code', cmrOutbound.hub_code).maybeSingle();
+      return data;
     },
     enabled: !!cmrOutbound?.hub_code,
+  });
+
+  const { data: hubAddresses = [] } = useQuery({
+    queryKey: ['hub-addresses-for-cmr', cmrHubData?.id],
+    queryFn: async () => {
+      if (!cmrHubData?.id) return [];
+      const { data } = await supabase.from('hub_addresses').select('*').eq('hub_id', cmrHubData.id).order('name');
+      return data ?? [];
+    },
+    enabled: !!cmrHubData?.id,
   });
 
   // Warehouse data for CMR
