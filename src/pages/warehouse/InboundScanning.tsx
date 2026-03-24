@@ -320,8 +320,9 @@ export default function InboundScanning() {
 
   // Print Label logic — hub is auto-set from current session hub
   const handleGenerateLabel = async () => {
-    if (!labelColli || !labelWeight) {
-      toast({ title: 'Fill colli and weight fields', variant: 'destructive' });
+    const unassigned = scannedBoxes.filter((b: any) => !b.pallet_id);
+    if (unassigned.length === 0) {
+      toast({ title: 'No unassigned boxes to palletize', variant: 'destructive' });
       return;
     }
     if (!currentHub) {
@@ -333,14 +334,14 @@ export default function InboundScanning() {
       return;
     }
     try {
+      const colli = unassigned.length;
+      const weightKg = unassigned.reduce((sum: number, b: any) => sum + (weightMap.get(b.barcode) || 0), 0);
+
       const { data: palletNumber, error: rpcError } = await supabase.rpc('generate_pallet_number', {
         p_warehouse_code: warehouse.code,
       });
       if (rpcError) throw rpcError;
       if (!palletNumber) throw new Error('No pallet number returned');
-
-      const colli = parseInt(labelColli);
-      const weightKg = parseFloat(labelWeight);
 
       const { data: palletRow, error: insertError } = await supabase.from('pallets').insert({
         shipment_id: shipment.id,
@@ -353,11 +354,7 @@ export default function InboundScanning() {
       }).select('id').single();
       if (insertError) throw insertError;
 
-      // Assign all unassigned scanned outerboxes to this pallet
-      const unassignedIds = scannedBoxes
-        .filter((b: any) => !b.pallet_id)
-        .map((b: any) => b.id);
-
+      const unassignedIds = unassigned.map((b: any) => b.id);
       if (unassignedIds.length > 0 && palletRow) {
         await supabase
           .from('outerboxes')
@@ -377,7 +374,6 @@ export default function InboundScanning() {
 
       setPendingPalletNumber(palletNumber);
       setPreviewData(labelData);
-      setLabelOpen(false);
       setPreviewOpen(true);
 
       // Reset hub session so next scans start a new pallet
