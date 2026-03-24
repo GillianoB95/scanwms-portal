@@ -368,11 +368,9 @@ export default function InboundShipment() {
                             <PackageCheck className="h-3.5 w-3.5" />
                           </Button>
                         )}
-                        <Link to={`/shipments/${s.id}`}>
-                          <Button variant="ghost" size="icon" className="h-8 w-8" title="View Detail">
-                            <Eye className="h-3.5 w-3.5" />
-                          </Button>
-                        </Link>
+                        <Button variant="ghost" size="icon" className="h-8 w-8" title="View Detail" onClick={() => navigate(`/staff/shipments/${s.id}`)}>
+                          <Eye className="h-3.5 w-3.5" />
+                        </Button>
                         <Button variant="ghost" size="icon" className="h-8 w-8" title="Edit" onClick={() => setEditShipment(s)}>
                           <Pencil className="h-3.5 w-3.5" />
                         </Button>

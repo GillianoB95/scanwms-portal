@@ -168,7 +168,8 @@ export function useCreateInspections() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (inspections: { shipment_id: string; barcode: string }[]) => {
-      const { error } = await supabase.from('inspections').insert(inspections);
+      const rows = inspections.map(i => ({ ...i, parcel_barcode: i.barcode }));
+      const { error } = await supabase.from('inspections').insert(rows);
       if (error) throw error;
     },
     onSuccess: () => {
