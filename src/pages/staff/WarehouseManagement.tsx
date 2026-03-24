@@ -1,13 +1,21 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Loader2, Pencil, Search, Plus, Check, X } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { toast } from 'sonner';
+
+const EMAIL_TEMPLATES = [
+  { key: 'customs_cleared', label: 'Customs Cleared' },
+  { key: 'customs_cleared_fyco', label: 'Customs Cleared with Fyco' },
+  { key: 'converted_manifest', label: 'Converted Manifest' },
+  { key: 'inbound_finish_scan', label: 'Inbound Finish Scan' },
+];
 
 function useWarehouses() {
   return useQuery({
@@ -52,26 +60,78 @@ function useCreateWarehouse() {
   });
 }
 
+function useWarehouseEmailTemplates(warehouseId: string | undefined) {
+  return useQuery({
+    queryKey: ['warehouse-email-templates', warehouseId],
+    queryFn: async () => {
+      if (!warehouseId) return [];
+      const { data, error } = await supabase
+        .from('warehouse_email_templates')
+        .select('template_key')
+        .eq('warehouse_id', warehouseId);
+      if (error) throw error;
+      return (data ?? []).map((d: any) => d.template_key as string);
+    },
+    enabled: !!warehouseId,
+  });
+}
+
+function useSaveWarehouseEmailTemplates() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ warehouseId, templateKeys }: { warehouseId: string; templateKeys: string[] }) => {
+      const { error: delError } = await supabase.from('warehouse_email_templates').delete().eq('warehouse_id', warehouseId);
+      if (delError) throw delError;
+      if (templateKeys.length > 0) {
+        const rows = templateKeys.map(k => ({ warehouse_id: warehouseId, template_key: k }));
+        const { error: insError } = await supabase.from('warehouse_email_templates').insert(rows);
+        if (insError) throw insError;
+      }
+    },
+    onSuccess: (_d, vars) => {
+      qc.invalidateQueries({ queryKey: ['warehouse-email-templates', vars.warehouseId] });
+    },
+  });
+}
+
 function WarehouseFormDialog({ open, onOpenChange, warehouse }: { open: boolean; onOpenChange: (v: boolean) => void; warehouse?: any }) {
   const updateWarehouse = useUpdateWarehouse();
   const createWarehouse = useCreateWarehouse();
+  const { data: enabledTemplates } = useWarehouseEmailTemplates(warehouse?.id);
+  const saveTemplates = useSaveWarehouseEmailTemplates();
   const [name, setName] = useState(warehouse?.name || '');
   const [code, setCode] = useState(warehouse?.code || '');
   const [email, setEmail] = useState(warehouse?.email || '');
   const [printnodeId, setPrintnodeId] = useState(warehouse?.printnode_id || '');
   const [printnodeKey, setPrintnodeKey] = useState(warehouse?.printnode_key || '');
   const [printnodeName, setPrintnodeName] = useState(warehouse?.printnode_name || '');
+  const [selectedTemplates, setSelectedTemplates] = useState<Set<string>>(new Set(EMAIL_TEMPLATES.map(t => t.key)));
   const [saving, setSaving] = useState(false);
+  const [templatesInitialized, setTemplatesInitialized] = useState(false);
 
   const isEdit = !!warehouse?.id;
+
+  useEffect(() => {
+    if (isEdit && enabledTemplates && !templatesInitialized) {
+      setSelectedTemplates(enabledTemplates.length > 0 ? new Set(enabledTemplates) : new Set(EMAIL_TEMPLATES.map(t => t.key)));
+      setTemplatesInitialized(true);
+    }
+  }, [enabledTemplates, isEdit, templatesInitialized]);
+
+  const toggleTemplate = (key: string) => {
+    setSelectedTemplates(prev => {
+      const next = new Set(prev);
+      next.has(key) ? next.delete(key) : next.add(key);
+      return next;
+    });
+  };
 
   const handleSave = async () => {
     if (!code || !name) return;
     setSaving(true);
     try {
       const payload = {
-        name,
-        code,
+        name, code,
         email: email || null,
         printnode_id: printnodeId || null,
         printnode_key: printnodeKey || null,
@@ -79,8 +139,10 @@ function WarehouseFormDialog({ open, onOpenChange, warehouse }: { open: boolean;
       };
       if (isEdit) {
         await updateWarehouse.mutateAsync({ id: warehouse.id, ...payload });
+        await saveTemplates.mutateAsync({ warehouseId: warehouse.id, templateKeys: Array.from(selectedTemplates) });
       } else {
-        await createWarehouse.mutateAsync(payload);
+        const newWh = await createWarehouse.mutateAsync(payload);
+        await saveTemplates.mutateAsync({ warehouseId: newWh.id, templateKeys: Array.from(selectedTemplates) });
       }
       onOpenChange(false);
     } catch (err: any) {
@@ -96,7 +158,7 @@ function WarehouseFormDialog({ open, onOpenChange, warehouse }: { open: boolean;
         <DialogHeader>
           <DialogTitle>{isEdit ? `Edit Warehouse — ${warehouse?.code}` : 'Create Warehouse'}</DialogTitle>
         </DialogHeader>
-        <div className="space-y-4 py-4">
+        <div className="space-y-4 py-4 max-h-[70vh] overflow-y-auto">
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>Code *</Label>
@@ -125,6 +187,20 @@ function WarehouseFormDialog({ open, onOpenChange, warehouse }: { open: boolean;
               <Label>PrintNode Print Name</Label>
               <Input value={printnodeName} onChange={e => setPrintnodeName(e.target.value)} placeholder="Printer name" />
             </div>
+          </div>
+          <div className="border-t pt-4 space-y-3">
+            <p className="text-sm font-medium text-muted-foreground">Email Notifications</p>
+            <p className="text-xs text-muted-foreground">Select which email templates are enabled for this warehouse</p>
+            {EMAIL_TEMPLATES.map(t => (
+              <div key={t.key} className="flex items-center gap-2">
+                <Checkbox
+                  id={`tpl-${t.key}`}
+                  checked={selectedTemplates.has(t.key)}
+                  onCheckedChange={() => toggleTemplate(t.key)}
+                />
+                <Label htmlFor={`tpl-${t.key}`} className="text-sm font-normal cursor-pointer">{t.label}</Label>
+              </div>
+            ))}
           </div>
         </div>
         <DialogFooter>
@@ -228,6 +304,7 @@ export default function WarehouseManagement() {
 
       {formWarehouse && (
         <WarehouseFormDialog
+          key={formWarehouse.id}
           open={!!formWarehouse}
           onOpenChange={v => { if (!v) setFormWarehouse(null); }}
           warehouse={formWarehouse}
@@ -236,6 +313,7 @@ export default function WarehouseManagement() {
 
       {createOpen && (
         <WarehouseFormDialog
+          key="create"
           open={createOpen}
           onOpenChange={setCreateOpen}
         />
