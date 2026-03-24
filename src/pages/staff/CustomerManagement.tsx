@@ -463,7 +463,7 @@ export default function CustomerManagement() {
                       <TableCell className="font-medium">{customer.name}</TableCell>
                       <TableCell className="text-muted-foreground">{customer.short_name || '—'}</TableCell>
                       <TableCell className="text-muted-foreground">{customer.email || '—'}</TableCell>
-                      <TableCell>{customer.warehouse_id || '—'}</TableCell>
+                      <TableCell>{formatWarehouse(customer.warehouse_id)}</TableCell>
                       <TableCell className="text-right">
                         <Badge variant="secondary">{subs.length}</Badge>
                       </TableCell>
