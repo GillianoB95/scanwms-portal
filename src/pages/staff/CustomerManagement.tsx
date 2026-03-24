@@ -333,7 +333,20 @@ export default function CustomerManagement() {
   const { role } = useAuth();
   const isAdmin = role === 'admin';
   const { data: customers = [], isLoading } = useCustomersWithSubs();
+  const { data: warehouses = [] } = useAllWarehouses();
   const deleteCustomer = useDeleteCustomer();
+
+  const warehouseMap = useMemo(() => {
+    const map = new Map<string, { code: string; name: string }>();
+    warehouses.forEach((w: any) => map.set(w.id, { code: w.code, name: w.name }));
+    return map;
+  }, [warehouses]);
+
+  const formatWarehouse = (id: string | null) => {
+    if (!id) return '—';
+    const w = warehouseMap.get(id);
+    return w ? `${w.code} — ${w.name}` : id;
+  };
 
   const [search, setSearch] = useState('');
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
