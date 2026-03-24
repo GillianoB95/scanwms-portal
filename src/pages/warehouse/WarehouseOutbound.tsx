@@ -33,7 +33,7 @@ export default function WarehouseOutbound() {
   // List state
   const [search, setSearch] = useState('');
   const [hubFilter, setHubFilter] = useState('all');
-  const [expandedDates, setExpandedDates] = useState<Set<string>>(new Set());
+  const [statusFilter, setStatusFilter] = useState('active');
 
   // Create dialog state
   const [showCreate, setShowCreate] = useState(false);
