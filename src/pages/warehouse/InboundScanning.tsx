@@ -17,6 +17,14 @@ import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { printPalletLabel, type PalletLabelData } from '@/lib/printnode';
 import * as XLSX from 'xlsx';
 
+function normalizeBoxBarcode(value: unknown): string {
+  return String(value ?? '')
+    .trim()
+    .toUpperCase()
+    .replace(/[\u200B-\u200D\uFEFF]/g, '')
+    .replace(/\s+/g, ' ');
+}
+
 // Parse a cleaned manifest XLSX blob and return maps: BoxBagbarcode -> hub, BoxBagbarcode -> weight
 async function parseManifestData(blob: Blob): Promise<{ hubMap: Map<string, string>; weightMap: Map<string, number> }> {
   const hubMap = new Map<string, string>();
@@ -28,48 +36,34 @@ async function parseManifestData(blob: Blob): Promise<{ hubMap: Map<string, stri
     const rows: any[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
     if (rows.length < 2) return { hubMap, weightMap };
 
-    // Find columns by header name, fallback to known indices
     const header = rows[0].map((h: any) => String(h).trim().toLowerCase());
-    let boxBagCol = 2; // BoxBagbarcode
-    let waybillCol = 3; // Waybill = hub
-    let weightCol = -1; // Total weight — no fallback, must find by header
-
-    console.log('[Manifest] Headers:', header.map((h: string, i: number) => `[${i}]=${h}`).join(', '));
+    let boxBagCol = 2;
+    let waybillCol = 3;
+    let weightCol = -1;
 
     const bbIdx = header.findIndex(h => h.includes('boxbagbarcode') || h.includes('boxbag'));
     if (bbIdx >= 0) boxBagCol = bbIdx;
     const wIdx = header.findIndex(h => h === 'waybill' || h.includes('waybill'));
     if (wIdx >= 0) waybillCol = wIdx;
-    // Try multiple header name patterns for weight
     const twIdx = header.findIndex(h =>
       h === 'total weight' || h === 'totalweight' || h === 'total_weight' ||
       h === 'totweight' || h === 'totaalgewicht' || h === 'totalkg' ||
       h === 'total kg' || h === 'gewicht' || h === 'weight'
     );
     if (twIdx >= 0) weightCol = twIdx;
-    // If no header match, fall back to index 13
     if (weightCol < 0) weightCol = 13;
-
-    console.log(`[Manifest] Columns: boxBag=${boxBagCol}, waybill=${waybillCol}, weight=${weightCol}`);
-    // Log first data row for debugging
-    if (rows.length > 1) {
-      console.log('[Manifest] Sample row 1:', rows[1].map((v: any, i: number) => `[${i}]=${v}`).join(', '));
-    }
 
     for (let i = 1; i < rows.length; i++) {
       const row = rows[i];
-      const boxBag = String(row[boxBagCol] || '').trim();
+      const boxBag = normalizeBoxBarcode(row[boxBagCol]);
       const hub = String(row[waybillCol] || '').trim();
-      const weight = parseFloat(String(row[weightCol] || '')) || 0;
+      const weight = parseFloat(String(row[weightCol] || '').replace(',', '.')) || 0;
+
       if (boxBag && hub) hubMap.set(boxBag, hub);
-      if (boxBag && weight > 0) weightMap.set(boxBag, (weightMap.get(boxBag) || 0) + weight);
+      if (boxBag && weight > 0) {
+        weightMap.set(boxBag, (weightMap.get(boxBag) || 0) + weight);
+      }
     }
-    // Debug: log total weights for a few boxes
-    const sampleBoxes = [...weightMap.entries()].slice(0, 3);
-    console.log('[Manifest] Sample weights:', sampleBoxes.map(([k, v]) => `${k}=${v}`).join(', '));
-    console.log('[Manifest] Total boxes in weightMap:', weightMap.size);
-    // Log specific box
-    console.log('[Manifest] KS10385-AMS-001 weight:', weightMap.get('KS10385-AMS-001'));
   } catch (err) {
     console.error('Failed to parse manifest:', err);
   }
