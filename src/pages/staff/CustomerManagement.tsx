@@ -500,7 +500,7 @@ export default function CustomerManagement() {
                         <TableCell className="pl-10 font-medium text-muted-foreground">↳ {sub.name}</TableCell>
                         <TableCell className="text-muted-foreground">{sub.short_name || '—'}</TableCell>
                         <TableCell className="text-muted-foreground">{sub.email || '—'}</TableCell>
-                        <TableCell>{sub.warehouse_id || '—'}</TableCell>
+                        <TableCell>{formatWarehouse(sub.warehouse_id)}</TableCell>
                         <TableCell />
                         <TableCell>
                           <div className="flex items-center justify-end gap-1">
