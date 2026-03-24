@@ -384,7 +384,7 @@ export default function InboundScanning() {
   }, [shipment, scanningBlocked]);
 
   const totalExpected = shipment?.colli_expected ?? 0;
-  const totalScanned = scannedBoxes.length;
+  const totalScanned = scannedBoxes.filter((b: any) => b.status !== 'deleted').length;
   const subklant = shipment?.customers?.short_name || shipment?.customers?.name || '—';
 
   // Print Label logic — hub is auto-set from current session hub
