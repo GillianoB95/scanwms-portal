@@ -333,8 +333,6 @@ export default function WarehouseOutbound() {
     }
   };
 
-  // We need XLSX import for multi-file zip
-  const XLSX = require('xlsx');
 
   return (
     <div className="space-y-6">
