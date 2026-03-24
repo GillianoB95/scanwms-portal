@@ -263,10 +263,10 @@ export default function HubManagement() {
                     </Button>
                   </div>
                   <div className="space-y-2">
-                    <Input placeholder="Hub Name (voor CMR dropdown)" value={addr.hub_name} onChange={e => updateAddress(idx, 'hub_name', e.target.value)} />
+                    <Input placeholder="Hub Name" value={addr.hub_name} onChange={e => updateAddress(idx, 'hub_name', e.target.value)} />
                   </div>
                   <div className="space-y-2">
-                    <Input placeholder="Bedrijfsnaam / Naam" value={addr.name} onChange={e => updateAddress(idx, 'name', e.target.value)} />
+                    <Input placeholder="Company Name" value={addr.name} onChange={e => updateAddress(idx, 'name', e.target.value)} />
                   </div>
                   <div className="grid grid-cols-3 gap-2">
                     <Input placeholder="Street" value={addr.street} onChange={e => updateAddress(idx, 'street', e.target.value)} className="col-span-2" />
