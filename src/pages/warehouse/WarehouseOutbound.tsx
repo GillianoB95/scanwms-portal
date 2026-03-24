@@ -1,17 +1,23 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useWarehouseAuth } from '@/hooks/use-warehouse-auth';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Card, CardContent } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { StatusBadge } from '@/components/StatusBadge';
 import { useHubs } from '@/hooks/use-hubs';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, ScanBarcode, Truck, FileText, Download, Printer, Upload, ArrowLeft } from 'lucide-react';
+import { format } from 'date-fns';
+import {
+  Plus, ScanBarcode, FileText, Download, Printer, Upload, ArrowLeft,
+  Search, ChevronDown, ChevronRight, Loader2
+} from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { generateCmrWorkbook, downloadCmrWorkbook, printCmrViaPrintNode, type CmrData } from '@/lib/cmr-generator';
 import JSZip from 'jszip';
@@ -24,14 +30,22 @@ export default function WarehouseOutbound() {
   const qc = useQueryClient();
   const palletRef = useRef<HTMLInputElement>(null);
 
+  // List state
+  const [search, setSearch] = useState('');
+  const [hubFilter, setHubFilter] = useState('all');
+  const [expandedDates, setExpandedDates] = useState<Set<string>>(new Set());
+
+  // Create dialog state
   const [showCreate, setShowCreate] = useState(false);
   const [hub, setHub] = useState('');
   const [truckRef, setTruckRef] = useState('');
   const [pickupDate, setPickupDate] = useState('');
-  const [activeOutbound, setActiveOutbound] = useState<string | null>(null);
-  const [palletBarcode, setPalletBarcode] = useState('');
   const [licensePlate, setLicensePlate] = useState('');
   const [pickupTime, setPickupTime] = useState('');
+
+  // Active outbound (scan view)
+  const [activeOutbound, setActiveOutbound] = useState<string | null>(null);
+  const [palletBarcode, setPalletBarcode] = useState('');
 
   // CMR state
   const [cmrOutbound, setCmrOutbound] = useState<any>(null);
@@ -39,20 +53,24 @@ export default function WarehouseOutbound() {
   const [cmrSealNumber, setCmrSealNumber] = useState('');
   const [cmrGenerating, setCmrGenerating] = useState(false);
 
-  const { data: outbounds = [] } = useQuery({
+  // ─── Queries ───
+  const { data: outbounds = [], isLoading } = useQuery({
     queryKey: ['warehouse-outbounds', auth?.isWarehouse],
     queryFn: async () => {
       const { data } = await supabase
         .from('outbounds')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(20);
-      return data ?? [];
+        .select('*, hubs(name, code, carrier)')
+        .order('pickup_date', { ascending: false });
+      return (data ?? []).map((o: any) => ({
+        ...o,
+        hub_name: o.hubs?.name ?? o.hub_code ?? '—',
+        hub_code_display: o.hubs?.code ?? o.hub_code ?? '—',
+        carrier: o.hubs?.carrier ?? '—',
+      }));
     },
     enabled: !!auth?.isWarehouse,
   });
 
-  // Get the active outbound record for hub validation
   const activeOutboundRecord = outbounds.find((o: any) => o.id === activeOutbound);
 
   const { data: pallets = [] } = useQuery({
@@ -68,7 +86,6 @@ export default function WarehouseOutbound() {
     enabled: !!activeOutbound,
   });
 
-  // Hub data + addresses for CMR modal
   const { data: cmrHubData } = useQuery({
     queryKey: ['hub-data-for-cmr', cmrOutbound?.hub_code],
     queryFn: async () => {
@@ -89,7 +106,6 @@ export default function WarehouseOutbound() {
     enabled: !!cmrHubData?.id,
   });
 
-  // Warehouse data for CMR
   const { data: warehouseData } = useQuery({
     queryKey: ['warehouse-cmr-data', warehouseId],
     queryFn: async () => {
@@ -100,7 +116,6 @@ export default function WarehouseOutbound() {
     enabled: !!warehouseId,
   });
 
-  // CMR pallets for the selected outbound
   const { data: cmrPallets = [] } = useQuery({
     queryKey: ['cmr-pallets', cmrOutbound?.id],
     queryFn: async () => {
@@ -114,6 +129,39 @@ export default function WarehouseOutbound() {
     enabled: !!cmrOutbound?.id,
   });
 
+  // ─── Filtering & grouping (staff portal style) ───
+  const hubOptions = useMemo(() => {
+    const set = new Set(outbounds.map((o: any) => o.hub_name).filter(Boolean));
+    return Array.from(set).sort() as string[];
+  }, [outbounds]);
+
+  const filtered = useMemo(() => {
+    return outbounds.filter((o: any) => {
+      if (search && !o.truck_reference?.toLowerCase().includes(search.toLowerCase()) && !o.outbound_number?.toLowerCase().includes(search.toLowerCase()) && !o.license_plate?.toLowerCase().includes(search.toLowerCase())) return false;
+      if (hubFilter !== 'all' && o.hub_name !== hubFilter) return false;
+      return true;
+    });
+  }, [outbounds, search, hubFilter]);
+
+  const grouped = useMemo(() => {
+    const map = new Map<string, any[]>();
+    filtered.forEach((o: any) => {
+      const dateKey = o.pickup_date ? format(new Date(o.pickup_date), 'yyyy-MM-dd') : 'No Date';
+      if (!map.has(dateKey)) map.set(dateKey, []);
+      map.get(dateKey)!.push(o);
+    });
+    return Array.from(map.entries()).sort(([a], [b]) => b.localeCompare(a));
+  }, [filtered]);
+
+  const toggleDate = (date: string) => {
+    setExpandedDates(prev => {
+      const next = new Set(prev);
+      next.has(date) ? next.delete(date) : next.add(date);
+      return next;
+    });
+  };
+
+  // ─── Mutations ───
   const createOutbound = useMutation({
     mutationFn: async () => {
       const insertData: any = {
@@ -148,7 +196,6 @@ export default function WarehouseOutbound() {
         .maybeSingle();
       if (findErr || !pallet) throw new Error('Pallet not found');
 
-      // Hub validation
       const outboundHub = activeOutboundRecord?.hub_code;
       if (outboundHub && pallet.hub_code && pallet.hub_code !== outboundHub) {
         throw new Error(`This pallet belongs to hub ${pallet.hub_code}. This outbound is for hub ${outboundHub}. Hubs cannot be mixed in one outbound.`);
@@ -226,19 +273,10 @@ export default function WarehouseOutbound() {
     addPallet.mutate(palletBarcode.trim());
   };
 
-  // Pallet totals
   const totalColli = pallets.reduce((sum: number, p: any) => sum + (p.pieces || 0), 0);
   const totalWeight = pallets.reduce((sum: number, p: any) => sum + (p.weight || 0), 0);
 
-  // Open CMR modal for the active outbound
-  const openCmrForActiveOutbound = () => {
-    if (!activeOutboundRecord) return;
-    setCmrOutbound(activeOutboundRecord);
-    setCmrAddressId('');
-    setCmrSealNumber('');
-  };
-
-  // Build CMR data grouped by sub-client
+  // ─── CMR logic ───
   const buildCmrDataPerSubClient = (): Map<string, CmrData> => {
     const selectedAddress = hubAddresses.find((a: any) => a.id === cmrAddressId);
     if (!selectedAddress || !warehouseData) return new Map();
@@ -296,7 +334,6 @@ export default function WarehouseOutbound() {
         toast({ title: 'No data', description: 'No pallets found for CMR generation', variant: 'destructive' });
         return;
       }
-
       if (cmrMap.size === 1) {
         const [subClient, data] = cmrMap.entries().next().value!;
         const wb = generateCmrWorkbook(data);
@@ -360,140 +397,247 @@ export default function WarehouseOutbound() {
     }
   };
 
+  // ─── Loading ───
+  if (isLoading) {
+    return <div className="flex items-center justify-center py-20"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>;
+  }
 
+  // ─── SCAN VIEW (active outbound) ───
+  if (activeOutbound) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" size="sm" onClick={() => setActiveOutbound(null)}>
+            <ArrowLeft className="h-4 w-4 mr-1" />Back
+          </Button>
+          <h1 className="text-2xl font-bold">
+            Outbound {activeOutboundRecord?.outbound_number ? `#${activeOutboundRecord.outbound_number}` : ''}
+            {activeOutboundRecord?.hub_code_display && <span className="text-base font-mono text-muted-foreground ml-2">({activeOutboundRecord.hub_code_display})</span>}
+          </h1>
+        </div>
+
+        <Card>
+          <CardContent className="pt-6 space-y-4">
+            <form onSubmit={handlePalletScan} className="flex gap-2 max-w-md">
+              <Input
+                ref={palletRef}
+                value={palletBarcode}
+                onChange={e => setPalletBarcode(e.target.value)}
+                placeholder="Scan pallet number..."
+                className="font-mono"
+                autoFocus
+              />
+              <Button type="submit" disabled={addPallet.isPending}>
+                <ScanBarcode className="h-4 w-4" />
+              </Button>
+            </form>
+
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Pallet</TableHead>
+                  <TableHead>Subklant</TableHead>
+                  <TableHead>Hub</TableHead>
+                  <TableHead className="text-right">Colli</TableHead>
+                  <TableHead className="text-right">Weight</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {pallets.length === 0 ? (
+                  <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-6">Scan pallets to add</TableCell></TableRow>
+                ) : pallets.map((p: any) => (
+                  <TableRow key={p.id}>
+                    <TableCell className="font-mono font-medium">{p.pallet_number}</TableCell>
+                    <TableCell>{(p.shipments as any)?.customers?.short_name ?? '—'}</TableCell>
+                    <TableCell>{p.hub_code}</TableCell>
+                    <TableCell className="text-right">{p.pieces ?? '—'}</TableCell>
+                    <TableCell className="text-right">{p.weight != null ? `${Number(p.weight).toFixed(2)} kg` : '—'}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+              {pallets.length > 0 && (
+                <TableFooter>
+                  <TableRow>
+                    <TableCell colSpan={3} className="font-semibold">Total ({pallets.length} pallets)</TableCell>
+                    <TableCell className="text-right font-semibold">{totalColli}</TableCell>
+                    <TableCell className="text-right font-semibold">{totalWeight.toFixed(2)} kg</TableCell>
+                  </TableRow>
+                </TableFooter>
+              )}
+            </Table>
+
+            <div className="flex justify-end">
+              <Button onClick={() => confirmOutbound.mutate()} disabled={pallets.length === 0 || confirmOutbound.isPending}>
+                Confirm Outbound — Mark as Picked Up
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* CMR Dialog */}
+        <Dialog open={!!cmrOutbound} onOpenChange={v => { if (!v) setCmrOutbound(null); }}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Create CMR — {cmrHubData?.name || cmrOutbound?.outbound_number || cmrOutbound?.hub_code}</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label>Hub Address *</Label>
+                <Select value={cmrAddressId} onValueChange={setCmrAddressId}>
+                  <SelectTrigger><SelectValue placeholder="Select delivery address" /></SelectTrigger>
+                  <SelectContent>
+                    {hubAddresses.map((a: any) => (
+                      <SelectItem key={a.id} value={a.id}>
+                        {a.hub_name || a.name} — {a.street} {a.house_number}, {a.city}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {hubAddresses.length === 0 && (
+                  <p className="text-xs text-muted-foreground">No addresses configured for this hub. Add them in Hub Management.</p>
+                )}
+              </div>
+              <div className="space-y-2">
+                <Label>Seal Number *</Label>
+                <Input value={cmrSealNumber} onChange={e => setCmrSealNumber(e.target.value)} placeholder="Seal number" />
+              </div>
+              <div className="space-y-2">
+                <Label>Loading Reference</Label>
+                <Input value={cmrOutbound?.truck_reference || ''} disabled className="bg-muted" />
+              </div>
+              {cmrPallets.length > 0 && (
+                <div className="text-sm text-muted-foreground">
+                  {cmrPallets.length} pallet(s), {new Set(cmrPallets.map((p: any) => (p.shipments as any)?.customers?.short_name)).size} sub-client(s)
+                </div>
+              )}
+            </div>
+            <DialogFooter className="flex gap-2">
+              <Button variant="outline" onClick={() => setCmrOutbound(null)}>Cancel</Button>
+              <Button variant="outline" onClick={handleDownloadCmr} disabled={!cmrAddressId || !cmrSealNumber || cmrGenerating}>
+                <Download className="h-4 w-4 mr-1" /> Download
+              </Button>
+              <Button onClick={handlePrintCmr} disabled={!cmrAddressId || !cmrSealNumber || cmrGenerating}>
+                <Printer className="h-4 w-4 mr-1" /> Print (4x)
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </div>
+    );
+  }
+
+  // ─── LIST VIEW (staff portal style) ───
   return (
     <div className="space-y-6">
-      {activeOutbound ? (
-        <>
-          <div className="flex items-center gap-3">
-            <Button variant="ghost" size="sm" onClick={() => setActiveOutbound(null)}>
-              <ArrowLeft className="h-4 w-4 mr-1" />Back
-            </Button>
-            <h1 className="text-2xl font-bold">
-              Outbound {activeOutboundRecord?.outbound_number ?? ''}
-              {activeOutboundRecord?.hub_code && <span className="text-base font-mono text-muted-foreground ml-2">({activeOutboundRecord.hub_code})</span>}
-            </h1>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold">Outbound</h1>
+          <p className="text-muted-foreground text-sm mt-1">Manage outbound pickups grouped by date</p>
+        </div>
+        <Button onClick={() => setShowCreate(true)}>
+          <Plus className="h-4 w-4 mr-2" />New Outbound
+        </Button>
+      </div>
+
+      {/* Filters */}
+      <div className="bg-card rounded-xl border p-4">
+        <div className="flex flex-wrap gap-3">
+          <div className="relative flex-1 min-w-[200px]">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input placeholder="Search truck ref, outbound # or license plate..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9" />
           </div>
+          <Select value={hubFilter} onValueChange={setHubFilter}>
+            <SelectTrigger className="w-[180px]"><SelectValue placeholder="Hub" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Hubs</SelectItem>
+              {hubOptions.map(h => <SelectItem key={h} value={h}>{h}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          {(search || hubFilter !== 'all') && (
+            <Button variant="ghost" size="sm" onClick={() => { setSearch(''); setHubFilter('all'); }}>
+              Clear filters
+            </Button>
+          )}
+        </div>
+      </div>
 
-          <Card>
-            <CardContent className="pt-6 space-y-4">
-              <form onSubmit={handlePalletScan} className="flex gap-2 max-w-md">
-                <Input
-                  ref={palletRef}
-                  value={palletBarcode}
-                  onChange={e => setPalletBarcode(e.target.value)}
-                  placeholder="Scan pallet number..."
-                  className="font-mono"
-                  autoFocus
-                />
-                <Button type="submit" disabled={addPallet.isPending}>
-                  <ScanBarcode className="h-4 w-4" />
-                </Button>
-              </form>
+      <p className="text-sm text-muted-foreground">{filtered.length} outbound{filtered.length !== 1 ? 's' : ''} across {grouped.length} date{grouped.length !== 1 ? 's' : ''}</p>
 
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Pallet</TableHead>
-                    <TableHead>Subklant</TableHead>
-                    <TableHead>Hub</TableHead>
-                    <TableHead className="text-right">Colli</TableHead>
-                    <TableHead className="text-right">Weight</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {pallets.length === 0 ? (
-                    <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-6">Scan pallets to add</TableCell></TableRow>
-                  ) : pallets.map((p: any) => (
-                    <TableRow key={p.id}>
-                      <TableCell className="font-mono font-medium">{p.pallet_number}</TableCell>
-                      <TableCell>{(p.shipments as any)?.customers?.short_name ?? '—'}</TableCell>
-                      <TableCell>{p.hub_code}</TableCell>
-                      <TableCell className="text-right">{p.pieces ?? '—'}</TableCell>
-                      <TableCell className="text-right">{p.weight != null ? `${Number(p.weight).toFixed(2)} kg` : '—'}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-                {pallets.length > 0 && (
-                  <TableFooter>
-                    <TableRow>
-                      <TableCell colSpan={3} className="font-semibold">Total ({pallets.length} pallets)</TableCell>
-                      <TableCell className="text-right font-semibold">{totalColli}</TableCell>
-                      <TableCell className="text-right font-semibold">{totalWeight.toFixed(2)} kg</TableCell>
-                    </TableRow>
-                  </TableFooter>
-                )}
-              </Table>
-
-              <div className="flex justify-end">
-                <Button onClick={() => confirmOutbound.mutate()} disabled={pallets.length === 0 || confirmOutbound.isPending}>
-                  Confirm Outbound — Mark as Picked Up
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </>
+      {grouped.length === 0 ? (
+        <div className="bg-card rounded-xl border p-8 text-center text-muted-foreground">No outbound shipments found</div>
       ) : (
-        <>
-          <div className="flex items-center justify-between">
-            <h1 className="text-2xl font-bold">Outbound</h1>
-            <Button onClick={() => setShowCreate(true)}>
-              <Plus className="mr-2 h-4 w-4" />New Outbound
-            </Button>
-          </div>
+        <div className="space-y-4">
+          {grouped.map(([dateKey, items]) => {
+            const expanded = expandedDates.has(dateKey);
+            const displayDate = dateKey !== 'No Date' ? format(new Date(dateKey), 'EEEE dd/MM/yyyy') : 'No Date';
 
-          <Card>
-            <CardContent className="pt-6">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Nr</TableHead>
-                    <TableHead>Hub</TableHead>
-                    <TableHead>Truck Ref</TableHead>
-                    <TableHead>License Plate</TableHead>
-                    <TableHead>Pickup</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {outbounds.length === 0 ? (
-                    <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-8">No outbounds yet</TableCell></TableRow>
-                  ) : outbounds.map((o: any) => (
-                    <TableRow
-                      key={o.id}
-                      className="cursor-pointer hover:bg-muted/50"
-                      onClick={() => setActiveOutbound(o.id)}
-                    >
-                      <TableCell className="font-mono font-medium">{o.outbound_number ?? '—'}</TableCell>
-                      <TableCell>{o.hub_code}</TableCell>
-                      <TableCell>{o.truck_reference ?? '—'}</TableCell>
-                      <TableCell>{o.license_plate ?? '—'}</TableCell>
-                      <TableCell>{o.pickup_date ?? '—'}{o.pickup_time ? ` ${o.pickup_time}` : ''}</TableCell>
-                      <TableCell className="capitalize">{o.status?.replace('_', ' ')}</TableCell>
-                      <TableCell className="text-right" onClick={e => e.stopPropagation()}>
-                        <div className="flex items-center justify-end gap-1">
-                          <Button size="sm" variant="ghost" title="Create CMR" onClick={() => { setCmrOutbound(o); setCmrAddressId(''); setCmrSealNumber(''); }}>
-                            <FileText className="h-4 w-4" />
-                          </Button>
-                          <Button size="sm" variant="ghost" title="Download CMR" onClick={() => { setCmrOutbound(o); setCmrAddressId(''); setCmrSealNumber(''); }}>
-                            <Download className="h-4 w-4" />
-                          </Button>
-                          <Button size="sm" variant="ghost" title="Print CMR" onClick={() => { setCmrOutbound(o); setCmrAddressId(''); setCmrSealNumber(''); }}>
-                            <Printer className="h-4 w-4" />
-                          </Button>
-                          <Button size="sm" variant="ghost" title="Upload CMR" onClick={() => toast({ title: 'Coming soon', description: 'Upload signed CMR PDF — feature in development' })}>
-                            <Upload className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
-        </>
+            return (
+              <div key={dateKey} className="bg-card rounded-xl border overflow-hidden">
+                <button onClick={() => toggleDate(dateKey)} className="w-full flex items-center justify-between p-4 hover:bg-muted/50 transition-colors">
+                  <div className="flex items-center gap-3">
+                    {expanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                    <span className="font-semibold">{displayDate}</span>
+                    <Badge variant="secondary">{items.length} outbound{items.length !== 1 ? 's' : ''}</Badge>
+                  </div>
+                </button>
+
+                {expanded && (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Outbound #</TableHead>
+                        <TableHead>Carrier / Hub</TableHead>
+                        <TableHead>Truck Reference</TableHead>
+                        <TableHead>License Plate</TableHead>
+                        <TableHead>Time</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead className="text-right">Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {items.map((o: any) => (
+                        <TableRow key={o.id}>
+                          <TableCell className="font-mono text-sm text-muted-foreground">
+                            {o.outbound_number ? `Outbound #${o.outbound_number}` : '—'}
+                          </TableCell>
+                          <TableCell>
+                            <div>
+                              <span className="font-medium">{o.carrier}</span>
+                              <span className="text-muted-foreground text-xs ml-2">({o.hub_code_display})</span>
+                            </div>
+                          </TableCell>
+                          <TableCell className="font-mono text-sm">{o.truck_reference || '—'}</TableCell>
+                          <TableCell className="text-sm">{o.license_plate || '—'}</TableCell>
+                          <TableCell className="text-sm text-muted-foreground">{o.pickup_time || '—'}</TableCell>
+                          <TableCell><StatusBadge status={o.status || 'Pending'} /></TableCell>
+                          <TableCell>
+                            <div className="flex items-center justify-end gap-1">
+                              <Button variant="ghost" size="icon" className="h-8 w-8" title="Scan pallets" onClick={() => setActiveOutbound(o.id)}>
+                                <ScanBarcode className="h-3.5 w-3.5" />
+                              </Button>
+                              <Button variant="ghost" size="icon" className="h-8 w-8" title="Create CMR" onClick={() => { setCmrOutbound(o); setCmrAddressId(''); setCmrSealNumber(''); }}>
+                                <FileText className="h-3.5 w-3.5" />
+                              </Button>
+                              <Button variant="ghost" size="icon" className="h-8 w-8" title="Download CMR" onClick={() => { setCmrOutbound(o); setCmrAddressId(''); setCmrSealNumber(''); }}>
+                                <Download className="h-3.5 w-3.5" />
+                              </Button>
+                              <Button variant="ghost" size="icon" className="h-8 w-8" title="Print CMR" onClick={() => { setCmrOutbound(o); setCmrAddressId(''); setCmrSealNumber(''); }}>
+                                <Printer className="h-3.5 w-3.5" />
+                              </Button>
+                              <Button variant="ghost" size="icon" className="h-8 w-8" title="Upload CMR" onClick={() => toast({ title: 'Coming soon', description: 'Upload signed CMR PDF — feature in development' })}>
+                                <Upload className="h-3.5 w-3.5" />
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )}
+              </div>
+            );
+          })}
+        </div>
       )}
 
       {/* New Outbound Dialog */}
@@ -538,7 +682,7 @@ export default function WarehouseOutbound() {
         </DialogContent>
       </Dialog>
 
-      {/* CMR Dialog */}
+      {/* CMR Dialog (accessible from list view too) */}
       <Dialog open={!!cmrOutbound} onOpenChange={v => { if (!v) setCmrOutbound(null); }}>
         <DialogContent>
           <DialogHeader>
@@ -569,7 +713,6 @@ export default function WarehouseOutbound() {
               <Label>Loading Reference</Label>
               <Input value={cmrOutbound?.truck_reference || ''} disabled className="bg-muted" />
             </div>
-
             {cmrPallets.length > 0 && (
               <div className="text-sm text-muted-foreground">
                 {cmrPallets.length} pallet(s), {new Set(cmrPallets.map((p: any) => (p.shipments as any)?.customers?.short_name)).size} sub-client(s)
