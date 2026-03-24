@@ -61,6 +61,7 @@ export default function InboundScanning() {
     setSearching(true);
     setShipmentError('');
     setShipment(null);
+    setScanningBlocked(null);
     try {
       const { data, error } = await supabase
         .from('shipments')
@@ -70,9 +71,32 @@ export default function InboundScanning() {
       if (error) throw error;
       if (!data) {
         setShipmentError('No shipment found for this MAWB');
-      } else {
-        setShipment(data);
+        return;
       }
+
+      // Check status
+      const allowedStatuses = ['In Stock', 'In Transit'];
+      if (!allowedStatuses.includes(data.status)) {
+        setShipment(data);
+        setScanningBlocked('This shipment has not been marked as Unloaded yet. Please contact staff to update the shipment status before scanning.');
+        return;
+      }
+
+      // Check inbound blocks
+      const { data: blocks } = await supabase
+        .from('shipment_blocks')
+        .select('reason')
+        .eq('shipment_id', data.id)
+        .eq('block_type', 'inbound')
+        .is('removed_at', null);
+
+      if (blocks && blocks.length > 0) {
+        setShipment(data);
+        setScanningBlocked(`Inbound blocked: ${blocks[0].reason || 'No reason provided'}`);
+        return;
+      }
+
+      setShipment(data);
     } catch (err: any) {
       setShipmentError(err.message);
     } finally {
