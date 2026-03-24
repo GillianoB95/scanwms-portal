@@ -576,6 +576,11 @@ export default function InboundScanning() {
                   <span className={totalScanned >= totalExpected && totalExpected > 0 ? 'text-[hsl(var(--status-delivered))]' : ''}>{totalScanned}</span>
                   <span className="text-muted-foreground text-2xl"> / {totalExpected}</span>
                 </p>
+                {unassignedBoxes.length > 0 && (
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Current pallet: <span className="font-semibold text-foreground">{unassignedBoxes.length} boxes</span> · <span className="font-semibold text-foreground">{sessionWeight.toFixed(2)} kg</span>
+                  </p>
+                )}
                 <div className="w-full bg-muted rounded-full h-3 mt-4">
                   <div
                     className="bg-accent h-3 rounded-full transition-all"
