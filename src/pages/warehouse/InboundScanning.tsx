@@ -386,8 +386,6 @@ export default function InboundScanning() {
   const totalExpected = shipment?.colli_expected ?? 0;
   const totalScanned = scannedBoxes.filter((b: any) => b.status !== 'deleted').length;
   const subklant = shipment?.customers?.short_name || shipment?.customers?.name || '—';
-  const unassignedBoxes = scannedBoxes.filter((b: any) => !b.pallet_id && b.status !== 'deleted');
-  const sessionWeight = unassignedBoxes.reduce((sum: number, b: any) => sum + (b.weight || 0), 0);
 
   // Print Label logic — hub is auto-set from current session hub
   const handleGenerateLabel = async () => {
@@ -576,11 +574,6 @@ export default function InboundScanning() {
                   <span className={totalScanned >= totalExpected && totalExpected > 0 ? 'text-[hsl(var(--status-delivered))]' : ''}>{totalScanned}</span>
                   <span className="text-muted-foreground text-2xl"> / {totalExpected}</span>
                 </p>
-                {unassignedBoxes.length > 0 && (
-                  <p className="text-sm text-muted-foreground mt-1">
-                    Current pallet: <span className="font-semibold text-foreground">{unassignedBoxes.length} boxes</span> · <span className="font-semibold text-foreground">{sessionWeight.toFixed(2)} kg</span>
-                  </p>
-                )}
                 <div className="w-full bg-muted rounded-full h-3 mt-4">
                   <div
                     className="bg-accent h-3 rounded-full transition-all"
@@ -632,7 +625,7 @@ export default function InboundScanning() {
                         <TableCell className="font-mono font-medium">{p.pallet_number}</TableCell>
                         <TableCell>{p.hub_code || '—'}</TableCell>
                         <TableCell>{p.pieces ?? p.colli_count ?? '—'}</TableCell>
-                        <TableCell>{p.weight ?? p.weight_kg ? `${p.weight ?? p.weight_kg} kg` : '—'}</TableCell>
+                        <TableCell>{(p.weight ?? p.weight_kg) != null ? `${Number(p.weight ?? p.weight_kg).toFixed(2)} kg` : '—'}</TableCell>
                         <TableCell>{p.status || '—'}</TableCell>
                       </TableRow>
                     ))}
