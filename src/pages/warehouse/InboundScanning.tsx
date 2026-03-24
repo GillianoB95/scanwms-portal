@@ -125,50 +125,67 @@ export default function InboundScanning() {
   }, []);
 
   const handleMawbSearch = async () => {
-    if (!mawbInput.trim()) return;
+    const q = mawbInput.trim();
+    if (!q) return;
     setSearching(true);
     setShipmentError('');
     setShipment(null);
+    setMawbResults([]);
     setScanningBlocked(null);
     setCurrentHub(null);
     setHubMap(new Map());
     setWeightMap(new Map());
     try {
+      // Use ilike for partial/suffix matching
       const { data, error } = await supabase
         .from('shipments')
-        .select('id, mawb, colli_expected, status, customers(name, short_name)')
-        .eq('mawb', mawbInput.trim())
-        .maybeSingle();
+        .select('id, mawb, colli_expected, status, created_at, customers(name, short_name)')
+        .ilike('mawb', `%${q}`)
+        .order('created_at', { ascending: false })
+        .limit(10);
       if (error) throw error;
-      if (!data) {
-        setShipmentError('No shipment found for this MAWB');
+      if (!data || data.length === 0) {
+        setShipmentError('No shipments found matching this MAWB');
         return;
       }
-
-      // Strict status check
-      const allowedStatuses = ['In Stock', 'In Transit'];
-      if (!allowedStatuses.includes(data.status)) {
-        setShipment(data);
-        setScanningBlocked('This shipment must be marked as Unloaded by staff before scanning can begin.');
-        return;
+      if (data.length === 1) {
+        selectShipment(data[0]);
+      } else {
+        setMawbResults(data);
       }
+    } catch (err: any) {
+      setShipmentError(err.message);
+    } finally {
+      setSearching(false);
+    }
+  };
 
-      // Check inbound blocks
-      const { data: blocks } = await supabase
-        .from('shipment_blocks')
-        .select('reason')
-        .eq('shipment_id', data.id)
-        .eq('block_type', 'inbound')
-        .is('removed_at', null);
+  const selectShipment = async (s: any) => {
+    setMawbResults([]);
+    setMawbInput(s.mawb);
 
-      if (blocks && blocks.length > 0) {
-        setShipment(data);
-        setScanningBlocked(`Inbound blocked: ${blocks[0].reason || 'No reason provided'}`);
-        return;
-      }
+    const allowedStatuses = ['In Stock', 'In Transit'];
+    if (!allowedStatuses.includes(s.status)) {
+      setShipment(s);
+      setScanningBlocked('This shipment must be marked as Unloaded by staff before scanning can begin.');
+      return;
+    }
 
-      setShipment(data);
-      loadManifestHubs(data.id);
+    const { data: blocks } = await supabase
+      .from('shipment_blocks')
+      .select('reason')
+      .eq('shipment_id', s.id)
+      .eq('block_type', 'inbound')
+      .is('removed_at', null);
+
+    if (blocks && blocks.length > 0) {
+      setShipment(s);
+      setScanningBlocked(`Inbound blocked: ${blocks[0].reason || 'No reason provided'}`);
+      return;
+    }
+
+    setShipment(s);
+    loadManifestHubs(s.id);
     } catch (err: any) {
       setShipmentError(err.message);
     } finally {
