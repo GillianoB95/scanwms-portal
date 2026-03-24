@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth-context';
@@ -7,10 +7,12 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useHubs } from '@/hooks/use-hubs';
 import { useToast } from '@/hooks/use-toast';
 import { Printer, Loader2 } from 'lucide-react';
-import { printPalletLabel, generatePalletNumber } from '@/lib/printnode';
+import { printPalletLabel, generatePalletLabelHtml, type PalletLabelData } from '@/lib/printnode';
 
 export default function PrintLabels() {
   const { customer } = useAuth();
@@ -23,7 +25,25 @@ export default function PrintLabels() {
   const [selectedHub, setSelectedHub] = useState('');
   const [colliCount, setColliCount] = useState('');
   const [weight, setWeight] = useState('');
-  const [generatedLabel, setGeneratedLabel] = useState<any>(null);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewData, setPreviewData] = useState<PalletLabelData | null>(null);
+  const [pendingPalletNumber, setPendingPalletNumber] = useState('');
+  const [printing, setPrinting] = useState(false);
+
+  // Fetch warehouse details (code, printnode config)
+  const { data: warehouse } = useQuery({
+    queryKey: ['warehouse-detail', warehouseId],
+    queryFn: async () => {
+      if (!warehouseId) return null;
+      const { data } = await supabase
+        .from('warehouses')
+        .select('id, code, name, printnode_id, printnode_key, printnode_name')
+        .eq('id', warehouseId)
+        .single();
+      return data;
+    },
+    enabled: !!warehouseId,
+  });
 
   const { data: shipments = [] } = useQuery({
     queryKey: ['label-shipments', warehouseId],
@@ -39,59 +59,100 @@ export default function PrintLabels() {
     enabled: !!warehouseId,
   });
 
-  const createAndPrint = useMutation({
-    mutationFn: async () => {
-      const shipment = shipments.find((s: any) => s.id === selectedShipment);
-      if (!shipment) throw new Error('Shipment not found');
-
-      const palletNumber = generatePalletNumber(selectedShipment);
-      const subklant = (shipment.customers as any)?.short_name || (shipment.customers as any)?.name || '—';
-      const colli = parseInt(colliCount);
-      const weightKg = parseFloat(weight);
-
-      // Insert pallet into DB
-      const { error } = await supabase.from('pallets').insert({
-        shipment_id: selectedShipment,
-        pallet_number: palletNumber,
-        hub_code: selectedHub,
-        colli_count: colli,
-        weight_kg: weightKg,
-      });
-      if (error) throw error;
-
-      // Send to PrintNode
-      const printResult = await printPalletLabel({
-        palletId: palletNumber,
-        subklant,
-        mawb: (shipment as any).mawb || '',
-        colli,
-        weight: weightKg,
-        hub: selectedHub,
-      });
-
-      return { palletNumber, subklant, colli, weight: weightKg, hub: selectedHub, printResult };
+  // Fetch pallets for selected shipment
+  const { data: existingPallets = [] } = useQuery({
+    queryKey: ['shipment-pallets', selectedShipment],
+    queryFn: async () => {
+      if (!selectedShipment) return [];
+      const { data } = await supabase
+        .from('pallets')
+        .select('*')
+        .eq('shipment_id', selectedShipment)
+        .order('created_at', { ascending: false });
+      return data ?? [];
     },
-    onSuccess: ({ palletNumber, subklant, colli, weight: w, hub, printResult }) => {
-      setGeneratedLabel({ palletNumber, subklant, colli, weight: w, hub });
-      qc.invalidateQueries({ queryKey: ['label-shipments'] });
-
-      if (printResult.success) {
-        toast({ title: 'Pallet created & sent to printer', description: `${palletNumber} (Job #${printResult.jobId})` });
-      } else {
-        toast({ title: 'Pallet created but print failed', description: printResult.error, variant: 'destructive' });
-      }
-    },
-    onError: (err: any) => {
-      toast({ title: 'Error', description: err.message, variant: 'destructive' });
-    },
+    enabled: !!selectedShipment,
   });
 
-  const handleGenerate = () => {
+  const selectedShipmentData = useMemo(
+    () => shipments.find((s: any) => s.id === selectedShipment),
+    [shipments, selectedShipment]
+  );
+
+  const handleGenerate = async () => {
     if (!selectedShipment || !selectedHub || !colliCount || !weight) {
       toast({ title: 'Fill all fields', variant: 'destructive' });
       return;
     }
-    createAndPrint.mutate();
+    if (!warehouse?.code) {
+      toast({ title: 'Warehouse code not configured', variant: 'destructive' });
+      return;
+    }
+
+    try {
+      // Call RPC to get next pallet number
+      const { data: palletNumber, error: rpcError } = await supabase.rpc('generate_pallet_number', {
+        p_warehouse_code: warehouse.code,
+      });
+      if (rpcError) throw rpcError;
+      if (!palletNumber) throw new Error('No pallet number returned');
+
+      const shipment = selectedShipmentData;
+      const subklant = (shipment?.customers as any)?.short_name || (shipment?.customers as any)?.name || '—';
+      const colli = parseInt(colliCount);
+      const weightKg = parseFloat(weight);
+
+      // Insert pallet into DB
+      const { error: insertError } = await supabase.from('pallets').insert({
+        shipment_id: selectedShipment,
+        pallet_number: palletNumber,
+        warehouse_code: warehouse.code,
+        pieces: colli,
+        weight: weightKg,
+        status: 'Palletized',
+        hub_code: selectedHub,
+      });
+      if (insertError) throw insertError;
+
+      const labelData: PalletLabelData = {
+        palletId: palletNumber,
+        subklant,
+        mawb: (shipment as any)?.mawb || '',
+        colli,
+        weight: weightKg,
+        hub: selectedHub,
+        printedAt: new Date(),
+      };
+
+      setPendingPalletNumber(palletNumber);
+      setPreviewData(labelData);
+      setPreviewOpen(true);
+
+      qc.invalidateQueries({ queryKey: ['shipment-pallets', selectedShipment] });
+
+      toast({ title: 'Pallet created', description: palletNumber });
+    } catch (err: any) {
+      toast({ title: 'Error', description: err.message, variant: 'destructive' });
+    }
+  };
+
+  const handlePrint = async () => {
+    if (!previewData || !warehouse?.printnode_key || !warehouse?.printnode_id) {
+      toast({ title: 'PrintNode not configured for this warehouse', variant: 'destructive' });
+      return;
+    }
+    setPrinting(true);
+    try {
+      const result = await printPalletLabel(previewData, warehouse.printnode_key, warehouse.printnode_id);
+      if (result.success) {
+        toast({ title: 'Sent to printer', description: `${pendingPalletNumber} (Job #${result.jobId})` });
+        setPreviewOpen(false);
+      } else {
+        toast({ title: 'Print failed', description: result.error, variant: 'destructive' });
+      }
+    } finally {
+      setPrinting(false);
+    }
   };
 
   return (
@@ -134,51 +195,100 @@ export default function PrintLabels() {
                 <Input type="number" step="0.1" value={weight} onChange={e => setWeight(e.target.value)} placeholder="0.0" />
               </div>
             </div>
-            <Button onClick={handleGenerate} disabled={createAndPrint.isPending} className="w-full">
-              {createAndPrint.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Printer className="h-4 w-4 mr-2" />}
+            <Button onClick={handleGenerate} className="w-full">
+              <Printer className="h-4 w-4 mr-2" />
               Generate & Print
             </Button>
           </CardContent>
         </Card>
 
+        {/* Existing pallets for selected shipment */}
         <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Label Preview</CardTitle>
-          </CardHeader>
+          <CardHeader><CardTitle className="text-lg">Pallets for Shipment</CardTitle></CardHeader>
           <CardContent>
-            {generatedLabel ? (
-              <div className="border-2 border-foreground p-4 font-mono max-w-sm mx-auto">
-                <div className="text-center text-lg font-bold mb-3">SCANWMS PALLET</div>
-                <div className="text-center text-2xl tracking-widest border border-dashed border-muted-foreground p-3 my-4 font-bold">
-                  {generatedLabel.palletNumber}
-                </div>
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Sub Client:</span>
-                    <span className="font-bold">{generatedLabel.subklant}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Hub:</span>
-                    <span className="font-bold">{generatedLabel.hub}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Colli:</span>
-                    <span className="font-bold">{generatedLabel.colli}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Weight:</span>
-                    <span className="font-bold">{generatedLabel.weight} kg</span>
-                  </div>
-                </div>
-              </div>
+            {!selectedShipment ? (
+              <p className="text-muted-foreground text-sm">Select a shipment to see pallets</p>
+            ) : existingPallets.length === 0 ? (
+              <p className="text-muted-foreground text-sm">No pallets created yet</p>
             ) : (
-              <div className="flex items-center justify-center h-48 text-muted-foreground">
-                Generate a label to see preview
-              </div>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Pallet #</TableHead>
+                    <TableHead>Hub</TableHead>
+                    <TableHead>Pieces</TableHead>
+                    <TableHead>Weight</TableHead>
+                    <TableHead>Status</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {existingPallets.map((p: any) => (
+                    <TableRow key={p.id}>
+                      <TableCell className="font-mono font-medium">{p.pallet_number}</TableCell>
+                      <TableCell>{p.hub_code || '—'}</TableCell>
+                      <TableCell>{p.pieces ?? p.colli_count ?? '—'}</TableCell>
+                      <TableCell>{p.weight ?? p.weight_kg ? `${p.weight ?? p.weight_kg} kg` : '—'}</TableCell>
+                      <TableCell>{p.status || '—'}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
             )}
           </CardContent>
         </Card>
       </div>
+
+      {/* Print preview modal */}
+      <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Label Preview</DialogTitle>
+          </DialogHeader>
+          {previewData && (
+            <div className="border-2 border-foreground p-4 font-mono mx-auto" style={{ width: '100%', maxWidth: '380px' }}>
+              {/* Sub client - RED */}
+              <div className="text-center text-xl font-bold border-2 p-2 mb-2" style={{ color: '#dc2626', borderColor: '#dc2626' }}>
+                {previewData.subklant}
+              </div>
+              {/* Pallet ID - YELLOW/GOLD */}
+              <div className="text-center text-lg font-bold mb-1" style={{ color: '#ca8a04' }}>
+                {previewData.palletId}
+              </div>
+              {/* Date/time - ORANGE */}
+              <div className="text-center text-xs mb-2" style={{ color: '#ea580c' }}>
+                {(previewData.printedAt || new Date()).toLocaleDateString('nl-NL', { day: '2-digit', month: '2-digit', year: 'numeric' })}{' '}
+                {(previewData.printedAt || new Date()).toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' })}
+              </div>
+              {/* Barcode area - BLUE border */}
+              <div className="text-center p-2 my-2 border-2" style={{ borderColor: '#2563eb' }}>
+                <div className="text-4xl tracking-widest" style={{ fontFamily: "'Libre Barcode 128', monospace" }}>
+                  {previewData.palletId}
+                </div>
+                <div className="text-xs">{previewData.palletId}</div>
+              </div>
+              {/* MAWB - BROWN */}
+              <div className="text-center text-sm font-bold my-1" style={{ color: '#92400e' }}>
+                MAWB: {previewData.mawb}
+              </div>
+              {/* Cargo - GREEN background */}
+              <div className="text-center text-sm font-bold text-white p-2 my-1" style={{ backgroundColor: '#15803d' }}>
+                {previewData.colli} CTN | {previewData.weight.toFixed(2)} KG
+              </div>
+              {/* Hub - BLACK large bold */}
+              <div className="text-center text-xl font-bold mt-2 border-[3px] border-foreground p-2">
+                {previewData.hub}
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPreviewOpen(false)}>Close</Button>
+            <Button onClick={handlePrint} disabled={printing}>
+              {printing ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Printer className="h-4 w-4 mr-2" />}
+              Send to Printer
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
