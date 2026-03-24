@@ -12,7 +12,8 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useHubs } from '@/hooks/use-hubs';
 import { useToast } from '@/hooks/use-toast';
-import { ScanBarcode, CheckCircle2, Search, Printer, Loader2 } from 'lucide-react';
+import { ScanBarcode, CheckCircle2, Search, Printer, Loader2, AlertTriangle } from 'lucide-react';
+import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { printPalletLabel, type PalletLabelData } from '@/lib/printnode';
 
 export default function InboundScanning() {
@@ -24,6 +25,7 @@ export default function InboundScanning() {
   const [shipmentError, setShipmentError] = useState('');
   const [barcode, setBarcode] = useState('');
   const [searching, setSearching] = useState(false);
+  const [scanningBlocked, setScanningBlocked] = useState<string | null>(null);
   const barcodeRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const qc = useQueryClient();
@@ -59,6 +61,7 @@ export default function InboundScanning() {
     setSearching(true);
     setShipmentError('');
     setShipment(null);
+    setScanningBlocked(null);
     try {
       const { data, error } = await supabase
         .from('shipments')
@@ -68,9 +71,32 @@ export default function InboundScanning() {
       if (error) throw error;
       if (!data) {
         setShipmentError('No shipment found for this MAWB');
-      } else {
-        setShipment(data);
+        return;
       }
+
+      // Check status
+      const allowedStatuses = ['In Stock', 'In Transit'];
+      if (!allowedStatuses.includes(data.status)) {
+        setShipment(data);
+        setScanningBlocked('This shipment has not been marked as Unloaded yet. Please contact staff to update the shipment status before scanning.');
+        return;
+      }
+
+      // Check inbound blocks
+      const { data: blocks } = await supabase
+        .from('shipment_blocks')
+        .select('reason')
+        .eq('shipment_id', data.id)
+        .eq('block_type', 'inbound')
+        .is('removed_at', null);
+
+      if (blocks && blocks.length > 0) {
+        setShipment(data);
+        setScanningBlocked(`Inbound blocked: ${blocks[0].reason || 'No reason provided'}`);
+        return;
+      }
+
+      setShipment(data);
     } catch (err: any) {
       setShipmentError(err.message);
     } finally {
@@ -285,6 +311,14 @@ export default function InboundScanning() {
 
       {shipment && (
         <>
+          {scanningBlocked && (
+            <Alert variant="destructive">
+              <AlertTriangle className="h-4 w-4" />
+              <AlertTitle>Scanning Disabled</AlertTitle>
+              <AlertDescription>{scanningBlocked}</AlertDescription>
+            </Alert>
+          )}
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Card>
               <CardContent className="p-6">
@@ -295,11 +329,12 @@ export default function InboundScanning() {
                       ref={barcodeRef}
                       value={barcode}
                       onChange={e => setBarcode(e.target.value)}
-                      placeholder="Scan or type barcode..."
+                      placeholder={scanningBlocked ? 'Scanning disabled' : 'Scan or type barcode...'}
                       className="text-lg h-14 font-mono"
                       autoFocus
+                      disabled={!!scanningBlocked}
                     />
-                    <Button type="submit" size="lg" className="h-14" disabled={scanMutation.isPending}>
+                    <Button type="submit" size="lg" className="h-14" disabled={scanMutation.isPending || !!scanningBlocked}>
                       <ScanBarcode className="h-5 w-5" />
                     </Button>
                   </div>
