@@ -500,7 +500,7 @@ export default function WarehouseOutbound() {
       <Dialog open={!!cmrOutbound} onOpenChange={v => { if (!v) setCmrOutbound(null); }}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Create CMR — {cmrOutbound?.outbound_number || cmrOutbound?.hub_code}</DialogTitle>
+            <DialogTitle>Create CMR — {cmrHubData?.name || cmrOutbound?.outbound_number || cmrOutbound?.hub_code}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
