@@ -237,9 +237,9 @@ export default function InboundScanning() {
       if (!shipment?.id) return [];
       const { data } = await supabase
         .from('outerboxes')
-        .select('id, barcode, scanned_in_at, hub, pallet_id')
+        .select('id, barcode, scanned_in_at, hub, pallet_id, status')
         .eq('shipment_id', shipment.id)
-        .eq('status', 'scanned_in')
+        .in('status', ['scanned_in', 'deleted'])
         .order('scanned_in_at', { ascending: false });
 
       // Fetch pallet numbers for boxes with pallet_id
