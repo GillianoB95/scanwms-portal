@@ -27,6 +27,8 @@ export default function WarehouseOutbound() {
   const [pickupDate, setPickupDate] = useState('');
   const [activeOutbound, setActiveOutbound] = useState<string | null>(null);
   const [palletBarcode, setPalletBarcode] = useState('');
+  const [licensePlate, setLicensePlate] = useState('');
+  const [pickupTime, setPickupTime] = useState('');
 
   const { data: outbounds = [] } = useQuery({
     queryKey: ['warehouse-outbounds', warehouseId],
