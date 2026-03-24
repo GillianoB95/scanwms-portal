@@ -106,12 +106,12 @@ export default function HubManagement() {
         for (const addr of addresses) {
           if (addr.id) {
             await supabase.from('hub_addresses').update({
-              name: addr.name, street: addr.street, house_number: addr.house_number,
+              hub_name: addr.hub_name, name: addr.name, street: addr.street, house_number: addr.house_number,
               postal_code: addr.postal_code, city: addr.city, country: addr.country,
             }).eq('id', addr.id);
           } else {
             await supabase.from('hub_addresses').insert({
-              hub_id: hubId, name: addr.name, street: addr.street, house_number: addr.house_number,
+              hub_id: hubId, hub_name: addr.hub_name, name: addr.name, street: addr.street, house_number: addr.house_number,
               postal_code: addr.postal_code, city: addr.city, country: addr.country,
             });
           }
