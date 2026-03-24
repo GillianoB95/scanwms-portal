@@ -592,35 +592,6 @@ export default function InboundScanning() {
         </>
       )}
 
-      {/* Print Label Modal */}
-      <Dialog open={labelOpen} onOpenChange={setLabelOpen}>
-        <DialogContent>
-          <DialogHeader><DialogTitle>Create Pallet Label</DialogTitle></DialogHeader>
-          <div className="space-y-4">
-            <div className="p-3 rounded-lg bg-muted text-sm">
-              <span className="font-medium">Hub:</span>{' '}
-              <span className="font-mono font-bold">{currentHub || 'No hub detected — scan a box first'}</span>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Colli on Pallet</Label>
-                <Input type="number" value={labelColli} onChange={e => setLabelColli(e.target.value)} placeholder="0" />
-              </div>
-              <div className="space-y-2">
-                <Label>Weight (kg)</Label>
-                <Input type="number" step="0.1" value={labelWeight} onChange={e => setLabelWeight(e.target.value)} placeholder="0.0" />
-              </div>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setLabelOpen(false)}>Cancel</Button>
-            <Button onClick={handleGenerateLabel} disabled={!currentHub}>
-              <Printer className="h-4 w-4 mr-2" />Generate & Print
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
       {/* Print Preview Modal */}
       <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
         <DialogContent className="max-w-md">

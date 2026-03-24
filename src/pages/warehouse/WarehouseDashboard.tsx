@@ -115,7 +115,7 @@ export default function WarehouseDashboard() {
     {
       label: 'Scanned In Today',
       value: `${scannedData?.count ?? 0} boxes`,
-      sub: `${scannedData?.shipments ?? 0} shipments`,
+      sub: `${scannedData?.shipments ?? 0} shipments · ${(scannedData?.totalKg ?? 0).toFixed(0)} kg`,
       icon: ScanBarcode,
       color: 'text-[hsl(var(--status-delivered))]',
     },
