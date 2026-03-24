@@ -279,7 +279,7 @@ export default function InboundScanning() {
         scanned_in_at: new Date().toISOString(),
       };
       if (boxHub) insertData.hub = boxHub;
-      if (boxWeight) insertData.weight = boxWeight;
+      if (boxWeight) insertData.weight = Number(boxWeight.toFixed(2));
 
       const { error } = await supabase.from('outerboxes').insert(insertData);
       if (error) throw error;
