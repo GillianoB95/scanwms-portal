@@ -259,15 +259,17 @@ export default function InboundScanning() {
         throw new Error(`Inbound blocked: ${blocks[0].reason || 'No reason provided'}`);
       }
 
-      // Look up hub from manifest
-      const boxHub = hubMap.get(code) || null;
+      const normalizedCode = normalizeBoxBarcode(code);
+
+      // Look up hub + weight from manifest
+      const boxHub = hubMap.get(normalizedCode) || null;
 
       // Hub consistency check
       if (boxHub && currentHub && boxHub !== currentHub) {
         throw new Error(`Cannot mix hubs on one pallet. Hub "${currentHub}" is active. Print the pallet label first to close this pallet, then you can scan "${boxHub}" boxes.`);
       }
 
-      const boxWeight = weightMap.get(code) || null;
+      const boxWeight = weightMap.get(normalizedCode) || null;
       console.log(`[Scan] Barcode: ${code}, hubMap size: ${hubMap.size}, weightMap size: ${weightMap.size}, weight: ${boxWeight}`);
 
       const insertData: any = {
