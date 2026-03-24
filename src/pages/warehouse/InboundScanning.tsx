@@ -115,8 +115,9 @@ export default function InboundScanning() {
         return;
       }
 
-      const map = await parseManifestForHubs(blob);
-      setHubMap(map);
+      const { hubMap: hMap, weightMap: wMap } = await parseManifestData(blob);
+      setHubMap(hMap);
+      setWeightMap(wMap);
     } catch (err) {
       console.warn('Failed to load manifest hubs:', err);
     }
