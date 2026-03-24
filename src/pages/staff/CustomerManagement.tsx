@@ -202,7 +202,7 @@ function CustomerFormDialog({ open, onOpenChange, customer, parentId, isAdmin }:
             <Select value={warehouseId} onValueChange={setWarehouseId}>
               <SelectTrigger><SelectValue placeholder="Select warehouse" /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="">None</SelectItem>
+                <SelectItem value="__none__">None</SelectItem>
                 {warehouses.map((w: any) => (
                   <SelectItem key={w.id} value={w.id}>{w.code} — {w.name}</SelectItem>
                 ))}
