@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useMemo } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useWarehouseAuth } from '@/hooks/use-warehouse-auth';
@@ -12,27 +12,71 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useHubs } from '@/hooks/use-hubs';
 import { useToast } from '@/hooks/use-toast';
-import { ScanBarcode, CheckCircle2, Search, Printer, Loader2, AlertTriangle } from 'lucide-react';
+import { ScanBarcode, CheckCircle2, Search, Printer, Loader2, AlertTriangle, Trash2 } from 'lucide-react';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { printPalletLabel, type PalletLabelData } from '@/lib/printnode';
+import * as XLSX from 'xlsx';
+
+// Parse a cleaned manifest XLSX blob and return a map of ParcelBarcode -> Hub
+async function parseManifestForHubs(blob: Blob): Promise<Map<string, string>> {
+  const map = new Map<string, string>();
+  try {
+    const arrayBuffer = await blob.arrayBuffer();
+    const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+    const rows: any[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
+    if (rows.length < 2) return map;
+
+    // Column 1 = ParcelBarcode, Column 2 = OuterBox, Column 3 = Hub
+    // Also check header to find columns dynamically
+    const header = rows[0].map((h: any) => String(h).trim().toLowerCase());
+    let barcodeCol = 1;
+    let hubCol = 3;
+
+    // Try to find by header name
+    const bcIdx = header.findIndex(h => h.includes('parcelbarcode') || h.includes('parcel'));
+    if (bcIdx >= 0) barcodeCol = bcIdx;
+    const hIdx = header.findIndex(h => h === 'hub' || h.includes('depot') || h.includes('sorteer'));
+    if (hIdx >= 0) hubCol = hIdx;
+
+    // Also build outerbox -> hub mapping
+    const outerboxHubMap = new Map<string, string>();
+    for (let i = 1; i < rows.length; i++) {
+      const row = rows[i];
+      const outerbox = String(row[2] || '').trim();
+      const hub = String(row[hubCol] || '').trim();
+      if (outerbox && hub) outerboxHubMap.set(outerbox, hub);
+      const barcode = String(row[barcodeCol] || '').trim();
+      if (barcode && hub) map.set(barcode, hub);
+    }
+
+    // For outerbox barcodes (when scanned barcode matches outerbox code)
+    for (const [outerbox, hub] of outerboxHubMap) {
+      if (!map.has(outerbox)) map.set(outerbox, hub);
+    }
+  } catch (err) {
+    console.error('Failed to parse manifest for hubs:', err);
+  }
+  return map;
+}
 
 export default function InboundScanning() {
   const { data: auth } = useWarehouseAuth();
   const { customer } = useAuth();
-  const warehouseId = auth?.warehouseId;
   const [mawbInput, setMawbInput] = useState('');
   const [shipment, setShipment] = useState<any>(null);
   const [shipmentError, setShipmentError] = useState('');
   const [barcode, setBarcode] = useState('');
   const [searching, setSearching] = useState(false);
   const [scanningBlocked, setScanningBlocked] = useState<string | null>(null);
+  const [currentHub, setCurrentHub] = useState<string | null>(null);
+  const [hubMap, setHubMap] = useState<Map<string, string>>(new Map());
   const barcodeRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const qc = useQueryClient();
 
   // Print label state
   const [labelOpen, setLabelOpen] = useState(false);
-  const [labelHub, setLabelHub] = useState('');
   const [labelColli, setLabelColli] = useState('');
   const [labelWeight, setLabelWeight] = useState('');
   const [previewData, setPreviewData] = useState<PalletLabelData | null>(null);
@@ -56,12 +100,43 @@ export default function InboundScanning() {
     enabled: !!customer?.warehouse_id,
   });
 
+  // Load manifest hub map when shipment is found
+  const loadManifestHubs = useCallback(async (shipmentId: string) => {
+    try {
+      const { data: files } = await supabase
+        .from('shipment_files')
+        .select('storage_path')
+        .eq('shipment_id', shipmentId)
+        .eq('file_type', 'manifest_cleaned')
+        .order('uploaded_at', { ascending: false })
+        .limit(1);
+
+      if (!files || files.length === 0) return;
+
+      const { data: blob, error } = await supabase.storage
+        .from('shipment-files')
+        .download(files[0].storage_path);
+
+      if (error || !blob) {
+        console.warn('Could not download manifest:', error?.message);
+        return;
+      }
+
+      const map = await parseManifestForHubs(blob);
+      setHubMap(map);
+    } catch (err) {
+      console.warn('Failed to load manifest hubs:', err);
+    }
+  }, []);
+
   const handleMawbSearch = async () => {
     if (!mawbInput.trim()) return;
     setSearching(true);
     setShipmentError('');
     setShipment(null);
     setScanningBlocked(null);
+    setCurrentHub(null);
+    setHubMap(new Map());
     try {
       const { data, error } = await supabase
         .from('shipments')
@@ -74,11 +149,11 @@ export default function InboundScanning() {
         return;
       }
 
-      // Check status
+      // Strict status check
       const allowedStatuses = ['In Stock', 'In Transit'];
       if (!allowedStatuses.includes(data.status)) {
         setShipment(data);
-        setScanningBlocked('This shipment has not been marked as Unloaded yet. Please contact staff to update the shipment status before scanning.');
+        setScanningBlocked('This shipment must be marked as Unloaded by staff before scanning can begin.');
         return;
       }
 
@@ -97,6 +172,7 @@ export default function InboundScanning() {
       }
 
       setShipment(data);
+      loadManifestHubs(data.id);
     } catch (err: any) {
       setShipmentError(err.message);
     } finally {
@@ -110,11 +186,24 @@ export default function InboundScanning() {
       if (!shipment?.id) return [];
       const { data } = await supabase
         .from('outerboxes')
-        .select('id, barcode, scanned_in_at')
+        .select('id, barcode, scanned_in_at, hub, pallet_id')
         .eq('shipment_id', shipment.id)
         .eq('status', 'scanned_in')
         .order('scanned_in_at', { ascending: false });
-      return data ?? [];
+
+      // Fetch pallet numbers for boxes with pallet_id
+      if (data && data.length > 0) {
+        const palletIds = [...new Set(data.filter(b => b.pallet_id).map(b => b.pallet_id))];
+        if (palletIds.length > 0) {
+          const { data: pallets } = await supabase
+            .from('pallets')
+            .select('id, pallet_number')
+            .in('id', palletIds);
+          const palletMap = new Map((pallets || []).map(p => [p.id, p.pallet_number]));
+          return data.map(box => ({ ...box, pallet_number: palletMap.get(box.pallet_id) || null }));
+        }
+      }
+      return (data ?? []).map(box => ({ ...box, pallet_number: null }));
     },
     enabled: !!shipment?.id,
   });
@@ -147,15 +236,32 @@ export default function InboundScanning() {
         throw new Error(`Inbound blocked: ${blocks[0].reason || 'No reason provided'}`);
       }
 
-      const { error } = await supabase.from('outerboxes').insert({
+      // Look up hub from manifest
+      const boxHub = hubMap.get(code) || null;
+
+      // Hub consistency check
+      if (boxHub && currentHub && boxHub !== currentHub) {
+        throw new Error(`Cannot mix hubs on one pallet. Hub "${currentHub}" is active. Print the pallet label first to close this pallet, then you can scan "${boxHub}" boxes.`);
+      }
+
+      const insertData: any = {
         shipment_id: shipment.id,
         barcode: code,
         status: 'scanned_in',
         scanned_in_at: new Date().toISOString(),
-      });
+      };
+      if (boxHub) insertData.hub = boxHub;
+
+      const { error } = await supabase.from('outerboxes').insert(insertData);
       if (error) throw error;
+
+      return boxHub;
     },
-    onSuccess: () => {
+    onSuccess: (boxHub) => {
+      // Set current hub if this is the first scan in session
+      if (boxHub && !currentHub) {
+        setCurrentHub(boxHub);
+      }
       qc.invalidateQueries({ queryKey: ['scanned-boxes', shipment?.id] });
       toast({ title: 'Box scanned', description: barcode });
       setBarcode('');
@@ -163,6 +269,20 @@ export default function InboundScanning() {
     },
     onError: (err: any) => {
       toast({ title: 'Scan failed', description: err.message, variant: 'destructive' });
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (boxId: string) => {
+      const { error } = await supabase.from('outerboxes').delete().eq('id', boxId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['scanned-boxes', shipment?.id] });
+      toast({ title: 'Scan deleted' });
+    },
+    onError: (err: any) => {
+      toast({ title: 'Delete failed', description: err.message, variant: 'destructive' });
     },
   });
 
@@ -178,6 +298,7 @@ export default function InboundScanning() {
       toast({ title: 'Shipment marked as unloaded and In Stock' });
       setShipment(null);
       setMawbInput('');
+      setCurrentHub(null);
     },
   });
 
@@ -195,17 +316,21 @@ export default function InboundScanning() {
   };
 
   useEffect(() => {
-    if (shipment) barcodeRef.current?.focus();
-  }, [shipment]);
+    if (shipment && !scanningBlocked) barcodeRef.current?.focus();
+  }, [shipment, scanningBlocked]);
 
   const totalExpected = shipment?.colli_expected ?? 0;
   const totalScanned = scannedBoxes.length;
   const subklant = shipment?.customers?.short_name || shipment?.customers?.name || '—';
 
-  // Print Label logic
+  // Print Label logic — hub is auto-set from current session hub
   const handleGenerateLabel = async () => {
-    if (!labelHub || !labelColli || !labelWeight) {
-      toast({ title: 'Fill all label fields', variant: 'destructive' });
+    if (!labelColli || !labelWeight) {
+      toast({ title: 'Fill colli and weight fields', variant: 'destructive' });
+      return;
+    }
+    if (!currentHub) {
+      toast({ title: 'No hub detected from scanned barcodes. Scan at least one box first.', variant: 'destructive' });
       return;
     }
     if (!warehouse?.code) {
@@ -222,16 +347,28 @@ export default function InboundScanning() {
       const colli = parseInt(labelColli);
       const weightKg = parseFloat(labelWeight);
 
-      const { error: insertError } = await supabase.from('pallets').insert({
+      const { data: palletRow, error: insertError } = await supabase.from('pallets').insert({
         shipment_id: shipment.id,
         pallet_number: palletNumber,
         warehouse_code: warehouse.code,
         pieces: colli,
         weight: weightKg,
         status: 'Palletized',
-        hub_code: labelHub,
-      });
+        hub_code: currentHub,
+      }).select('id').single();
       if (insertError) throw insertError;
+
+      // Assign all unassigned scanned outerboxes to this pallet
+      const unassignedIds = scannedBoxes
+        .filter((b: any) => !b.pallet_id)
+        .map((b: any) => b.id);
+
+      if (unassignedIds.length > 0 && palletRow) {
+        await supabase
+          .from('outerboxes')
+          .update({ pallet_id: palletRow.id })
+          .in('id', unassignedIds);
+      }
 
       const labelData: PalletLabelData = {
         palletId: palletNumber,
@@ -239,7 +376,7 @@ export default function InboundScanning() {
         mawb: shipment.mawb || '',
         colli,
         weight: weightKg,
-        hub: labelHub,
+        hub: currentHub,
         printedAt: new Date(),
       };
 
@@ -248,7 +385,11 @@ export default function InboundScanning() {
       setLabelOpen(false);
       setPreviewOpen(true);
 
+      // Reset hub session so next scans start a new pallet
+      setCurrentHub(null);
+
       qc.invalidateQueries({ queryKey: ['shipment-pallets', shipment.id] });
+      qc.invalidateQueries({ queryKey: ['scanned-boxes', shipment.id] });
       toast({ title: 'Pallet created', description: palletNumber });
     } catch (err: any) {
       toast({ title: 'Error', description: err.message, variant: 'destructive' });
@@ -304,6 +445,9 @@ export default function InboundScanning() {
               <p><span className="font-medium">Customer:</span> {shipment.customers?.name ?? '—'} ({subklant})</p>
               <p><span className="font-medium">Colli Expected:</span> {shipment.colli_expected ?? '—'}</p>
               <p><span className="font-medium">Status:</span> {shipment.status}</p>
+              {currentHub && (
+                <p><span className="font-medium">Active Hub:</span> <span className="font-mono font-bold">{currentHub}</span></p>
+              )}
             </div>
           )}
         </CardContent>
@@ -366,7 +510,12 @@ export default function InboundScanning() {
                   </Button>
                   <Button
                     variant="outline"
-                    onClick={() => setLabelOpen(true)}
+                    onClick={() => {
+                      setLabelColli('');
+                      setLabelWeight('');
+                      setLabelOpen(true);
+                    }}
+                    disabled={!!scanningBlocked}
                   >
                     <Printer className="mr-2 h-4 w-4" />
                     Print Label
@@ -411,7 +560,7 @@ export default function InboundScanning() {
 
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg">Last Scanned ({Math.min(scannedBoxes.length, 10)})</CardTitle>
+              <CardTitle className="text-lg">Scanned Boxes ({totalScanned})</CardTitle>
             </CardHeader>
             <CardContent>
               <Table>
@@ -419,19 +568,35 @@ export default function InboundScanning() {
                   <TableRow>
                     <TableHead>#</TableHead>
                     <TableHead>Barcode</TableHead>
+                    <TableHead>Hub</TableHead>
                     <TableHead>Scanned At</TableHead>
+                    <TableHead>Pallet Nr</TableHead>
+                    <TableHead className="w-10"></TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {scannedBoxes.slice(0, 10).map((box: any, i: number) => (
+                  {scannedBoxes.map((box: any, i: number) => (
                     <TableRow key={box.id}>
                       <TableCell>{i + 1}</TableCell>
                       <TableCell className="font-mono">{box.barcode}</TableCell>
+                      <TableCell className="font-mono">{box.hub || '—'}</TableCell>
                       <TableCell>{new Date(box.scanned_in_at).toLocaleTimeString()}</TableCell>
+                      <TableCell className="font-mono">{box.pallet_number || '—'}</TableCell>
+                      <TableCell>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 text-destructive hover:text-destructive"
+                          onClick={() => deleteMutation.mutate(box.id)}
+                          disabled={deleteMutation.isPending}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </TableCell>
                     </TableRow>
                   ))}
                   {scannedBoxes.length === 0 && (
-                    <TableRow><TableCell colSpan={3} className="text-center text-muted-foreground py-6">No boxes scanned yet</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-6">No boxes scanned yet</TableCell></TableRow>
                   )}
                 </TableBody>
               </Table>
@@ -445,14 +610,9 @@ export default function InboundScanning() {
         <DialogContent>
           <DialogHeader><DialogTitle>Create Pallet Label</DialogTitle></DialogHeader>
           <div className="space-y-4">
-            <div className="space-y-2">
-              <Label>Hub</Label>
-              <Select value={labelHub} onValueChange={setLabelHub}>
-                <SelectTrigger><SelectValue placeholder="Select hub" /></SelectTrigger>
-                <SelectContent>
-                  {hubs.map(h => <SelectItem key={h} value={h}>{h}</SelectItem>)}
-                </SelectContent>
-              </Select>
+            <div className="p-3 rounded-lg bg-muted text-sm">
+              <span className="font-medium">Hub:</span>{' '}
+              <span className="font-mono font-bold">{currentHub || 'No hub detected — scan a box first'}</span>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
@@ -467,7 +627,7 @@ export default function InboundScanning() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setLabelOpen(false)}>Cancel</Button>
-            <Button onClick={handleGenerateLabel}>
+            <Button onClick={handleGenerateLabel} disabled={!currentHub}>
               <Printer className="h-4 w-4 mr-2" />Generate & Print
             </Button>
           </DialogFooter>
