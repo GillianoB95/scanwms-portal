@@ -446,6 +446,23 @@ export default function InboundScanning() {
           {shipmentError && (
             <p className="text-sm text-destructive mt-2">{shipmentError}</p>
           )}
+          {mawbResults.length > 0 && !shipment && (
+            <div className="mt-3 border rounded-lg divide-y max-h-64 overflow-y-auto">
+              {mawbResults.map((s: any) => (
+                <button
+                  key={s.id}
+                  className="w-full text-left px-4 py-3 hover:bg-muted transition-colors flex items-center justify-between"
+                  onClick={() => selectShipment(s)}
+                >
+                  <div>
+                    <span className="font-mono font-medium">{s.mawb}</span>
+                    <span className="text-sm text-muted-foreground ml-3">{(s.customers as any)?.name ?? ''}</span>
+                  </div>
+                  <span className="text-xs text-muted-foreground">{s.status}</span>
+                </button>
+              ))}
+            </div>
+          )}
           {shipment && (
             <div className="mt-4 p-3 rounded-lg bg-muted text-sm space-y-1">
               <p><span className="font-medium">MAWB:</span> <span className="font-mono">{shipment.mawb}</span></p>
