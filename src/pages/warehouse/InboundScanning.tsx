@@ -186,11 +186,6 @@ export default function InboundScanning() {
 
     setShipment(s);
     loadManifestHubs(s.id);
-    } catch (err: any) {
-      setShipmentError(err.message);
-    } finally {
-      setSearching(false);
-    }
   };
 
   const { data: scannedBoxes = [] } = useQuery({
