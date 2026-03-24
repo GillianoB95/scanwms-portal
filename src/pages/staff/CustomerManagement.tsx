@@ -126,7 +126,7 @@ function CustomerFormDialog({ open, onOpenChange, customer, parentId, isAdmin }:
   const [name, setName] = useState(customer?.name ?? '');
   const [shortName, setShortName] = useState(customer?.short_name ?? '');
   const [email, setEmail] = useState(customer?.email ?? '');
-  const [warehouseId, setWarehouseId] = useState(customer?.warehouse_id ?? '');
+  const [warehouseId, setWarehouseId] = useState(customer?.warehouse_id || '__none__');
   const [userEmail, setUserEmail] = useState('');
   const [userPassword, setUserPassword] = useState('');
   const [saving, setSaving] = useState(false);
@@ -138,7 +138,7 @@ function CustomerFormDialog({ open, onOpenChange, customer, parentId, isAdmin }:
     if (!name) return;
     setSaving(true);
     try {
-      const payload: any = { name, short_name: shortName || null, email: email || null, warehouse_id: warehouseId || null };
+      const payload: any = { name, short_name: shortName || null, email: email || null, warehouse_id: warehouseId === '__none__' ? null : warehouseId || null };
       if (parentId) payload.parent_customer_id = parentId;
 
       if (customer?.id) {
@@ -202,7 +202,7 @@ function CustomerFormDialog({ open, onOpenChange, customer, parentId, isAdmin }:
             <Select value={warehouseId} onValueChange={setWarehouseId}>
               <SelectTrigger><SelectValue placeholder="Select warehouse" /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="">None</SelectItem>
+                <SelectItem value="__none__">None</SelectItem>
                 {warehouses.map((w: any) => (
                   <SelectItem key={w.id} value={w.id}>{w.code} — {w.name}</SelectItem>
                 ))}
