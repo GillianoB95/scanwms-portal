@@ -61,7 +61,9 @@ export default function WarehouseOutbound() {
       const { data, error } = await supabase.from('outbounds').insert({
         hub_code: hub,
         truck_reference: truckRef,
+        license_plate: licensePlate || null,
         pickup_date: pickupDate,
+        pickup_time: pickupTime || null,
         status: 'preparing',
       }).select().single();
       if (error) throw error;
