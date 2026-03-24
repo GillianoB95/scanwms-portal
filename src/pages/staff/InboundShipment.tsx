@@ -175,6 +175,7 @@ function UnloadModal({ shipment, open, onOpenChange }: { shipment: any; open: bo
 
 /* ─── Main Page ─── */
 export default function InboundShipment() {
+  const navigate = useNavigate();
   const { data: shipments = [], isLoading } = useAllShipments();
   const updateShipment = useUpdateShipment();
 
