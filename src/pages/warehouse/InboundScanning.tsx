@@ -396,7 +396,9 @@ export default function InboundScanning() {
       toast({ title: 'No hub detected from scanned barcodes. Scan at least one box first.', variant: 'destructive' });
       return;
     }
-    if (!warehouse?.code) {
+    // Prefer the configured warehouse row, but fall back to the shipment's warehouse code
+    const effectiveWarehouseCode = warehouse?.code || shipment?.warehouse_id || null;
+    if (!warehouse && !effectiveWarehouseCode) {
       toast({ title: 'Warehouse code not configured', variant: 'destructive' });
       return;
     }
@@ -405,7 +407,7 @@ export default function InboundScanning() {
       const weightKg = unassigned.reduce((sum: number, b: any) => sum + (weightMap.get(b.barcode) || 0), 0);
 
       const { data: palletNumber, error: rpcError } = await supabase.rpc('generate_pallet_number', {
-        p_warehouse_code: warehouse.code,
+        p_warehouse_code: effectiveWarehouseCode,
       });
       if (rpcError) throw rpcError;
       if (!palletNumber) throw new Error('No pallet number returned');
@@ -413,7 +415,7 @@ export default function InboundScanning() {
       const { data: palletRow, error: insertError } = await supabase.from('pallets').insert({
         shipment_id: shipment.id,
         pallet_number: palletNumber,
-        warehouse_code: warehouse.code,
+        warehouse_code: effectiveWarehouseCode,
         pieces: colli,
         weight: weightKg,
         status: 'Palletized',
