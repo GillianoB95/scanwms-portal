@@ -19,10 +19,12 @@ import * as XLSX from 'xlsx';
 
 function normalizeBoxBarcode(value: unknown): string {
   return String(value ?? '')
-    .trim()
+    .normalize('NFKC')
     .toUpperCase()
     .replace(/[\u200B-\u200D\uFEFF]/g, '')
-    .replace(/\s+/g, ' ');
+    .replace(/[‐‑‒–—―]/g, '-')
+    .replace(/\s+/g, '')
+    .trim();
 }
 
 // Parse a cleaned manifest XLSX blob and return maps: BoxBagbarcode -> hub, BoxBagbarcode -> weight
@@ -117,8 +119,8 @@ export default function InboundScanning() {
     enabled: !!customer?.warehouse_id,
   });
 
-  // Load manifest hub map when shipment is found
-  const loadManifestHubs = useCallback(async (shipmentId: string) => {
+  const fetchManifestDataForShipment = useCallback(async (shipmentId: string) => {
+    const empty = { hubMap: new Map<string, string>(), weightMap: new Map<string, number>() };
     try {
       const { data: files } = await supabase
         .from('shipment_files')
@@ -128,7 +130,7 @@ export default function InboundScanning() {
         .order('uploaded_at', { ascending: false })
         .limit(1);
 
-      if (!files || files.length === 0) return;
+      if (!files || files.length === 0) return empty;
 
       const { data: blob, error } = await supabase.storage
         .from('shipment-files')
@@ -136,16 +138,21 @@ export default function InboundScanning() {
 
       if (error || !blob) {
         console.warn('Could not download manifest:', error?.message);
-        return;
+        return empty;
       }
 
-      const { hubMap: hMap, weightMap: wMap } = await parseManifestData(blob);
-      setHubMap(hMap);
-      setWeightMap(wMap);
+      return await parseManifestData(blob);
     } catch (err) {
       console.warn('Failed to load manifest hubs:', err);
+      return empty;
     }
   }, []);
+
+  const loadManifestHubs = useCallback(async (shipmentId: string) => {
+    const { hubMap: hMap, weightMap: wMap } = await fetchManifestDataForShipment(shipmentId);
+    setHubMap(hMap);
+    setWeightMap(wMap);
+  }, [fetchManifestDataForShipment]);
 
   const handleMawbSearch = async () => {
     const q = mawbInput.trim();
@@ -269,16 +276,20 @@ export default function InboundScanning() {
 
       const normalizedCode = normalizeBoxBarcode(code);
 
+      const freshManifestData = await fetchManifestDataForShipment(shipment.id);
+      const effectiveHubMap = freshManifestData.hubMap.size > 0 ? freshManifestData.hubMap : hubMap;
+      const effectiveWeightMap = freshManifestData.weightMap.size > 0 ? freshManifestData.weightMap : weightMap;
+
       // Look up hub + weight from manifest
-      const boxHub = hubMap.get(normalizedCode) || null;
+      const boxHub = effectiveHubMap.get(normalizedCode) || null;
 
       // Hub consistency check
       if (boxHub && currentHub && boxHub !== currentHub) {
         throw new Error(`Cannot mix hubs on one pallet. Hub "${currentHub}" is active. Print the pallet label first to close this pallet, then you can scan "${boxHub}" boxes.`);
       }
 
-      const boxWeight = weightMap.get(normalizedCode) || null;
-      console.log(`[Scan] Barcode: ${code}, hubMap size: ${hubMap.size}, weightMap size: ${weightMap.size}, weight: ${boxWeight}`);
+      const boxWeight = effectiveWeightMap.get(normalizedCode) || null;
+      console.log(`[Scan] Barcode: ${code}, hubMap size: ${effectiveHubMap.size}, weightMap size: ${effectiveWeightMap.size}, weight: ${boxWeight}`);
 
       const insertData: any = {
         shipment_id: shipment.id,
