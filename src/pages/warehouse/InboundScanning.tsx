@@ -237,7 +237,7 @@ export default function InboundScanning() {
       if (!shipment?.id) return [];
       const { data } = await supabase
         .from('outerboxes')
-        .select('id, barcode, scanned_in_at, hub, pallet_id, status')
+        .select('id, barcode, scanned_in_at, hub, pallet_id, status, weight')
         .eq('shipment_id', shipment.id)
         .in('status', ['scanned_in', 'deleted'])
         .order('scanned_in_at', { ascending: false });
