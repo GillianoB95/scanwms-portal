@@ -239,19 +239,23 @@ export default function WarehouseOutbound() {
               <TableRow>
                 <TableHead>Hub</TableHead>
                 <TableHead>Truck Ref</TableHead>
+                <TableHead>License Plate</TableHead>
                 <TableHead>Pickup Date</TableHead>
+                <TableHead>Time</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {outbounds.length === 0 ? (
-                <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-8">No outbounds yet</TableCell></TableRow>
+                <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-8">No outbounds yet</TableCell></TableRow>
               ) : outbounds.map((o: any) => (
                 <TableRow key={o.id}>
                   <TableCell className="font-medium">{o.hub_code}</TableCell>
                   <TableCell>{o.truck_reference ?? '—'}</TableCell>
+                  <TableCell>{o.license_plate ?? '—'}</TableCell>
                   <TableCell>{o.pickup_date ?? '—'}</TableCell>
+                  <TableCell>{o.pickup_time ?? '—'}</TableCell>
                   <TableCell className="capitalize">{o.status?.replace('_', ' ')}</TableCell>
                   <TableCell>
                     {o.status === 'preparing' && (
