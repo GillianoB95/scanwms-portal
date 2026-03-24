@@ -17,7 +17,7 @@ import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { printPalletLabel, type PalletLabelData } from '@/lib/printnode';
 import * as XLSX from 'xlsx';
 
-// Parse a cleaned manifest XLSX blob and return a map of ParcelBarcode -> Hub
+// Parse a cleaned manifest XLSX blob and return a map of BoxBagbarcode -> Waybill (hub)
 async function parseManifestForHubs(blob: Blob): Promise<Map<string, string>> {
   const map = new Map<string, string>();
   try {
@@ -27,32 +27,21 @@ async function parseManifestForHubs(blob: Blob): Promise<Map<string, string>> {
     const rows: any[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
     if (rows.length < 2) return map;
 
-    // Column 1 = ParcelBarcode, Column 2 = OuterBox, Column 3 = Hub
-    // Also check header to find columns dynamically
+    // Find columns by header name, fallback to known indices
     const header = rows[0].map((h: any) => String(h).trim().toLowerCase());
-    let barcodeCol = 1;
-    let hubCol = 3;
+    let boxBagCol = 2; // BoxBagbarcode
+    let waybillCol = 3; // Waybill = hub
 
-    // Try to find by header name
-    const bcIdx = header.findIndex(h => h.includes('parcelbarcode') || h.includes('parcel'));
-    if (bcIdx >= 0) barcodeCol = bcIdx;
-    const hIdx = header.findIndex(h => h === 'hub' || h.includes('depot') || h.includes('sorteer'));
-    if (hIdx >= 0) hubCol = hIdx;
+    const bbIdx = header.findIndex(h => h.includes('boxbagbarcode') || h.includes('boxbag'));
+    if (bbIdx >= 0) boxBagCol = bbIdx;
+    const wIdx = header.findIndex(h => h === 'waybill' || h.includes('waybill'));
+    if (wIdx >= 0) waybillCol = wIdx;
 
-    // Also build outerbox -> hub mapping
-    const outerboxHubMap = new Map<string, string>();
     for (let i = 1; i < rows.length; i++) {
       const row = rows[i];
-      const outerbox = String(row[2] || '').trim();
-      const hub = String(row[hubCol] || '').trim();
-      if (outerbox && hub) outerboxHubMap.set(outerbox, hub);
-      const barcode = String(row[barcodeCol] || '').trim();
-      if (barcode && hub) map.set(barcode, hub);
-    }
-
-    // For outerbox barcodes (when scanned barcode matches outerbox code)
-    for (const [outerbox, hub] of outerboxHubMap) {
-      if (!map.has(outerbox)) map.set(outerbox, hub);
+      const boxBag = String(row[boxBagCol] || '').trim();
+      const hub = String(row[waybillCol] || '').trim();
+      if (boxBag && hub) map.set(boxBag, hub);
     }
   } catch (err) {
     console.error('Failed to parse manifest for hubs:', err);
