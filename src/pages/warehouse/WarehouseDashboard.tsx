@@ -149,8 +149,12 @@ export default function WarehouseDashboard() {
     enabled: !!auth,
   });
 
-  const preparedCount = preparedData ?? 0;
-  const departedCount = departedData ?? 0;
+  const preparedTrucks = typeof preparedData === 'object' ? preparedData?.trucks ?? 0 : 0;
+  const preparedColli = typeof preparedData === 'object' ? preparedData?.colli ?? 0 : 0;
+  const preparedWeight = typeof preparedData === 'object' ? preparedData?.weight ?? 0 : 0;
+  const departedTrucks = typeof departedData === 'object' ? departedData?.trucks ?? 0 : 0;
+  const departedColli = typeof departedData === 'object' ? departedData?.colli ?? 0 : 0;
+  const departedWeight = typeof departedData === 'object' ? departedData?.weight ?? 0 : 0;
 
   const stats = [
     {
@@ -176,15 +180,15 @@ export default function WarehouseDashboard() {
     },
     {
       label: 'Outbound Prepared',
-      value: `${preparedCount} ${preparedCount === 1 ? 'truck' : 'trucks'}`,
-      sub: '',
+      value: `${preparedTrucks} ${preparedTrucks === 1 ? 'truck' : 'trucks'}`,
+      sub: `${preparedColli} colli · ${preparedWeight.toFixed(0)} kg`,
       icon: ArrowUpFromLine,
       color: 'text-[hsl(var(--status-prepared))]',
     },
     {
       label: 'Outbound Departed',
-      value: `${departedCount} ${departedCount === 1 ? 'truck' : 'trucks'}`,
-      sub: '',
+      value: `${departedTrucks} ${departedTrucks === 1 ? 'truck' : 'trucks'}`,
+      sub: `${departedColli} colli · ${departedWeight.toFixed(0)} kg`,
       icon: Truck,
       color: 'text-[hsl(var(--status-departed))]',
     },
