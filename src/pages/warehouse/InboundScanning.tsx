@@ -379,7 +379,9 @@ export default function InboundScanning() {
       toast({ title: 'No unassigned boxes to palletize', variant: 'destructive' });
       return;
     }
-    if (!currentHub) {
+    // Derive hub from currentHub state or from scanned boxes' hub field
+    const effectiveHub = currentHub || unassigned.find((b: any) => b.hub)?.hub || null;
+    if (!effectiveHub) {
       toast({ title: 'No hub detected from scanned barcodes. Scan at least one box first.', variant: 'destructive' });
       return;
     }
