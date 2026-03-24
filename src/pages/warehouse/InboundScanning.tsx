@@ -119,8 +119,8 @@ export default function InboundScanning() {
     enabled: !!customer?.warehouse_id,
   });
 
-  // Load manifest hub map when shipment is found
-  const loadManifestHubs = useCallback(async (shipmentId: string) => {
+  const fetchManifestDataForShipment = useCallback(async (shipmentId: string) => {
+    const empty = { hubMap: new Map<string, string>(), weightMap: new Map<string, number>() };
     try {
       const { data: files } = await supabase
         .from('shipment_files')
@@ -130,7 +130,7 @@ export default function InboundScanning() {
         .order('uploaded_at', { ascending: false })
         .limit(1);
 
-      if (!files || files.length === 0) return;
+      if (!files || files.length === 0) return empty;
 
       const { data: blob, error } = await supabase.storage
         .from('shipment-files')
@@ -138,16 +138,21 @@ export default function InboundScanning() {
 
       if (error || !blob) {
         console.warn('Could not download manifest:', error?.message);
-        return;
+        return empty;
       }
 
-      const { hubMap: hMap, weightMap: wMap } = await parseManifestData(blob);
-      setHubMap(hMap);
-      setWeightMap(wMap);
+      return await parseManifestData(blob);
     } catch (err) {
       console.warn('Failed to load manifest hubs:', err);
+      return empty;
     }
   }, []);
+
+  const loadManifestHubs = useCallback(async (shipmentId: string) => {
+    const { hubMap: hMap, weightMap: wMap } = await fetchManifestDataForShipment(shipmentId);
+    setHubMap(hMap);
+    setWeightMap(wMap);
+  }, [fetchManifestDataForShipment]);
 
   const handleMawbSearch = async () => {
     const q = mawbInput.trim();
