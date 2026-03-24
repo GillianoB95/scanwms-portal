@@ -130,9 +130,8 @@ export default function WarehouseDashboard() {
     },
     enabled: !!auth,
   });
-    },
-    enabled: !!auth,
-  });
+
+
 
   // Active Shipments assigned to this warehouse
   const { data: shipments = [] } = useQuery({
