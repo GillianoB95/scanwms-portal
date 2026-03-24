@@ -632,7 +632,7 @@ export default function InboundScanning() {
                         <TableCell className="font-mono font-medium">{p.pallet_number}</TableCell>
                         <TableCell>{p.hub_code || '—'}</TableCell>
                         <TableCell>{p.pieces ?? p.colli_count ?? '—'}</TableCell>
-                        <TableCell>{p.weight ?? p.weight_kg ? `${p.weight ?? p.weight_kg} kg` : '—'}</TableCell>
+                        <TableCell>{(p.weight ?? p.weight_kg) != null ? `${Number(p.weight ?? p.weight_kg).toFixed(2)} kg` : '—'}</TableCell>
                         <TableCell>{p.status || '—'}</TableCell>
                       </TableRow>
                     ))}
