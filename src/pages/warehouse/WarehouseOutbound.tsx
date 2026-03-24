@@ -40,7 +40,7 @@ export default function WarehouseOutbound() {
   const [cmrGenerating, setCmrGenerating] = useState(false);
 
   const { data: outbounds = [] } = useQuery({
-    queryKey: ['warehouse-outbounds', warehouseId],
+    queryKey: ['warehouse-outbounds', auth?.isWarehouse],
     queryFn: async () => {
       const { data } = await supabase
         .from('outbounds')
@@ -49,7 +49,7 @@ export default function WarehouseOutbound() {
         .limit(20);
       return data ?? [];
     },
-    enabled: !!warehouseId,
+    enabled: !!auth?.isWarehouse,
   });
 
   // Get the active outbound record for hub validation
