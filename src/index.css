@@ -41,6 +41,8 @@
     --status-outbound: 213 55% 25%;
     --status-delivered: 142 71% 45%;
     --status-needs-action: 0 84% 60%;
+    --status-prepared: 173 58% 39%;
+    --status-departed: 259 67% 55%;
 
     --sidebar-background: 213 55% 15%;
     --sidebar-foreground: 214 20% 80%;
@@ -120,5 +122,13 @@
   .status-cleared {
     background-color: hsl(var(--status-delivered) / 0.15);
     color: hsl(var(--status-delivered));
+  }
+  .status-prepared {
+    background-color: hsl(var(--status-prepared) / 0.15);
+    color: hsl(var(--status-prepared));
+  }
+  .status-departed {
+    background-color: hsl(var(--status-departed) / 0.15);
+    color: hsl(var(--status-departed));
   }
 }

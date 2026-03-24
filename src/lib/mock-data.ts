@@ -107,6 +107,15 @@ export const getStatusClass = (status: string): string => {
     'under_inspection': 'status-needs-action',
     'removed': 'status-partial-noa',
     'released': 'status-delivered',
+    // Outbound statuses
+    'preparing': 'status-awaiting-noa',
+    'prepared': 'status-prepared',
+    'Prepared': 'status-prepared',
+    'departed': 'status-departed',
+    'Departed': 'status-departed',
+    'Picked Up': 'status-departed',
+    'picked_up': 'status-departed',
+    'Pending': 'status-created',
   };
   return map[status] || 'status-created';
 };

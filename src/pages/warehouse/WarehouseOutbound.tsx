@@ -268,10 +268,10 @@ export default function WarehouseOutbound() {
   });
 
   const markPickup = async (id: string) => {
-    const { error } = await supabase.from('outbounds').update({ status: 'picked_up' }).eq('id', id);
+    const { error } = await supabase.from('outbounds').update({ status: 'departed' }).eq('id', id);
     if (error) { toast({ title: 'Error', description: error.message, variant: 'destructive' }); return; }
     qc.invalidateQueries({ queryKey: ['warehouse-outbounds'] });
-    toast({ title: 'Outbound marked as picked up' });
+    toast({ title: 'Outbound marked as departed' });
   };
 
   const undoPickup = async (id: string) => {
@@ -629,8 +629,8 @@ export default function WarehouseOutbound() {
                               <Button variant="ghost" size="icon" className="h-8 w-8" title="Scan pallets" onClick={() => setActiveOutbound(o.id)}>
                                 <ScanBarcode className="h-3.5 w-3.5" />
                               </Button>
-                              {o.status === 'picked_up' || o.status === 'Picked Up' ? (
-                                <Button variant="ghost" size="icon" className="h-8 w-8" title="Undo Picked Up" onClick={() => undoPickup(o.id)}>
+                              {o.status === 'departed' || o.status === 'Departed' || o.status === 'picked_up' || o.status === 'Picked Up' ? (
+                                <Button variant="ghost" size="icon" className="h-8 w-8" title="Undo Departed" onClick={() => undoPickup(o.id)}>
                                   <Undo2 className="h-3.5 w-3.5 text-destructive" />
                                 </Button>
                               ) : (
