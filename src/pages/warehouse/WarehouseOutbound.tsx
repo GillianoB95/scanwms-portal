@@ -72,7 +72,7 @@ export default function WarehouseOutbound() {
     onSuccess: (data) => {
       setShowCreate(false);
       setActiveOutbound(data.id);
-      setHub(''); setTruckRef(''); setPickupDate('');
+      setHub(''); setTruckRef(''); setPickupDate(''); setLicensePlate(''); setPickupTime('');
       qc.invalidateQueries({ queryKey: ['warehouse-outbounds'] });
       toast({ title: 'Outbound created' });
     },
