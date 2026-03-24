@@ -131,6 +131,7 @@ export default function InboundScanning() {
     setScanningBlocked(null);
     setCurrentHub(null);
     setHubMap(new Map());
+    setWeightMap(new Map());
     try {
       const { data, error } = await supabase
         .from('shipments')
