@@ -23,6 +23,7 @@ interface HubForm {
 interface HubAddress {
   id?: string;
   hub_id?: string;
+  hub_name: string;
   name: string;
   street: string;
   house_number: string;
@@ -32,7 +33,7 @@ interface HubAddress {
 }
 
 const emptyForm: HubForm = { code: '', name: '', carrier: '', active: true };
-const emptyAddress: HubAddress = { name: '', street: '', house_number: '', postal_code: '', city: '', country: '' };
+const emptyAddress: HubAddress = { hub_name: '', name: '', street: '', house_number: '', postal_code: '', city: '', country: '' };
 
 export default function HubManagement() {
   const { role } = useAuth();
