@@ -629,6 +629,9 @@ export default function WarehouseOutbound() {
                         <TableHead>Truck Reference</TableHead>
                         <TableHead>License Plate</TableHead>
                         <TableHead>Time</TableHead>
+                        <TableHead className="text-right">Pallets</TableHead>
+                        <TableHead className="text-right">Colli</TableHead>
+                        <TableHead className="text-right">Weight</TableHead>
                         <TableHead>Status</TableHead>
                         <TableHead className="text-right">Actions</TableHead>
                       </TableRow>
@@ -648,6 +651,9 @@ export default function WarehouseOutbound() {
                           <TableCell className="font-mono text-sm">{o.truck_reference || '—'}</TableCell>
                           <TableCell className="text-sm">{o.license_plate || '—'}</TableCell>
                           <TableCell className="text-sm text-muted-foreground">{o.pickup_time || '—'}</TableCell>
+                          <TableCell className="text-right tabular-nums">{o.pallet_count || 0}</TableCell>
+                          <TableCell className="text-right tabular-nums">{o.total_colli || 0}</TableCell>
+                          <TableCell className="text-right tabular-nums">{o.total_weight ? `${Number(o.total_weight).toFixed(2)} kg` : '0 kg'}</TableCell>
                           <TableCell><StatusBadge status={o.status || 'Pending'} /></TableCell>
                           <TableCell>
                             <div className="flex items-center justify-end gap-1">
