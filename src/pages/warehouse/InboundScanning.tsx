@@ -59,6 +59,7 @@ export default function InboundScanning() {
   const { data: auth } = useWarehouseAuth();
   const { customer } = useAuth();
   const [mawbInput, setMawbInput] = useState('');
+  const [mawbResults, setMawbResults] = useState<any[]>([]);
   const [shipment, setShipment] = useState<any>(null);
   const [shipmentError, setShipmentError] = useState('');
   const [barcode, setBarcode] = useState('');
