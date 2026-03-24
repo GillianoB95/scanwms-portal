@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { useHubs } from '@/hooks/use-hubs';
 import { useToast } from '@/hooks/use-toast';
@@ -51,6 +51,9 @@ export default function WarehouseOutbound() {
     },
     enabled: !!warehouseId,
   });
+
+  // Get the active outbound record for hub validation
+  const activeOutboundRecord = outbounds.find((o: any) => o.id === activeOutbound);
 
   const { data: pallets = [] } = useQuery({
     queryKey: ['outbound-pallets', activeOutbound],
@@ -140,10 +143,16 @@ export default function WarehouseOutbound() {
     mutationFn: async (code: string) => {
       const { data: pallet, error: findErr } = await supabase
         .from('pallets')
-        .select('id, shipment_id, shipments(customs_cleared)')
+        .select('id, shipment_id, hub_code, shipments(customs_cleared)')
         .eq('pallet_number', code)
         .maybeSingle();
       if (findErr || !pallet) throw new Error('Pallet not found');
+
+      // Hub validation
+      const outboundHub = activeOutboundRecord?.hub_code;
+      if (outboundHub && pallet.hub_code && pallet.hub_code !== outboundHub) {
+        throw new Error(`This pallet belongs to hub ${pallet.hub_code}. This outbound is for hub ${outboundHub}. Hubs cannot be mixed in one outbound.`);
+      }
 
       const { data: blocks } = await supabase
         .from('shipment_blocks')
@@ -217,12 +226,23 @@ export default function WarehouseOutbound() {
     addPallet.mutate(palletBarcode.trim());
   };
 
+  // Pallet totals
+  const totalColli = pallets.reduce((sum: number, p: any) => sum + (p.pieces || 0), 0);
+  const totalWeight = pallets.reduce((sum: number, p: any) => sum + (p.weight || 0), 0);
+
+  // Open CMR modal for the active outbound
+  const openCmrForActiveOutbound = () => {
+    if (!activeOutboundRecord) return;
+    setCmrOutbound(activeOutboundRecord);
+    setCmrAddressId('');
+    setCmrSealNumber('');
+  };
+
   // Build CMR data grouped by sub-client
   const buildCmrDataPerSubClient = (): Map<string, CmrData> => {
     const selectedAddress = hubAddresses.find((a: any) => a.id === cmrAddressId);
     if (!selectedAddress || !warehouseData) return new Map();
 
-    // Group pallets by sub-client
     const subClientGroups = new Map<string, typeof cmrPallets>();
     for (const p of cmrPallets) {
       const subClient = (p.shipments as any)?.customers?.short_name || 'Unknown';
@@ -232,13 +252,12 @@ export default function WarehouseOutbound() {
 
     const result = new Map<string, CmrData>();
     for (const [subClient, scPallets] of subClientGroups) {
-      // Group by MAWB within this sub-client
       const mawbMap = new Map<string, { colli: number; weight: number }>();
       for (const p of scPallets) {
         const mawb = (p.shipments as any)?.mawb || 'Unknown';
         const existing = mawbMap.get(mawb) || { colli: 0, weight: 0 };
-        existing.colli += p.colli_count || 0;
-        existing.weight += parseFloat(p.weight_kg) || 0;
+        existing.colli += p.pieces || 0;
+        existing.weight += parseFloat(p.weight) || 0;
         mawbMap.set(mawb, existing);
       }
 
@@ -283,7 +302,6 @@ export default function WarehouseOutbound() {
         const wb = generateCmrWorkbook(data);
         downloadCmrWorkbook(wb, `CMR_${subClient}_${cmrOutbound?.outbound_number || ''}.xlsx`);
       } else {
-        // Multiple sub-clients → zip
         const zip = new JSZip();
         for (const [subClient, data] of cmrMap) {
           const wb = generateCmrWorkbook(data);
@@ -357,7 +375,8 @@ export default function WarehouseOutbound() {
           <CardHeader>
             <CardTitle className="text-lg flex items-center gap-2">
               <Truck className="h-5 w-5 text-accent" />
-              Active Outbound
+              Active Outbound {activeOutboundRecord?.outbound_number ? `— ${activeOutboundRecord.outbound_number}` : ''} 
+              {activeOutboundRecord?.hub_code && <span className="text-sm font-mono text-muted-foreground">({activeOutboundRecord.hub_code})</span>}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -393,14 +412,28 @@ export default function WarehouseOutbound() {
                     <TableCell className="font-mono font-medium">{p.pallet_number}</TableCell>
                     <TableCell>{(p.shipments as any)?.customers?.short_name ?? '—'}</TableCell>
                     <TableCell>{p.hub_code}</TableCell>
-                    <TableCell className="text-right">{p.colli_count}</TableCell>
-                    <TableCell className="text-right">{p.weight_kg} kg</TableCell>
+                    <TableCell className="text-right">{p.pieces ?? '—'}</TableCell>
+                    <TableCell className="text-right">{p.weight != null ? `${Number(p.weight).toFixed(2)} kg` : '—'}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
+              {pallets.length > 0 && (
+                <TableFooter>
+                  <TableRow>
+                    <TableCell colSpan={3} className="font-semibold">Total ({pallets.length} pallets)</TableCell>
+                    <TableCell className="text-right font-semibold">{totalColli}</TableCell>
+                    <TableCell className="text-right font-semibold">{totalWeight.toFixed(2)} kg</TableCell>
+                  </TableRow>
+                </TableFooter>
+              )}
             </Table>
 
             <div className="flex justify-end gap-2">
+              {pallets.length > 0 && (
+                <Button variant="outline" onClick={openCmrForActiveOutbound}>
+                  <FileText className="mr-2 h-4 w-4" />Create CMR
+                </Button>
+              )}
               <Button onClick={() => confirmOutbound.mutate()} disabled={pallets.length === 0 || confirmOutbound.isPending}>
                 Confirm Outbound — Mark as Picked Up
               </Button>
@@ -506,7 +539,7 @@ export default function WarehouseOutbound() {
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label>Hub Address</Label>
+              <Label>Hub Address *</Label>
               <Select value={cmrAddressId} onValueChange={setCmrAddressId}>
                 <SelectTrigger><SelectValue placeholder="Select delivery address" /></SelectTrigger>
                 <SelectContent>
@@ -522,7 +555,7 @@ export default function WarehouseOutbound() {
               )}
             </div>
             <div className="space-y-2">
-              <Label>Seal Number</Label>
+              <Label>Seal Number *</Label>
               <Input value={cmrSealNumber} onChange={e => setCmrSealNumber(e.target.value)} placeholder="Seal number" />
             </div>
             <div className="space-y-2">
@@ -538,10 +571,10 @@ export default function WarehouseOutbound() {
           </div>
           <DialogFooter className="flex gap-2">
             <Button variant="outline" onClick={() => setCmrOutbound(null)}>Cancel</Button>
-            <Button variant="outline" onClick={handleDownloadCmr} disabled={!cmrAddressId || cmrGenerating}>
+            <Button variant="outline" onClick={handleDownloadCmr} disabled={!cmrAddressId || !cmrSealNumber || cmrGenerating}>
               <Download className="h-4 w-4 mr-1" /> Download
             </Button>
-            <Button onClick={handlePrintCmr} disabled={!cmrAddressId || cmrGenerating}>
+            <Button onClick={handlePrintCmr} disabled={!cmrAddressId || !cmrSealNumber || cmrGenerating}>
               <Printer className="h-4 w-4 mr-1" /> Print (4x)
             </Button>
           </DialogFooter>
