@@ -501,11 +501,7 @@ export default function InboundScanning() {
                   </Button>
                   <Button
                     variant="outline"
-                    onClick={() => {
-                      setLabelColli('');
-                      setLabelWeight('');
-                      setLabelOpen(true);
-                    }}
+                    onClick={handleGenerateLabel}
                     disabled={!!scanningBlocked}
                   >
                     <Printer className="mr-2 h-4 w-4" />
