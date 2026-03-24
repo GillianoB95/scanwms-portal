@@ -436,7 +436,7 @@ export default function InboundScanning() {
               value={mawbInput}
               onChange={e => setMawbInput(e.target.value)}
               onKeyDown={handleMawbKeyDown}
-              placeholder="Enter MAWB number (e.g. 607-50842772)"
+              placeholder="Enter full or last digits of MAWB (e.g. 2772)"
               className="font-mono"
             />
             <Button onClick={handleMawbSearch} disabled={searching}>
