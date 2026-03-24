@@ -406,7 +406,7 @@ export default function InboundScanning() {
         pieces: colli,
         weight: weightKg,
         status: 'Palletized',
-        hub_code: currentHub,
+        hub_code: effectiveHub,
       }).select('id').single();
       if (insertError) throw insertError;
 
