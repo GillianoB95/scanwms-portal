@@ -333,7 +333,20 @@ export default function CustomerManagement() {
   const { role } = useAuth();
   const isAdmin = role === 'admin';
   const { data: customers = [], isLoading } = useCustomersWithSubs();
+  const { data: warehouses = [] } = useAllWarehouses();
   const deleteCustomer = useDeleteCustomer();
+
+  const warehouseMap = useMemo(() => {
+    const map = new Map<string, { code: string; name: string }>();
+    warehouses.forEach((w: any) => map.set(w.id, { code: w.code, name: w.name }));
+    return map;
+  }, [warehouses]);
+
+  const formatWarehouse = (id: string | null) => {
+    if (!id) return '—';
+    const w = warehouseMap.get(id);
+    return w ? `${w.code} — ${w.name}` : id;
+  };
 
   const [search, setSearch] = useState('');
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
@@ -450,7 +463,7 @@ export default function CustomerManagement() {
                       <TableCell className="font-medium">{customer.name}</TableCell>
                       <TableCell className="text-muted-foreground">{customer.short_name || '—'}</TableCell>
                       <TableCell className="text-muted-foreground">{customer.email || '—'}</TableCell>
-                      <TableCell>{customer.warehouse_id || '—'}</TableCell>
+                      <TableCell>{formatWarehouse(customer.warehouse_id)}</TableCell>
                       <TableCell className="text-right">
                         <Badge variant="secondary">{subs.length}</Badge>
                       </TableCell>
@@ -487,7 +500,7 @@ export default function CustomerManagement() {
                         <TableCell className="pl-10 font-medium text-muted-foreground">↳ {sub.name}</TableCell>
                         <TableCell className="text-muted-foreground">{sub.short_name || '—'}</TableCell>
                         <TableCell className="text-muted-foreground">{sub.email || '—'}</TableCell>
-                        <TableCell>{sub.warehouse_id || '—'}</TableCell>
+                        <TableCell>{formatWarehouse(sub.warehouse_id)}</TableCell>
                         <TableCell />
                         <TableCell>
                           <div className="flex items-center justify-end gap-1">
