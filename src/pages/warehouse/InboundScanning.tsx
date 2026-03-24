@@ -19,10 +19,12 @@ import * as XLSX from 'xlsx';
 
 function normalizeBoxBarcode(value: unknown): string {
   return String(value ?? '')
-    .trim()
+    .normalize('NFKC')
     .toUpperCase()
     .replace(/[\u200B-\u200D\uFEFF]/g, '')
-    .replace(/\s+/g, ' ');
+    .replace(/[‐‑‒–—―]/g, '-')
+    .replace(/\s+/g, '')
+    .trim();
 }
 
 // Parse a cleaned manifest XLSX blob and return maps: BoxBagbarcode -> hub, BoxBagbarcode -> weight
