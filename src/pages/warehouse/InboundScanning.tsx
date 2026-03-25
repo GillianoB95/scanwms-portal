@@ -151,7 +151,7 @@ export default function InboundScanning() {
   });
 
   const fetchManifestDataForShipment = useCallback(async (shipmentId: string) => {
-    const empty = { hubMap: new Map<string, string>(), weightMap: new Map<string, number>() };
+    const empty = { hubMap: new Map<string, string>(), weightMap: new Map<string, number>(), boxToParcelMap: new Map<string, string[]>() };
     try {
       const { data: files } = await supabase
         .from('shipment_files')
@@ -180,9 +180,10 @@ export default function InboundScanning() {
   }, []);
 
   const loadManifestHubs = useCallback(async (shipmentId: string) => {
-    const { hubMap: hMap, weightMap: wMap } = await fetchManifestDataForShipment(shipmentId);
+    const { hubMap: hMap, weightMap: wMap, boxToParcelMap: bpMap } = await fetchManifestDataForShipment(shipmentId);
     setHubMap(hMap);
     setWeightMap(wMap);
+    setBoxToParcelMap(bpMap);
   }, [fetchManifestDataForShipment]);
 
   const handleMawbSearch = async () => {
