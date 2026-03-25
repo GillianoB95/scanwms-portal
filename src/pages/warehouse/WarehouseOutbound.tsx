@@ -541,10 +541,16 @@ export default function WarehouseOutbound() {
               )}
             </Table>
 
-            <div className="flex justify-end">
-              <Button onClick={() => confirmOutbound.mutate()} disabled={pallets.length === 0 || confirmOutbound.isPending}>
-                Scan finished
-              </Button>
+            <div className="flex justify-end gap-2">
+              {activeOutboundRecord?.status === 'prepared' ? (
+                <Button onClick={() => markDeparted.mutate()} disabled={markDeparted.isPending} variant="default">
+                  <Truck className="h-4 w-4 mr-2" />Truck departed
+                </Button>
+              ) : (
+                <Button onClick={() => confirmOutbound.mutate()} disabled={pallets.length === 0 || confirmOutbound.isPending}>
+                  Scan finished
+                </Button>
+              )}
             </div>
           </CardContent>
         </Card>
