@@ -301,15 +301,6 @@ export default function FycoManagement() {
   const [sendModalParcels, setSendModalParcels] = useState<FycoRow[]>([]);
   const [sendModalOpen, setSendModalOpen] = useState(false);
 
-  // Group rows by MAWB for per-MAWB send button
-  const mawbGroups = useMemo(() => {
-    const map = new Map<string, FycoRow[]>();
-    for (const r of filtered) {
-      if (!map.has(r.mawb)) map.set(r.mawb, []);
-      map.get(r.mawb)!.push(r);
-    }
-    return map;
-  }, [rows, search, statusFilter]);
 
   const filtered = useMemo(() => {
     return rows.filter(r => {
