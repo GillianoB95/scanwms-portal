@@ -454,14 +454,23 @@ export default function WarehouseOutbound() {
   if (activeOutbound) {
     return (
       <div className="space-y-6">
-        <div className="flex items-center gap-3">
-          <Button variant="ghost" size="sm" onClick={() => setActiveOutbound(null)}>
-            <ArrowLeft className="h-4 w-4 mr-1" />Back
-          </Button>
-          <h1 className="text-2xl font-bold">
-            Outbound {activeOutboundRecord?.outbound_number ? `#${activeOutboundRecord.outbound_number}` : ''}
-            {activeOutboundRecord?.hub_code_display && <span className="text-base font-mono text-muted-foreground ml-2">({activeOutboundRecord.hub_code_display})</span>}
-          </h1>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Button variant="ghost" size="sm" onClick={() => setActiveOutbound(null)}>
+              <ArrowLeft className="h-4 w-4 mr-1" />Back
+            </Button>
+            <h1 className="text-2xl font-bold">
+              Outbound {activeOutboundRecord?.outbound_number ? `#${activeOutboundRecord.outbound_number}` : ''}
+              {activeOutboundRecord?.hub_code_display && <span className="text-base font-mono text-muted-foreground ml-2">({activeOutboundRecord.hub_code_display})</span>}
+            </h1>
+          </div>
+          {pallets.length > 0 && (
+            <div className="flex items-center gap-4 text-sm">
+              <span className="font-medium">{pallets.length} pallets</span>
+              <span className="font-semibold">{totalColli} colli</span>
+              <span className="font-semibold">{totalWeight.toFixed(2)} kg</span>
+            </div>
+          )}
         </div>
 
         <Card>
