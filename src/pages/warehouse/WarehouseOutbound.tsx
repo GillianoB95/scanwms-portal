@@ -749,6 +749,7 @@ export default function WarehouseOutbound() {
                         <TableHead className="text-right">Colli</TableHead>
                         <TableHead className="text-right">Weight</TableHead>
                         <TableHead>Status</TableHead>
+                        <TableHead className="text-center">CMR</TableHead>
                         <TableHead className="text-right">Actions</TableHead>
                       </TableRow>
                     </TableHeader>
