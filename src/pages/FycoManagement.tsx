@@ -168,6 +168,8 @@ function useFycoData() {
           released_at: insp.released_at,
           released_by: insp.released_by,
           customs_remarks: insp.customs_remarks,
+          customs_cleared_at: ship?.customs_cleared_at ?? null,
+          sla_deadline: computeSlaDeadline(ship?.customs_cleared_at ?? null),
           outbound_status: outboundStatusMap.get(bc) ?? null,
         } as FycoRow;
       });
