@@ -29,21 +29,23 @@ function normalizeBoxBarcode(value: unknown): string {
     .trim();
 }
 
-// Parse a cleaned manifest XLSX blob and return maps: BoxBagbarcode -> hub, BoxBagbarcode -> weight
-async function parseManifestData(blob: Blob): Promise<{ hubMap: Map<string, string>; weightMap: Map<string, number> }> {
+// Parse a cleaned manifest XLSX blob and return maps: BoxBagbarcode -> hub, BoxBagbarcode -> weight, BoxBagbarcode -> parcel_barcodes
+async function parseManifestData(blob: Blob): Promise<{ hubMap: Map<string, string>; weightMap: Map<string, number>; boxToParcelMap: Map<string, string[]> }> {
   const hubMap = new Map<string, string>();
   const weightMap = new Map<string, number>();
+  const boxToParcelMap = new Map<string, string[]>();
   try {
     const arrayBuffer = await blob.arrayBuffer();
     const workbook = XLSX.read(arrayBuffer, { type: 'array' });
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
     const rows: any[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
-    if (rows.length < 2) return { hubMap, weightMap };
+    if (rows.length < 2) return { hubMap, weightMap, boxToParcelMap };
 
     const header = rows[0].map((h: any) => String(h).trim().toLowerCase());
     let boxBagCol = 2;
     let waybillCol = 3;
     let weightCol = -1;
+    let parcelCol = -1;
 
     const bbIdx = header.findIndex(h => h.includes('boxbagbarcode') || h.includes('boxbag'));
     if (bbIdx >= 0) boxBagCol = bbIdx;
@@ -56,6 +58,8 @@ async function parseManifestData(blob: Blob): Promise<{ hubMap: Map<string, stri
     );
     if (twIdx >= 0) weightCol = twIdx;
     if (weightCol < 0) weightCol = 13;
+    const pIdx = header.findIndex(h => h.includes('parcelbarcode') || h.includes('parcel') || h === 'barcode');
+    if (pIdx >= 0) parcelCol = pIdx;
 
     let lastBoxBag = '';
     let lastHub = '';
@@ -75,11 +79,21 @@ async function parseManifestData(blob: Blob): Promise<{ hubMap: Map<string, stri
       if (boxBag && weight > 0) {
         weightMap.set(boxBag, (weightMap.get(boxBag) || 0) + weight);
       }
+
+      // Map box to parcel barcodes
+      if (parcelCol >= 0 && boxBag) {
+        const parcelBarcode = String(row[parcelCol] || '').trim();
+        if (parcelBarcode) {
+          const existing = boxToParcelMap.get(boxBag) || [];
+          existing.push(parcelBarcode);
+          boxToParcelMap.set(boxBag, existing);
+        }
+      }
     }
   } catch (err) {
     console.error('Failed to parse manifest:', err);
   }
-  return { hubMap, weightMap };
+  return { hubMap, weightMap, boxToParcelMap };
 }
 
 export default function InboundScanning() {
