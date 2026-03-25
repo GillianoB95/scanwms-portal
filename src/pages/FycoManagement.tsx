@@ -453,6 +453,16 @@ export default function FycoManagement() {
                       {row.scan_time ? format(new Date(row.scan_time), 'dd/MM/yy HH:mm') : '—'}
                     </TableCell>
 
+                    {/* SLA Deadline */}
+                    <TableCell className="text-sm whitespace-nowrap">
+                      {slaWarn && <span className="mr-1">⏰</span>}
+                      {row.sla_deadline ? (
+                        <span className={slaWarn ? 'text-destructive font-medium' : 'text-muted-foreground'}>
+                          {format(new Date(row.sla_deadline), 'dd/MM/yy HH:mm')}
+                        </span>
+                      ) : '—'}
+                    </TableCell>
+
                     {/* Status badge */}
                     <TableCell>
                       <Badge variant={status.variant} className="text-xs whitespace-nowrap">
