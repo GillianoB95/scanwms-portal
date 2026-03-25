@@ -572,6 +572,8 @@ export default function FycoManagement() {
                 <TableHead>Released</TableHead>
                 <TableHead>Prepared</TableHead>
                 <TableHead>Delivered</TableHead>
+                <TableHead className="w-10">✉️</TableHead>
+                {isStaff && <TableHead className="w-10"></TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
