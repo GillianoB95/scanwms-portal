@@ -7,8 +7,9 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { StatusBadge } from '@/components/StatusBadge';
-import { Link } from 'react-router-dom';
-import { Package, ScanBarcode, ArrowUpFromLine, Truck, PackageCheck } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Link, useNavigate } from 'react-router-dom';
+import { Package, ScanBarcode, ArrowUpFromLine, Truck, PackageCheck, Search as SearchIcon } from 'lucide-react';
 
 export default function WarehouseDashboard() {
   const { data: auth } = useWarehouseAuth();
