@@ -108,6 +108,7 @@ function useFycoData() {
           shipments (
             mawb,
             warehouse_id,
+            customs_cleared_at,
             subklanten ( name ),
             customers ( name )
           )
