@@ -14,8 +14,22 @@ import { Package, ScanBarcode, ArrowUpFromLine, Truck, PackageCheck, Search as S
 export default function WarehouseDashboard() {
   const { data: auth } = useWarehouseAuth();
   const navigate = useNavigate();
-  const warehouseId = auth?.warehouseId;
+  const warehouseId = auth?.warehouseId; // UUID
   const today = new Date().toISOString().split('T')[0];
+
+  // Resolve warehouse UUID to code for shipment queries
+  const { data: warehouseCode } = useQuery({
+    queryKey: ['warehouse-code', warehouseId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('warehouses')
+        .select('code')
+        .eq('id', warehouseId!)
+        .single();
+      return data?.code ?? null;
+    },
+    enabled: !!warehouseId,
+  });
 
   // Expected Today: NOA Complete or Partial NOA, not yet unloaded
   const { data: expectedData } = useQuery({
