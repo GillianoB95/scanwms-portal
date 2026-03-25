@@ -266,10 +266,17 @@ export default function InboundScanning() {
       if (!shipment?.id) return [];
       const { data } = await supabase
         .from('pallets')
-        .select('*')
+        .select('*, outbounds(status)')
         .eq('shipment_id', shipment.id)
         .order('created_at', { ascending: false });
-      return data ?? [];
+      // Derive display status: if outbound has a status, show that
+      return (data ?? []).map((p: any) => {
+        const outboundStatus = p.outbounds?.status;
+        let displayStatus = p.status || '—';
+        if (outboundStatus === 'departed') displayStatus = 'Departed';
+        else if (outboundStatus === 'preparing') displayStatus = 'Prepared';
+        return { ...p, displayStatus };
+      });
     },
     enabled: !!shipment?.id,
   });
@@ -335,14 +342,46 @@ export default function InboundScanning() {
 
   const deleteMutation = useMutation({
     mutationFn: async (boxId: string) => {
+      // Get the box to find its pallet_id
+      const { data: box } = await supabase
+        .from('outerboxes')
+        .select('id, pallet_id')
+        .eq('id', boxId)
+        .single();
+
       const { error } = await supabase
         .from('outerboxes')
         .update({ status: 'deleted' })
         .eq('id', boxId);
       if (error) throw error;
+
+      // Update pallet status if box belongs to a pallet
+      if (box?.pallet_id) {
+        const { data: palletBoxes } = await supabase
+          .from('outerboxes')
+          .select('id, status')
+          .eq('pallet_id', box.pallet_id);
+
+        if (palletBoxes && palletBoxes.length > 0) {
+          const activeBoxes = palletBoxes.filter(b => b.id === boxId ? false : b.status !== 'deleted');
+          const allDeleted = activeBoxes.length === 0;
+          const someDeleted = !allDeleted && palletBoxes.some(b => b.status === 'deleted' || b.id === boxId);
+
+          let newStatus = 'Palletized';
+          if (allDeleted) newStatus = 'Deleted';
+          else if (someDeleted) newStatus = 'Partly deleted';
+
+          // Also update pieces count (only active boxes)
+          await supabase
+            .from('pallets')
+            .update({ status: newStatus, pieces: activeBoxes.length })
+            .eq('id', box.pallet_id);
+        }
+      }
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['scanned-boxes', shipment?.id] });
+      qc.invalidateQueries({ queryKey: ['shipment-pallets', shipment?.id] });
       toast({ title: 'Scan removed' });
     },
     onError: (err: any) => {
@@ -620,15 +659,23 @@ export default function InboundScanning() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {existingPallets.map((p: any) => (
-                      <TableRow key={p.id}>
-                        <TableCell className="font-mono font-medium">{p.pallet_number}</TableCell>
-                        <TableCell>{p.hub_code || '—'}</TableCell>
-                        <TableCell>{p.pieces ?? p.colli_count ?? '—'}</TableCell>
-                        <TableCell>{(p.weight ?? p.weight_kg) != null ? `${Number(p.weight ?? p.weight_kg).toFixed(2)} kg` : '—'}</TableCell>
-                        <TableCell>{p.status || '—'}</TableCell>
+                    {existingPallets.map((p: any) => {
+                      const isDeletedPallet = p.status === 'Deleted';
+                      const isPartlyDeleted = p.status === 'Partly deleted';
+                      const statusColor = isDeletedPallet ? 'text-destructive' : 
+                        isPartlyDeleted ? 'text-orange-500' : 
+                        p.displayStatus === 'Departed' ? 'text-blue-500' :
+                        p.displayStatus === 'Prepared' ? 'text-yellow-600' : '';
+                      return (
+                      <TableRow key={p.id} className={isDeletedPallet ? 'opacity-50' : ''}>
+                        <TableCell className={`font-mono font-medium ${isDeletedPallet ? 'line-through' : ''}`}>{p.pallet_number}</TableCell>
+                        <TableCell className={isDeletedPallet ? 'line-through' : ''}>{p.hub_code || '—'}</TableCell>
+                        <TableCell className={isDeletedPallet ? 'line-through' : ''}>{p.pieces ?? p.colli_count ?? '—'}</TableCell>
+                        <TableCell className={isDeletedPallet ? 'line-through' : ''}>{(p.weight ?? p.weight_kg) != null ? `${Number(p.weight ?? p.weight_kg).toFixed(2)} kg` : '—'}</TableCell>
+                        <TableCell className={statusColor}>{p.displayStatus}</TableCell>
                       </TableRow>
-                    ))}
+                      );
+                    })}
                   </TableBody>
                 </Table>
               </CardContent>
