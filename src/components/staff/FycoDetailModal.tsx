@@ -39,12 +39,26 @@ function useDeleteInspection() {
   });
 }
 
+async function resetShipmentCustomsStatus(shipmentId: string) {
+  const { error } = await supabase
+    .from('shipments')
+    .update({
+      customs_cleared: false,
+      clearance_status: 'pending',
+      customs_cleared_at: null,
+      customs_cleared_by: null,
+    })
+    .eq('id', shipmentId);
+  if (error) throw error;
+}
+
 function useDeleteAllInspections() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (shipmentId: string) => {
       const { error } = await supabase.from('inspections').delete().eq('shipment_id', shipmentId);
       if (error) throw error;
+      await resetShipmentCustomsStatus(shipmentId);
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['inspection-details'] });
