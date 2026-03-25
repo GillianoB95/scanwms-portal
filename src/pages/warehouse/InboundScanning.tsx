@@ -653,6 +653,7 @@ export default function InboundScanning() {
                   <TableHeader>
                     <TableRow>
                       <TableHead>Pallet #</TableHead>
+                      <TableHead>Created</TableHead>
                       <TableHead>Hub</TableHead>
                       <TableHead>Pieces</TableHead>
                       <TableHead>Weight</TableHead>
@@ -671,6 +672,9 @@ export default function InboundScanning() {
                       return (
                       <TableRow key={p.id} className={isDeletedPallet ? 'opacity-50' : ''}>
                         <TableCell className={`font-mono font-medium ${isDeletedPallet ? 'line-through' : ''}`}>{p.pallet_number}</TableCell>
+                        <TableCell className={`text-sm text-muted-foreground ${isDeletedPallet ? 'line-through' : ''}`}>
+                          {p.created_at ? new Date(p.created_at).toLocaleDateString('nl-NL', { day: '2-digit', month: '2-digit', year: '2-digit' }) + ' ' + new Date(p.created_at).toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' }) : '—'}
+                        </TableCell>
                         <TableCell className={isDeletedPallet ? 'line-through' : ''}>{p.hub_code || '—'}</TableCell>
                         <TableCell className={isDeletedPallet ? 'line-through' : ''}>{p.pieces ?? p.colli_count ?? '—'}</TableCell>
                         <TableCell className={isDeletedPallet ? 'line-through' : ''}>{(p.weight ?? p.weight_kg) != null ? `${Number(p.weight ?? p.weight_kg).toFixed(2)} kg` : '—'}</TableCell>
