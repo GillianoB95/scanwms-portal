@@ -135,7 +135,7 @@ function useFycoData() {
           shipment_id: insp.shipment_id,
           mawb: ship?.mawb ?? '—',
           hub_code: null,
-          warehouse: ship?.warehouse_id ? warehouseMap.get(ship.warehouse_id) ?? ship.warehouse_id : null,
+          warehouse: ship?.warehouse_id ?? null,
           subklant: ship?.subklanten?.name ?? null,
           location: insp.location,
           scan_time: insp.scan_time,
