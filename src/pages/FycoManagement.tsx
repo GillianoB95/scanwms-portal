@@ -68,8 +68,9 @@ function useFycoData() {
     queryFn: async () => {
       const { data: inspections, error } = await supabase
         .from('inspections')
-        .select('id, barcode, parcel_barcode, created_at, shipment_id, location, scan_time, checked_at, checked_by, documents_requested, documents_requested_at, documents_requested_by, additional_action_required, additional_action_at, additional_action_by, released_at, released_by, customs_remarks')
-        .order('created_at', { ascending: false });
+        .select('id, barcode, parcel_barcode, shipment_id, status, location, scan_time, checked_at, checked_by, documents_requested, documents_requested_at, documents_requested_by, additional_action_required, additional_action_at, additional_action_by, released_at, released_by, customs_remarks')
+        .order('scan_time', { ascending: false, nullsFirst: false });
+      if (error) { console.error('Fyco inspections query error:', error); throw error; }
       if (error) throw error;
       if (!inspections || inspections.length === 0) return [];
 
