@@ -371,8 +371,19 @@ export default function InboundScanning() {
       const isBoxPreAlerted = effectiveHubMap.has(normalizedCode);
       const isParcelInManifest = effectiveParcelSet.has(code.toUpperCase());
 
+      // Also check manifest_parcels table as fallback
+      let isParcelInDb = false;
+      if (!isBoxPreAlerted && !isParcelInManifest) {
+        const { count } = await supabase
+          .from('manifest_parcels')
+          .select('id', { count: 'exact', head: true })
+          .eq('shipment_id', shipment.id)
+          .ilike('parcel_barcode', code);
+        isParcelInDb = (count ?? 0) > 0;
+      }
+
       // If this is a parcel barcode from the manifest → it's a fyco individual parcel scan
-      if (!isBoxPreAlerted && isParcelInManifest) {
+      if (!isBoxPreAlerted && (isParcelInManifest || isParcelInDb)) {
         // Set scan_time on the matching inspection record
         const { data: inspection } = await supabase
           .from('inspections')
