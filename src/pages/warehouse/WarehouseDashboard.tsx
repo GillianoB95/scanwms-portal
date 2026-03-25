@@ -136,18 +136,25 @@ export default function WarehouseDashboard() {
 
 
   // All shipments assigned to this warehouse (broader fetch for filtering)
+  // Database may store 'Created' or 'Awaiting NOA' — fetch both
+  const allDbStatuses = ['Created', 'Awaiting NOA', 'Partial NOA', 'NOA Complete', 'In Transit', 'In Stock', 'Outbound'];
   const allStatuses = ['Awaiting NOA', 'Partial NOA', 'NOA Complete', 'In Transit', 'In Stock', 'Outbound'];
+
   const { data: shipments = [] } = useQuery({
     queryKey: ['warehouse-shipments', warehouseId],
     queryFn: async () => {
       const query = supabase
         .from('shipments')
         .select('*, customers(name, short_name)')
-        .in('status', allStatuses)
+        .in('status', allDbStatuses)
         .order('created_at', { ascending: false });
       if (warehouseId) query.eq('warehouse_id', warehouseId);
       const { data } = await query;
-      return data ?? [];
+      // Normalize 'Created' to 'Awaiting NOA' for display
+      return (data ?? []).map((s: any) => ({
+        ...s,
+        status: s.status === 'Created' ? 'Awaiting NOA' : s.status,
+      }));
     },
     enabled: !!auth,
   });
