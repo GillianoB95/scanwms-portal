@@ -30,20 +30,24 @@ export function generateCmrWorkbook(data: CmrData): XLSX.WorkBook {
   const wb = XLSX.utils.book_new();
   const ws: XLSX.WorkSheet = {};
 
-  // Helper to set cell value
-  const set = (ref: string, val: string | number, bold = false) => {
-    ws[ref] = {
+  // Helper to set cell with formatting — font: Calibri 11, optional bold, optional right-align
+  const set = (ref: string, val: string | number, opts?: { bold?: boolean; alignRight?: boolean }) => {
+    const cell: XLSX.CellObject = {
       t: typeof val === 'number' ? 'n' : 's',
       v: val,
-      s: bold ? { font: { bold: true } } : undefined,
     };
+    const s: any = { font: { name: 'Calibri', sz: 11 } };
+    if (opts?.bold) s.font.bold = true;
+    if (opts?.alignRight) s.alignment = { horizontal: 'right' };
+    cell.s = s;
+    ws[ref] = cell;
   };
 
   // Sender (warehouse) — bold
-  set('B1', data.warehouseName, true);
-  set('B2', data.warehouseStreet, true);
-  set('B3', data.warehousePostalCity, true);
-  set('B4', data.warehouseCountry, true);
+  set('B1', data.warehouseName, { bold: true });
+  set('B2', data.warehouseStreet, { bold: true });
+  set('B3', data.warehousePostalCity, { bold: true });
+  set('B4', data.warehouseCountry, { bold: true });
 
   // Receiver (hub address)
   set('B7', data.hubName);
@@ -51,13 +55,14 @@ export function generateCmrWorkbook(data: CmrData): XLSX.WorkBook {
   set('B9', `${data.hubPostalCode} ${data.hubCity}`.trim());
   set('B10', data.hubCountry);
 
-  // Place of delivery
-  set('B13', data.hubCity);
-  set('D13', data.hubCountry);
+  // Place of delivery — bold
+  set('B13', data.hubCity, { bold: true });
+  set('D13', data.hubCountry, { bold: true });
 
-  // Place/date of loading
-  set('B18', `${data.warehouseCity}, ${data.warehouseCountry}`);
-  set('H18', `  Loading ref: ${data.truckReference}`);
+  // Place/date of loading — bold
+  const loadingPlace = [data.warehouseCity, data.warehouseCountry].filter(Boolean).join(', ');
+  set('B18', loadingPlace, { bold: true });
+  set('H18', `  Loading ref: ${data.truckReference}`, { bold: true });
 
   // Cargo lines (MAWB rows starting at row 26, max row 39)
   let totalColli = 0;
@@ -67,18 +72,18 @@ export function generateCmrWorkbook(data: CmrData): XLSX.WorkBook {
     const row = 26 + i;
     if (row > maxRow) return;
     set(cellRef('B', row), line.mawb);
-    set(cellRef('D', row), `${line.colli} colli`);
-    set(cellRef('G', row), line.weightKg);
+    set(cellRef('D', row), `${line.colli} colli`, { alignRight: true });
+    set(cellRef('G', row), line.weightKg, { alignRight: true });
     set(cellRef('H', row), 'KG');
     totalColli += line.colli;
     totalWeight += line.weightKg;
   });
 
-  // Totals — bold
-  set('B41', 'Totaal\t', true);
-  set('D41', `${totalColli} colli`, true);
-  set('G41', totalWeight);
-  set('H41', 'KG');
+  // Totals
+  set('B41', 'Totaal\t', { bold: true });
+  set('D41', `${totalColli} colli`, { bold: true, alignRight: true });
+  set('G41', totalWeight, { alignRight: true });
+  set('H41', 'KG', { bold: true });
 
   // Transport details
   set('B44', 'MRN :');
@@ -90,11 +95,11 @@ export function generateCmrWorkbook(data: CmrData): XLSX.WorkBook {
   set('B48', 'Sealnr');
   set('C48', data.sealNumber);
 
-  // Footer
-  set('B57', data.warehouseCity);
-  set('B59', data.warehouseName);
-  set('B60', data.warehouseStreet);
-  set('B61', data.warehousePostalCity);
+  // Footer — bold
+  set('B57', data.warehouseCity, { bold: true });
+  set('B59', data.warehouseName, { bold: true });
+  set('B60', data.warehouseStreet, { bold: true });
+  set('B61', data.warehousePostalCity, { bold: true });
 
   // Column widths (match template)
   ws['!cols'] = [
@@ -108,7 +113,7 @@ export function generateCmrWorkbook(data: CmrData): XLSX.WorkBook {
     { wch: 19 },  // H
   ];
 
-  // Set sheet range to cover all used cells
+  // Set sheet range
   ws['!ref'] = 'A1:I61';
 
   XLSX.utils.book_append_sheet(wb, ws, 'CMR');
