@@ -284,6 +284,25 @@ export default function WarehouseOutbound() {
         throw new Error('Shipment has open inspections — cannot add to outbound');
       }
 
+      // Fyco check: ensure all inspection parcels on this pallet's boxes have been scanned
+      const { data: palletBoxes } = await supabase
+        .from('outerboxes')
+        .select('barcode')
+        .eq('pallet_id', pallet.id)
+        .neq('status', 'deleted');
+      if (palletBoxes && palletBoxes.length > 0) {
+        const boxBarcodes = palletBoxes.map(b => b.barcode);
+        const { data: unscannedFyco } = await supabase
+          .from('inspections')
+          .select('id', { count: 'exact', head: true })
+          .eq('shipment_id', pallet.shipment_id)
+          .in('parcel_barcode', boxBarcodes)
+          .is('scan_time', null);
+        if (unscannedFyco && unscannedFyco.length > 0) {
+          throw new Error('Fyco parcels on this pallet have not been scanned yet.');
+        }
+      }
+
       const { error } = await supabase
         .from('pallets')
         .update({ outbound_id: activeOutbound })
