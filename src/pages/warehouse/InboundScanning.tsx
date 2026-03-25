@@ -316,9 +316,9 @@ export default function InboundScanning() {
     enabled: !!shipment?.id,
   });
 
-  const scanMutation = useMutation({
+  // Pre-check mutation: validates barcode, returns whether it's pre-alerted
+  const preCheckMutation = useMutation({
     mutationFn: async (code: string) => {
-      // Check for active inbound block
       const { data: blocks } = await supabase
         .from('shipment_blocks')
         .select('reason')
@@ -329,9 +329,6 @@ export default function InboundScanning() {
         throw new Error(`Inbound blocked: ${blocks[0].reason || 'No reason provided'}`);
       }
 
-      const normalizedCode = normalizeBoxBarcode(code);
-
-      // Check for duplicate barcode
       const { data: existing } = await supabase
         .from('outerboxes')
         .select('id, status')
@@ -342,21 +339,39 @@ export default function InboundScanning() {
         throw new Error(`Barcode "${code}" is already scanned for this shipment.`);
       }
 
+      const normalizedCode = normalizeBoxBarcode(code);
+      const freshManifestData = await fetchManifestDataForShipment(shipment.id);
+      const effectiveHubMap = freshManifestData.hubMap.size > 0 ? freshManifestData.hubMap : hubMap;
+      const isPreAlerted = effectiveHubMap.has(normalizedCode);
+      return isPreAlerted;
+    },
+    onSuccess: (isPreAlerted) => {
+      if (!isPreAlerted) {
+        setNotPreAlertedBarcode(barcode.trim());
+      } else {
+        doInsertScan(barcode.trim());
+      }
+    },
+    onError: (err: any) => {
+      toast({ title: 'Scan failed', description: err.message, variant: 'destructive' });
+    },
+  });
+
+  const scanMutation = useMutation({
+    mutationFn: async (code: string) => {
+      const normalizedCode = normalizeBoxBarcode(code);
       const freshManifestData = await fetchManifestDataForShipment(shipment.id);
       const effectiveHubMap = freshManifestData.hubMap.size > 0 ? freshManifestData.hubMap : hubMap;
       const effectiveWeightMap = freshManifestData.weightMap.size > 0 ? freshManifestData.weightMap : weightMap;
 
-      // Look up hub + weight from manifest
       const boxHub = effectiveHubMap.get(normalizedCode) || null;
       const isPreAlerted = effectiveHubMap.has(normalizedCode);
 
-      // Hub consistency check
       if (boxHub && currentHub && boxHub !== currentHub) {
         throw new Error(`Cannot mix hubs on one pallet. Hub "${currentHub}" is active. Print the pallet label first to close this pallet, then you can scan "${boxHub}" boxes.`);
       }
 
       const boxWeight = effectiveWeightMap.get(normalizedCode) || null;
-      console.log(`[Scan] Barcode: ${code}, hubMap size: ${effectiveHubMap.size}, weightMap size: ${effectiveWeightMap.size}, weight: ${boxWeight}, preAlerted: ${isPreAlerted}`);
 
       const insertData: any = {
         shipment_id: shipment.id,
@@ -378,7 +393,7 @@ export default function InboundScanning() {
       }
       qc.invalidateQueries({ queryKey: ['scanned-boxes', shipment?.id] });
       if (!result.isPreAlerted) {
-        toast({ title: 'Scanned but not pre-alerted', description: `${barcode} is not in the manifest`, variant: 'destructive' });
+        toast({ title: 'Scanned but not pre-alerted', description: `Barcode is not in the manifest`, variant: 'destructive' });
       } else {
         toast({ title: 'Box scanned', description: barcode });
       }
@@ -389,6 +404,10 @@ export default function InboundScanning() {
       toast({ title: 'Scan failed', description: err.message, variant: 'destructive' });
     },
   });
+
+  const doInsertScan = (code: string) => {
+    scanMutation.mutate(code);
+  };
 
   const deleteMutation = useMutation({
     mutationFn: async (boxId: string) => {
