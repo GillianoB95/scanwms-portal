@@ -293,15 +293,29 @@ export default function WarehouseDashboard() {
             <TableBody>
               {filteredShipments.length === 0 ? (
                 <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-8">No shipments found</TableCell></TableRow>
-              ) : filteredShipments.map((s: any) => (
+              ) : filteredShipments.map((s: any) => {
+                const fycoCount = (fycoCounts as Record<string, number>)[s.id] || 0;
+                return (
                 <TableRow key={s.id}>
-                  <TableCell className="font-mono font-medium">{s.mawb}</TableCell>
+                  <TableCell className="font-mono font-medium">
+                    {s.mawb}
+                    {fycoCount > 0 && (
+                      <Badge
+                        className="ml-2 cursor-pointer bg-amber-500/15 text-amber-600 border-amber-500/30 hover:bg-amber-500/25"
+                        onClick={(e) => { e.stopPropagation(); navigate(`/warehouse/inbound?mawb=${s.mawb}`); }}
+                      >
+                        <SearchIcon className="h-3 w-3 mr-1" />
+                        FYCO ({fycoCount})
+                      </Badge>
+                    )}
+                  </TableCell>
                   <TableCell>{(s.customers as any)?.name ?? '—'}</TableCell>
                   <TableCell>{s.colli_expected ?? '—'}</TableCell>
                   <TableCell><StatusBadge status={s.status} /></TableCell>
                   <TableCell>{s.eta ?? '—'}</TableCell>
                 </TableRow>
-              ))}
+                );
+              })}
             </TableBody>
           </Table>
         </CardContent>
