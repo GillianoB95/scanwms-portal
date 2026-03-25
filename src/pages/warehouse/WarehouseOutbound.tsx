@@ -162,15 +162,12 @@ export default function WarehouseOutbound() {
   }, [outbounds]);
 
   const filtered = useMemo(() => {
-    const activeStatuses = ['preparing', 'prepared'];
     return outbounds.filter((o: any) => {
       if (search && !o.truck_reference?.toLowerCase().includes(search.toLowerCase()) && !o.outbound_number?.toLowerCase().includes(search.toLowerCase()) && !o.license_plate?.toLowerCase().includes(search.toLowerCase())) return false;
       if (hubFilter !== 'all' && o.hub_name !== hubFilter) return false;
-      if (statusFilter === 'active' && !activeStatuses.includes(o.status)) return false;
-      if (statusFilter !== 'all' && statusFilter !== 'active' && o.status !== statusFilter) return false;
       return true;
     });
-  }, [outbounds, search, hubFilter, statusFilter]);
+  }, [outbounds, search, hubFilter]);
 
   const grouped = useMemo(() => {
     const map = new Map<string, any[]>();
