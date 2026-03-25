@@ -110,6 +110,8 @@ export default function InboundScanning() {
   const [hubMap, setHubMap] = useState<Map<string, string>>(new Map());
   const [weightMap, setWeightMap] = useState<Map<string, number>>(new Map());
   const [notPreAlertedBarcode, setNotPreAlertedBarcode] = useState<string | null>(null);
+  const [fycoBlockedBarcode, setFycoBlockedBarcode] = useState<string | null>(null);
+  const [boxToParcelMap, setBoxToParcelMap] = useState<Map<string, string[]>>(new Map());
   const barcodeRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const qc = useQueryClient();
