@@ -756,16 +756,25 @@ export default function InboundScanning() {
                 <TableBody>
                 {scannedBoxes.map((box: any, i: number) => {
                     const isDeleted = box.status === 'deleted';
+                    const isNotPreAlerted = box.status === 'not_pre_alerted';
                     return (
-                    <TableRow key={box.id} className={isDeleted ? 'opacity-40' : ''}>
+                    <TableRow key={box.id} className={cn(
+                      isDeleted && 'opacity-40',
+                      isNotPreAlerted && 'bg-yellow-500/10'
+                    )}>
                       <TableCell className={isDeleted ? 'line-through' : ''}>{i + 1}</TableCell>
-                      <TableCell className={`font-mono ${isDeleted ? 'line-through' : ''}`}>{box.barcode}</TableCell>
+                      <TableCell className={`font-mono ${isDeleted ? 'line-through' : ''}`}>
+                        {isNotPreAlerted && <AlertTriangle className="h-3.5 w-3.5 text-yellow-500 inline mr-1.5" />}
+                        {box.barcode}
+                      </TableCell>
                       <TableCell className={`font-mono ${isDeleted ? 'line-through' : ''}`}>{box.hub || '—'}</TableCell>
                       <TableCell className={isDeleted ? 'line-through' : ''}>{new Date(box.scanned_in_at).toLocaleTimeString()}</TableCell>
                       <TableCell className={`font-mono ${isDeleted ? 'line-through' : ''}`}>{box.pallet_number || '—'}</TableCell>
                       <TableCell>
                         {isDeleted ? (
                           <span className="text-xs text-destructive font-medium line-through">Deleted</span>
+                        ) : isNotPreAlerted ? (
+                          <span className="text-xs text-yellow-600 font-medium">Not pre-alerted</span>
                         ) : (
                           <span className="text-xs text-muted-foreground">Scanned</span>
                         )}
