@@ -114,7 +114,7 @@ function useFycoData() {
         return {
           id: insp.id,
           barcode: bc,
-          created_at: insp.created_at,
+          created_at: insp.scan_time ?? '',
           shipment_id: insp.shipment_id,
           mawb: ship?.mawb ?? '—',
           hub_code: null,
