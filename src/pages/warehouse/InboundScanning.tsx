@@ -16,6 +16,7 @@ import { useToast } from '@/hooks/use-toast';
 import { ScanBarcode, CheckCircle2, Search, Printer, Loader2, AlertTriangle, Trash2 } from 'lucide-react';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { printPalletLabel, type PalletLabelData } from '@/lib/printnode';
+import { cn } from '@/lib/utils';
 import * as XLSX from 'xlsx';
 
 function normalizeBoxBarcode(value: unknown): string {
