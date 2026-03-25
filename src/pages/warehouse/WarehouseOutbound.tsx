@@ -796,7 +796,14 @@ export default function WarehouseOutbound() {
                               <Button variant="ghost" size="icon" className="h-8 w-8" title="Create CMR" onClick={() => { setCmrOutbound(o); setCmrAddressId(''); setCmrSealNumber(''); }}>
                                 <FileText className="h-3.5 w-3.5" />
                               </Button>
-                              <Button variant="ghost" size="icon" className="h-8 w-8" title="Download CMR" onClick={() => { setCmrOutbound(o); setCmrAddressId(''); setCmrSealNumber(''); }}>
+                              <Button variant="ghost" size="icon" className="h-8 w-8" title="Download CMR" onClick={() => {
+                                if (!o.cmr_uploaded) {
+                                  toast({ title: 'No CMR uploaded', description: 'Upload a signed CMR first before downloading', variant: 'destructive' });
+                                  return;
+                                }
+                                // TODO: download from storage when cmr_file_path is available
+                                toast({ title: 'Download CMR', description: 'CMR download — feature coming soon' });
+                              }}>
                                 <Download className="h-3.5 w-3.5" />
                               </Button>
                               <Button variant="ghost" size="icon" className="h-8 w-8" title="Print CMR" onClick={() => { setCmrOutbound(o); setCmrAddressId(''); setCmrSealNumber(''); }}>
