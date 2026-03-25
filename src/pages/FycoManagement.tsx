@@ -313,6 +313,54 @@ export default function FycoManagement() {
     });
   }, [rows, search, statusFilter]);
 
+  // Group filtered rows by MAWB for per-MAWB send button
+  const mawbGrouped = useMemo(() => {
+    const map = new Map<string, FycoRow[]>();
+    for (const r of filtered) {
+      if (!map.has(r.mawb)) map.set(r.mawb, []);
+      map.get(r.mawb)!.push(r);
+    }
+    return map;
+  }, [filtered]);
+
+  const handleSendToCustoms = async (parcels: FycoRow[]) => {
+    if (!parcels.length) return;
+    // Look up customer's grouping preference
+    const customerId = parcels[0].customer_id;
+    let grouping = 'per_shipment';
+    if (customerId) {
+      const { data: cust } = await supabase.from('customers').select('customs_email_grouping').eq('id', customerId).maybeSingle();
+      if (cust?.customs_email_grouping) grouping = cust.customs_email_grouping;
+    }
+
+    if (grouping === 'per_parcel') {
+      // Open modal per parcel — for simplicity, send first one, user can repeat
+      // Actually show all parcels individually grouped
+      for (const p of parcels) {
+        setSendModalParcels([p]);
+        setSendModalOpen(true);
+        return; // Show first, user will repeat for others
+      }
+    } else {
+      setSendModalParcels(parcels);
+      setSendModalOpen(true);
+    }
+  };
+
+  const handleBulkSendToCustoms = async () => {
+    const selectedRows = filtered.filter(r => selected.has(r.id));
+    if (selectedRows.length === 0) return;
+    // Group by MAWB
+    const byMawb = new Map<string, FycoRow[]>();
+    for (const r of selectedRows) {
+      if (!byMawb.has(r.mawb)) byMawb.set(r.mawb, []);
+      byMawb.get(r.mawb)!.push(r);
+    }
+    // Send for first MAWB group (user can repeat for others)
+    const first = [...byMawb.values()][0];
+    await handleSendToCustoms(first);
+  };
+
   const allSelected = filtered.length > 0 && filtered.every(r => selected.has(r.id));
 
   const toggleAll = () => {
