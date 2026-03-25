@@ -11,6 +11,7 @@ const navItems = [
   { to: '/warehouse/inbound', label: 'Inbound Scanning', icon: ScanBarcode },
   { to: '/warehouse/outbound', label: 'Outbound', icon: ArrowUpFromLine },
   { to: '/warehouse/stock', label: 'Stock Overview', icon: PackageSearch },
+  { to: '/warehouse/fyco', label: 'Fyco Management', icon: ShieldCheck },
 ];
 
 export function WarehouseLayout({ children }: { children: ReactNode }) {

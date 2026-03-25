@@ -108,6 +108,7 @@ const App = () => (
             <Route path="/warehouse/outbound" element={<WarehouseRoute><WarehouseOutbound /></WarehouseRoute>} />
             <Route path="/warehouse/labels" element={<WarehouseRoute><PrintLabels /></WarehouseRoute>} />
             <Route path="/warehouse/stock" element={<WarehouseRoute><StockOverview /></WarehouseRoute>} />
+            <Route path="/warehouse/fyco" element={<WarehouseRoute><FycoManagement /></WarehouseRoute>} />
 
             <Route path="/" element={<Navigate to="/login" replace />} />
             <Route path="*" element={<NotFound />} />
