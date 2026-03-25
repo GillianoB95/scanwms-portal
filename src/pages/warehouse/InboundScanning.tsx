@@ -265,16 +265,18 @@ export default function InboundScanning() {
       if (!shipment?.id) return [];
       const { data } = await supabase
         .from('pallets')
-        .select('*, outbounds(status)')
+        .select('*, outbounds(status, outbound_number, outbound_id)')
         .eq('shipment_id', shipment.id)
         .order('created_at', { ascending: false });
-      // Derive display status: if outbound has a status, show that
       return (data ?? []).map((p: any) => {
         const outboundStatus = p.outbounds?.status;
         let displayStatus = p.status || '—';
         if (outboundStatus === 'departed') displayStatus = 'Departed';
-        else if (outboundStatus === 'preparing') displayStatus = 'Prepared';
-        return { ...p, displayStatus };
+        else if (outboundStatus === 'preparing' || outboundStatus === 'prepared') displayStatus = 'Prepared';
+        const outboundLabel = p.outbound_id && p.outbounds
+          ? `Outbound #${p.outbounds.outbound_number}`
+          : null;
+        return { ...p, displayStatus, outboundLabel };
       });
     },
     enabled: !!shipment?.id,
