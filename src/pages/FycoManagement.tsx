@@ -165,7 +165,9 @@ function useFycoData() {
           mawb: ship?.mawb ?? '—',
           hub_code: null,
           warehouse: ship?.warehouse_id ?? null,
+          warehouse_name: ship?.warehouses?.name ?? ship?.warehouses?.code ?? null,
           subklant: ship?.subklanten?.name ?? null,
+          customer_id: ship?.customer_id ?? null,
           location: insp.location,
           scan_time: insp.scan_time,
           checked_at: insp.checked_at,
@@ -181,6 +183,8 @@ function useFycoData() {
           customs_remarks: insp.customs_remarks,
           customs_cleared_at: ship?.customs_cleared_at ?? null,
           sla_deadline: computeSlaDeadline(ship?.customs_cleared_at ?? null),
+          email_sent_at: (insp as any).email_sent_at ?? null,
+          email_sent_by: (insp as any).email_sent_by ?? null,
           outbound_status: outboundStatusMap.get(bc) ?? null,
         } as FycoRow;
       });
