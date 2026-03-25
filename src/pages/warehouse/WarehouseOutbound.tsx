@@ -531,33 +531,49 @@ export default function WarehouseOutbound() {
 
             <Table>
               <TableHeader>
-                <TableRow>
+                 <TableRow>
                   <TableHead>Pallet</TableHead>
+                  <TableHead>MAWB</TableHead>
                   <TableHead>Client</TableHead>
                   <TableHead>Hub</TableHead>
                   <TableHead className="text-right">Colli</TableHead>
                   <TableHead className="text-right">Weight</TableHead>
+                  <TableHead>Scanned</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {pallets.length === 0 ? (
-                  <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-6">Scan pallets to add</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-6">Scan pallets to add</TableCell></TableRow>
                 ) : pallets.map((p: any) => (
                   <TableRow key={p.id}>
                     <TableCell className="font-mono font-medium">{p.pallet_number}</TableCell>
+                    <TableCell className="font-mono text-sm">{(p.shipments as any)?.mawb ?? '—'}</TableCell>
                     <TableCell>{(p.shipments as any)?.customers?.short_name ?? '—'}</TableCell>
                     <TableCell>{p.hub_code}</TableCell>
-                    <TableCell className="text-right">{p.pieces ?? '—'}</TableCell>
+                    <TableCell className="text-right">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-auto py-0.5 px-1.5 font-semibold tabular-nums"
+                        onClick={() => setBoxDetailPalletId(p.id)}
+                      >
+                        {p.pieces ?? 0}
+                      </Button>
+                    </TableCell>
                     <TableCell className="text-right">{p.weight != null ? `${Number(p.weight).toFixed(2)} kg` : '—'}</TableCell>
+                    <TableCell className="text-xs text-muted-foreground">
+                      {p._scannedAt ? format(new Date(p._scannedAt), 'dd/MM HH:mm') : '—'}
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
               {pallets.length > 0 && (
                 <TableFooter>
                   <TableRow>
-                    <TableCell colSpan={3} className="font-semibold">Total ({pallets.length} pallets)</TableCell>
+                    <TableCell colSpan={4} className="font-semibold">Total ({pallets.length} pallets)</TableCell>
                     <TableCell className="text-right font-semibold">{totalColli}</TableCell>
                     <TableCell className="text-right font-semibold">{totalWeight.toFixed(2)} kg</TableCell>
+                    <TableCell />
                   </TableRow>
                 </TableFooter>
               )}
