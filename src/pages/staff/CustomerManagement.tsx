@@ -127,6 +127,7 @@ function CustomerFormDialog({ open, onOpenChange, customer, parentId, isAdmin }:
   const [shortName, setShortName] = useState(customer?.short_name ?? '');
   const [email, setEmail] = useState(customer?.email ?? '');
   const [warehouseId, setWarehouseId] = useState(customer?.warehouse_id || '__none__');
+  const [customsEmailGrouping, setCustomsEmailGrouping] = useState(customer?.customs_email_grouping || 'per_shipment');
   const [userEmail, setUserEmail] = useState('');
   const [userPassword, setUserPassword] = useState('');
   const [saving, setSaving] = useState(false);
