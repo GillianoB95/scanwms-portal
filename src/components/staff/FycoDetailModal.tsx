@@ -76,6 +76,14 @@ export function FycoDetailModal({ shipment, open, onOpenChange }: { shipment: an
   const handleDeleteOne = async (id: string) => {
     try {
       await deleteOne.mutateAsync(id);
+      // Check if any inspections remain; if not, reset shipment status
+      const { count } = await supabase
+        .from('inspections')
+        .select('id', { count: 'exact', head: true })
+        .eq('shipment_id', shipment.id);
+      if (count === 0) {
+        await resetShipmentCustomsStatus(shipment.id);
+      }
       toast.success('Parcel removed');
     } catch {
       toast.error('Failed to remove parcel');
