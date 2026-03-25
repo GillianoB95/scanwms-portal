@@ -535,10 +535,25 @@ export default function FycoManagement() {
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All</SelectItem>
+            <SelectItem value="all">All Statuses</SelectItem>
             <SelectItem value="pending">Pending</SelectItem>
             <SelectItem value="released">Released</SelectItem>
             <SelectItem value="delivered">Prepared / Delivered</SelectItem>
+          </SelectContent>
+        </Select>
+
+        {/* Alarm filter */}
+        <Select value={alarmFilter} onValueChange={v => setAlarmFilter(v as any)}>
+          <SelectTrigger className="w-[180px]">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Alarms</SelectItem>
+            <SelectItem value="alarms">🔴 Alarms Only</SelectItem>
+            <SelectItem value="1">Stage 1: No check</SelectItem>
+            <SelectItem value="2">Stage 2: No action</SelectItem>
+            <SelectItem value="3">Stage 3: Docs no release</SelectItem>
+            <SelectItem value="4">Stage 4: Action no release</SelectItem>
           </SelectContent>
         </Select>
 
