@@ -398,6 +398,7 @@ export default function FycoManagement() {
                 <TableHead>Sub Client</TableHead>
                 <TableHead>Location</TableHead>
                 <TableHead>Scan Time</TableHead>
+                <TableHead>SLA Deadline</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Checked</TableHead>
                 <TableHead>Docs Req.</TableHead>
