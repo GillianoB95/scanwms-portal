@@ -618,13 +618,28 @@ export default function FycoManagement() {
               {filtered.map(row => {
                 const status = getStatusBadge(row);
                 const slaWarn = isSlaWarning(row);
+                const alarm = rowAlarms.get(row.id);
                 return (
-                  <TableRow key={row.id} className={slaWarn ? 'border-l-4 border-l-destructive' : ''}>
+                  <TableRow key={row.id} className={slaWarn || alarm ? 'border-l-4 border-l-destructive' : ''}>
                     <TableCell>
                       <Checkbox
                         checked={selected.has(row.id)}
                         onCheckedChange={() => toggleOne(row.id)}
                       />
+                    </TableCell>
+                    <TableCell>
+                      {alarm ? (
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger>
+                              <AlertTriangle className="h-4 w-4 text-destructive" />
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p className="text-xs">{alarm.description}</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      ) : null}
                     </TableCell>
                     <TableCell className="font-mono text-sm font-medium">{row.mawb}</TableCell>
                     <TableCell>{row.warehouse ?? '—'}</TableCell>
