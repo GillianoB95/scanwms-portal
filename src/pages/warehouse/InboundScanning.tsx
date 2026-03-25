@@ -675,6 +675,7 @@ export default function InboundScanning() {
                         <TableCell className={isDeletedPallet ? 'line-through' : ''}>{p.pieces ?? p.colli_count ?? '—'}</TableCell>
                         <TableCell className={isDeletedPallet ? 'line-through' : ''}>{(p.weight ?? p.weight_kg) != null ? `${Number(p.weight ?? p.weight_kg).toFixed(2)} kg` : '—'}</TableCell>
                         <TableCell className={statusColor}>{p.displayStatus}</TableCell>
+                        <TableCell className="font-mono text-sm text-muted-foreground">{p.outboundLabel || '—'}</TableCell>
                       </TableRow>
                       );
                     })}
