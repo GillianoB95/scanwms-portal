@@ -335,14 +335,46 @@ export default function InboundScanning() {
 
   const deleteMutation = useMutation({
     mutationFn: async (boxId: string) => {
+      // Get the box to find its pallet_id
+      const { data: box } = await supabase
+        .from('outerboxes')
+        .select('id, pallet_id')
+        .eq('id', boxId)
+        .single();
+
       const { error } = await supabase
         .from('outerboxes')
         .update({ status: 'deleted' })
         .eq('id', boxId);
       if (error) throw error;
+
+      // Update pallet status if box belongs to a pallet
+      if (box?.pallet_id) {
+        const { data: palletBoxes } = await supabase
+          .from('outerboxes')
+          .select('id, status')
+          .eq('pallet_id', box.pallet_id);
+
+        if (palletBoxes && palletBoxes.length > 0) {
+          const activeBoxes = palletBoxes.filter(b => b.id === boxId ? false : b.status !== 'deleted');
+          const allDeleted = activeBoxes.length === 0;
+          const someDeleted = !allDeleted && palletBoxes.some(b => b.status === 'deleted' || b.id === boxId);
+
+          let newStatus = 'Palletized';
+          if (allDeleted) newStatus = 'Deleted';
+          else if (someDeleted) newStatus = 'Partly deleted';
+
+          // Also update pieces count (only active boxes)
+          await supabase
+            .from('pallets')
+            .update({ status: newStatus, pieces: activeBoxes.length })
+            .eq('id', box.pallet_id);
+        }
+      }
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['scanned-boxes', shipment?.id] });
+      qc.invalidateQueries({ queryKey: ['shipment-pallets', shipment?.id] });
       toast({ title: 'Scan removed' });
     },
     onError: (err: any) => {
