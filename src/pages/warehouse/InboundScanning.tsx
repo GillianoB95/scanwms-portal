@@ -359,12 +359,32 @@ export default function InboundScanning() {
       const normalizedCode = normalizeBoxBarcode(code);
       const freshManifestData = await fetchManifestDataForShipment(shipment.id);
       const effectiveHubMap = freshManifestData.hubMap.size > 0 ? freshManifestData.hubMap : hubMap;
+      const effectiveBoxToParcelMap = freshManifestData.boxToParcelMap.size > 0 ? freshManifestData.boxToParcelMap : boxToParcelMap;
       const isPreAlerted = effectiveHubMap.has(normalizedCode);
-      return isPreAlerted;
+
+      // Fyco detection: check if any parcel under this outerbox is an inspection parcel without scan_time
+      if (isPreAlerted) {
+        const parcelsForBox = effectiveBoxToParcelMap.get(normalizedCode) || [];
+        if (parcelsForBox.length > 0) {
+          const { data: fycoInspections } = await supabase
+            .from('inspections')
+            .select('id, scan_time, parcel_barcode')
+            .eq('shipment_id', shipment.id)
+            .in('parcel_barcode', parcelsForBox)
+            .is('scan_time', null);
+          if (fycoInspections && fycoInspections.length > 0) {
+            return { isPreAlerted, fycoBlocked: true };
+          }
+        }
+      }
+
+      return { isPreAlerted, fycoBlocked: false };
     },
-    onSuccess: (isPreAlerted) => {
-      if (!isPreAlerted) {
+    onSuccess: (result) => {
+      if (!result.isPreAlerted) {
         setNotPreAlertedBarcode(barcode.trim());
+      } else if (result.fycoBlocked) {
+        setFycoBlockedBarcode(barcode.trim());
       } else {
         scanMutation.mutate(barcode.trim());
       }
