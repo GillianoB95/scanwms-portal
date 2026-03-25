@@ -10,7 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { StatusBadge } from '@/components/StatusBadge';
 import { useAllShipments, useUpdateShipment, useDeleteShipment, useShipmentBlocks, useCreateBlock, useRemoveBlock, useShipmentInspections, useCreateInspections } from '@/hooks/use-staff-data';
 import { supabase } from '@/lib/supabase';
-import { fetchManifestParcelBarcodes } from '@/lib/manifest-parcels';
+import { findInvalidParcels } from '@/lib/manifest-parcels';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
@@ -112,15 +112,12 @@ function CcYesModal({ shipment, open, onOpenChange }: { shipment: any; open: boo
           setSaving(false);
           return;
         }
-        // Validate barcodes against manifest (parsed from XLSX)
-        const manifestBarcodes = await fetchManifestParcelBarcodes(shipment.id);
-        if (manifestBarcodes.size > 0) {
-          const invalidBarcodes = lines.filter(b => !manifestBarcodes.has(b.toUpperCase()));
-          if (invalidBarcodes.length > 0) {
-            toast.error(`This parcel barcode was not found in the manifest for this shipment. Please check the barcode and try again.\n\nNot found: ${invalidBarcodes.join(', ')}`);
-            setSaving(false);
-            return;
-          }
+        // Validate barcodes against manifest_parcels table
+        const invalidBarcodes = await findInvalidParcels(shipment.id, lines);
+        if (invalidBarcodes.length > 0) {
+          toast.error(`This parcel barcode was not found in the manifest for this shipment. Please check the barcode and try again.\n\nNot found: ${invalidBarcodes.join(', ')}`);
+          setSaving(false);
+          return;
         }
         await createInspections.mutateAsync(
           lines.map(barcode => ({ shipment_id: shipment.id, barcode }))

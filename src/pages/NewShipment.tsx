@@ -253,6 +253,64 @@ export default function NewShipment() {
       if (manifestFile) await uploadFile(manifestFile, 'manifest_original', manifestFile.name);
       if (manifestResult.cleanedBlob) await uploadFile(manifestResult.cleanedBlob, 'manifest_cleaned', manifestFile?.name?.replace('.xlsx', '_CLEANED.xlsx') || 'manifest_cleaned.xlsx');
 
+      // Populate manifest_parcels from cleaned manifest
+      if (manifestResult.cleanedBlob) {
+        try {
+          const XLSX = await import('xlsx');
+          const ab = await manifestResult.cleanedBlob.arrayBuffer();
+          const wb = XLSX.read(ab, { type: 'array' });
+          const sheet = wb.Sheets[wb.SheetNames[0]];
+          const rows: any[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
+          if (rows.length >= 2) {
+            const header = rows[0].map((h: any) => String(h).trim().toLowerCase());
+            const colIdx = (candidates: string[]) => header.findIndex(h => candidates.some(c => h.includes(c)));
+            const orderCol = colIdx(['ordernumber', 'order']);
+            const parcelCol = colIdx(['parcelbarcode', 'parcel']);
+            const boxCol = colIdx(['boxbagbarcode', 'boxbag']);
+            const waybillCol = colIdx(['waybill']);
+            const receiverCol = colIdx(['namereceiver', 'receiver', 'name']);
+            const totalWeightCol = header.findIndex(h => h === 'total weight' || h === 'totalweight' || h === 'total_weight' || h === 'weight' || h === 'gewicht');
+            const productWeightCol = header.findIndex(h => h === 'product weight' || h === 'productweight' || h === 'product_weight');
+            const quantityCol = colIdx(['quantity', 'qty']);
+            const destCountryCol = colIdx(['destination country', 'destinationcountry', 'country']);
+
+            // Delete existing parcels for this shipment first
+            await supabase.from('manifest_parcels').delete().eq('shipment_id', shipmentId);
+
+            const parcelRows: any[] = [];
+            let lastHub = '';
+            for (let i = 1; i < rows.length; i++) {
+              const r = rows[i];
+              if (!r || r.every((c: any) => c === '' || c == null)) continue;
+              const parcelBarcode = parcelCol >= 0 ? String(r[parcelCol] || '').trim() : '';
+              if (!parcelBarcode) continue;
+              const boxBarcode = boxCol >= 0 ? String(r[boxCol] || '').trim() : '';
+              const waybill = waybillCol >= 0 ? String(r[waybillCol] || '').trim() : '';
+              if (waybill) lastHub = waybill;
+              parcelRows.push({
+                shipment_id: shipmentId,
+                parcel_barcode: parcelBarcode,
+                outerbox_barcode: boxBarcode || null,
+                order_number: orderCol >= 0 ? String(r[orderCol] || '').trim() || null : null,
+                waybill: waybill || lastHub || null,
+                receiver_name: receiverCol >= 0 ? String(r[receiverCol] || '').trim() || null : null,
+                total_weight: totalWeightCol >= 0 ? parseFloat(String(r[totalWeightCol] || '').replace(',', '.')) || null : null,
+                product_weight: productWeightCol >= 0 ? parseFloat(String(r[productWeightCol] || '').replace(',', '.')) || null : null,
+                quantity: quantityCol >= 0 ? parseInt(String(r[quantityCol] || '')) || null : null,
+                destination_country: destCountryCol >= 0 ? String(r[destCountryCol] || '').trim() || null : null,
+                hub: waybill || lastHub || null,
+              });
+            }
+            // Insert in batches of 500
+            for (let i = 0; i < parcelRows.length; i += 500) {
+              await supabase.from('manifest_parcels').insert(parcelRows.slice(i, i + 500));
+            }
+          }
+        } catch (e) {
+          console.warn('Failed to populate manifest_parcels:', e);
+        }
+      }
+
       navigate(`/shipments/${shipmentId}`);
     } catch (err: any) {
       setSubmitError(err.message || 'Unknown error');
