@@ -263,6 +263,11 @@ export default function WarehouseOutbound() {
         .update({ outbound_id: activeOutbound })
         .eq('id', pallet.id);
       if (error) throw error;
+
+      // If outbound was already prepared, reset to preparing
+      if (activeOutboundRecord?.status === 'prepared') {
+        await supabase.from('outbounds').update({ status: 'preparing' }).eq('id', activeOutbound);
+      }
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['outbound-pallets', activeOutbound] });
