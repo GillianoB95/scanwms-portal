@@ -38,7 +38,7 @@ function useFycoData() {
       // Fetch shipment details
       const { data: shipments, error: shipErr } = await supabase
         .from('shipments')
-        .select('id, mawb, hub_code, warehouse, subklanten(name)')
+        .select('id, mawb, warehouse, subklanten(name), customers(name)')
         .in('id', shipmentIds);
       if (shipErr) throw shipErr;
 
