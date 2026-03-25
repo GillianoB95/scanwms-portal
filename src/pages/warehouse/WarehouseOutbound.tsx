@@ -672,7 +672,7 @@ export default function WarehouseOutbound() {
                 <Download className="h-4 w-4 mr-1" /> Download
               </Button>
               <Button onClick={handlePrintCmr} disabled={!cmrAddressId || !cmrSealNumber || cmrGenerating}>
-                <Printer className="h-4 w-4 mr-1" /> Print (4x)
+                <Printer className="h-4 w-4 mr-1" /> Print CMR
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -910,7 +910,7 @@ export default function WarehouseOutbound() {
               <Download className="h-4 w-4 mr-1" /> Download
             </Button>
             <Button onClick={handlePrintCmr} disabled={!cmrAddressId || !cmrSealNumber || cmrGenerating}>
-              <Printer className="h-4 w-4 mr-1" /> Print (4x)
+              <Printer className="h-4 w-4 mr-1" /> Print CMR
             </Button>
           </DialogFooter>
         </DialogContent>
