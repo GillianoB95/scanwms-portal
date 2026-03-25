@@ -265,16 +265,18 @@ export default function InboundScanning() {
       if (!shipment?.id) return [];
       const { data } = await supabase
         .from('pallets')
-        .select('*, outbounds(status)')
+        .select('*, outbounds(status, outbound_number, outbound_id)')
         .eq('shipment_id', shipment.id)
         .order('created_at', { ascending: false });
-      // Derive display status: if outbound has a status, show that
       return (data ?? []).map((p: any) => {
         const outboundStatus = p.outbounds?.status;
         let displayStatus = p.status || '—';
         if (outboundStatus === 'departed') displayStatus = 'Departed';
-        else if (outboundStatus === 'preparing') displayStatus = 'Prepared';
-        return { ...p, displayStatus };
+        else if (outboundStatus === 'preparing' || outboundStatus === 'prepared') displayStatus = 'Prepared';
+        const outboundLabel = p.outbound_id && p.outbounds
+          ? `Outbound #${p.outbounds.outbound_number}`
+          : null;
+        return { ...p, displayStatus, outboundLabel };
       });
     },
     enabled: !!shipment?.id,
@@ -655,6 +657,7 @@ export default function InboundScanning() {
                       <TableHead>Pieces</TableHead>
                       <TableHead>Weight</TableHead>
                       <TableHead>Status</TableHead>
+                      <TableHead>Outbound</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -672,6 +675,7 @@ export default function InboundScanning() {
                         <TableCell className={isDeletedPallet ? 'line-through' : ''}>{p.pieces ?? p.colli_count ?? '—'}</TableCell>
                         <TableCell className={isDeletedPallet ? 'line-through' : ''}>{(p.weight ?? p.weight_kg) != null ? `${Number(p.weight ?? p.weight_kg).toFixed(2)} kg` : '—'}</TableCell>
                         <TableCell className={statusColor}>{p.displayStatus}</TableCell>
+                        <TableCell className="font-mono text-sm text-muted-foreground">{p.outboundLabel || '—'}</TableCell>
                       </TableRow>
                       );
                     })}
