@@ -385,6 +385,86 @@ function EmailAccountsTab() {
   );
 }
 
+/* ─── Customs Inspection Email Template ─── */
+function useCustomsInspectionTemplate() {
+  return useQuery({
+    queryKey: ['customs-inspection-template'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('email_templates')
+        .select('*')
+        .eq('template_key', 'customs_inspection')
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+  });
+}
+
+function CustomsInspectionTab() {
+  const { data: template, isLoading } = useCustomsInspectionTemplate();
+  const upsert = useUpsertTemplate();
+  const [subject, setSubject] = useState('');
+  const [body, setBody] = useState('');
+  const [recipients, setRecipients] = useState('');
+  const [initialized, setInitialized] = useState(false);
+
+  // Sync state when data loads
+  if (template && !initialized) {
+    setSubject(template.subject || 'Customs Inspection — {{mawb}}');
+    setBody(template.body || 'Dear Customs,\n\nPlease find below the inspection parcel(s) for MAWB {{mawb}} at warehouse {{warehouse_name}}.\n\nSLA Deadline: {{sla_deadline}}\n\nParcels:\n{{parcel_list}}\n\nBest regards');
+    setRecipients(template.recipients || '');
+    setInitialized(true);
+  } else if (!template && !isLoading && !initialized) {
+    setSubject('Customs Inspection — {{mawb}}');
+    setBody('Dear Customs,\n\nPlease find below the inspection parcel(s) for MAWB {{mawb}} at warehouse {{warehouse_name}}.\n\nSLA Deadline: {{sla_deadline}}\n\nParcels:\n{{parcel_list}}\n\nBest regards');
+    setInitialized(true);
+  }
+
+  const handleSave = async () => {
+    // Upsert template + recipients
+    const { data: existing } = await supabase.from('email_templates').select('id').eq('template_key', 'customs_inspection').maybeSingle();
+    if (existing) {
+      const { error } = await supabase.from('email_templates').update({ subject, body, recipients }).eq('id', existing.id);
+      if (error) { toast.error('Failed to save'); return; }
+    } else {
+      const { error } = await supabase.from('email_templates').insert({ template_key: 'customs_inspection', subject, body, recipients });
+      if (error) { toast.error('Failed to save'); return; }
+    }
+    toast.success('Customs inspection template saved');
+  };
+
+  if (isLoading) return <div className="flex justify-center py-8"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>;
+
+  return (
+    <div className="space-y-4">
+      <p className="text-sm text-muted-foreground">
+        Available placeholders: <code className="text-xs bg-muted px-1 rounded">{'{{mawb}}'}</code> <code className="text-xs bg-muted px-1 rounded">{'{{parcel_barcode}}'}</code> <code className="text-xs bg-muted px-1 rounded">{'{{warehouse_name}}'}</code> <code className="text-xs bg-muted px-1 rounded">{'{{sla_deadline}}'}</code> <code className="text-xs bg-muted px-1 rounded">{'{{parcel_list}}'}</code>
+      </p>
+      <div className="space-y-4 bg-card rounded-xl border p-6">
+        <div className="space-y-2">
+          <Label>Subject</Label>
+          <Input value={subject} onChange={e => setSubject(e.target.value)} />
+        </div>
+        <div className="space-y-2">
+          <Label>Body</Label>
+          <Textarea value={body} onChange={e => setBody(e.target.value)} rows={10} className="font-mono text-sm" />
+        </div>
+        <div className="space-y-2">
+          <Label>Recipients (comma-separated)</Label>
+          <Input value={recipients} onChange={e => setRecipients(e.target.value)} placeholder="customs@example.com, inspector@example.com" />
+        </div>
+        <div className="flex justify-end">
+          <Button onClick={handleSave}>
+            <Save className="h-4 w-4 mr-2" />
+            Save Template
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ─── Main Settings Page ─── */
 export default function SettingsPage() {
   return (
@@ -397,10 +477,14 @@ export default function SettingsPage() {
       <Tabs defaultValue="templates">
         <TabsList>
           <TabsTrigger value="templates">Email Templates</TabsTrigger>
+          <TabsTrigger value="customs">Customs Inspection Email</TabsTrigger>
           <TabsTrigger value="accounts">Email Accounts</TabsTrigger>
         </TabsList>
         <TabsContent value="templates" className="mt-4">
           <EmailTemplatesTab />
+        </TabsContent>
+        <TabsContent value="customs" className="mt-4">
+          <CustomsInspectionTab />
         </TabsContent>
         <TabsContent value="accounts" className="mt-4">
           <EmailAccountsTab />
