@@ -39,12 +39,26 @@ function useDeleteInspection() {
   });
 }
 
+async function resetShipmentCustomsStatus(shipmentId: string) {
+  const { error } = await supabase
+    .from('shipments')
+    .update({
+      customs_cleared: false,
+      clearance_status: 'pending',
+      customs_cleared_at: null,
+      customs_cleared_by: null,
+    })
+    .eq('id', shipmentId);
+  if (error) throw error;
+}
+
 function useDeleteAllInspections() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (shipmentId: string) => {
       const { error } = await supabase.from('inspections').delete().eq('shipment_id', shipmentId);
       if (error) throw error;
+      await resetShipmentCustomsStatus(shipmentId);
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['inspection-details'] });
@@ -62,6 +76,14 @@ export function FycoDetailModal({ shipment, open, onOpenChange }: { shipment: an
   const handleDeleteOne = async (id: string) => {
     try {
       await deleteOne.mutateAsync(id);
+      // Check if any inspections remain; if not, reset shipment status
+      const { count } = await supabase
+        .from('inspections')
+        .select('id', { count: 'exact', head: true })
+        .eq('shipment_id', shipment.id);
+      if (count === 0) {
+        await resetShipmentCustomsStatus(shipment.id);
+      }
       toast.success('Parcel removed');
     } catch {
       toast.error('Failed to remove parcel');
