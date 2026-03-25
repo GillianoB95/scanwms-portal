@@ -477,7 +477,7 @@ export default function InboundScanning() {
   const handleScan = (e: React.FormEvent) => {
     e.preventDefault();
     if (!barcode.trim() || !shipment) return;
-    scanMutation.mutate(barcode.trim());
+    preCheckMutation.mutate(barcode.trim());
   };
 
   const handleMawbKeyDown = (e: React.KeyboardEvent) => {
