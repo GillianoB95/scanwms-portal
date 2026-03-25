@@ -585,6 +585,28 @@ export default function WarehouseOutbound() {
                     <TableCell className="text-xs text-muted-foreground">
                       {p._scannedAt ? format(new Date(p._scannedAt), 'dd/MM HH:mm') : '—'}
                     </TableCell>
+                    <TableCell>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 text-destructive hover:text-destructive"
+                        title="Remove from outbound"
+                        onClick={async () => {
+                          const { error } = await supabase
+                            .from('pallets')
+                            .update({ outbound_id: null })
+                            .eq('id', p.id);
+                          if (error) {
+                            toast({ title: 'Failed to remove', description: error.message, variant: 'destructive' });
+                          } else {
+                            toast({ title: `${p.pallet_number} removed from outbound` });
+                            qc.invalidateQueries({ queryKey: ['outbound-pallets', activeOutbound] });
+                          }
+                        }}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
