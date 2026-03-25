@@ -303,6 +303,18 @@ export default function WarehouseOutbound() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['warehouse-outbounds'] });
       toast({ title: 'Scan finished — outbound prepared' });
+    },
+  });
+
+  const markDeparted = useMutation({
+    mutationFn: async () => {
+      if (!activeOutbound) return;
+      const { error } = await supabase.from('outbounds').update({ status: 'departed' }).eq('id', activeOutbound);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['warehouse-outbounds'] });
+      toast({ title: 'Truck departed' });
       setActiveOutbound(null);
     },
   });
