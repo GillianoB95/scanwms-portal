@@ -68,24 +68,62 @@ function useFycoData() {
     queryFn: async () => {
       const { data: inspections, error } = await supabase
         .from('inspections')
-        .select('id, barcode, parcel_barcode, shipment_id, status, location, scan_time, checked_at, checked_by, documents_requested, documents_requested_at, documents_requested_by, additional_action_required, additional_action_at, additional_action_by, released_at, released_by, customs_remarks')
+        .select(`
+          id,
+          barcode,
+          parcel_barcode,
+          shipment_id,
+          status,
+          location,
+          scan_time,
+          checked_at,
+          checked_by,
+          documents_requested,
+          documents_requested_at,
+          documents_requested_by,
+          additional_action_required,
+          additional_action_at,
+          additional_action_by,
+          released_at,
+          released_by,
+          customs_remarks,
+          created_at,
+          shipments (
+            mawb,
+            warehouse_id,
+            subklanten ( name ),
+            customers ( name )
+          )
+        `)
         .order('scan_time', { ascending: false, nullsFirst: false });
-      if (error) { console.error('Fyco inspections query error:', error); throw error; }
-      if (error) throw error;
+
+      if (error) {
+        console.error('Fyco inspections query error:', error);
+        throw error;
+      }
       if (!inspections || inspections.length === 0) return [];
 
-      const shipmentIds = [...new Set(inspections.map(i => i.shipment_id))];
+      const warehouseIds = [...new Set(
+        inspections
+          .map(insp => (insp as any).shipments?.warehouse_id)
+          .filter(Boolean)
+      )] as string[];
 
-      const { data: shipments, error: shipErr } = await supabase
-        .from('shipments')
-        .select('id, mawb, warehouse, subklanten(name), customers(name)')
-        .in('id', shipmentIds);
-      if (shipErr) throw shipErr;
+      let warehouseMap = new Map<string, string>();
+      if (warehouseIds.length > 0) {
+        const { data: warehouses, error: warehouseError } = await supabase
+          .from('warehouses')
+          .select('id, name')
+          .in('id', warehouseIds);
 
-      const shipmentMap = new Map((shipments ?? []).map(s => [s.id, s]));
+        if (warehouseError) {
+          console.error('Fyco warehouses query error:', warehouseError);
+          throw warehouseError;
+        }
 
-      // Get outbound statuses via pallets -> outerboxes link
-      // For simplicity, look up outerboxes matching these barcodes to find pallet -> outbound status
+        warehouseMap = new Map((warehouses ?? []).map(warehouse => [warehouse.id, warehouse.name]));
+      }
+
       const barcodes = inspections.map(i => i.barcode ?? i.parcel_barcode).filter(Boolean);
       let outboundStatusMap = new Map<string, string>();
       if (barcodes.length > 0) {
@@ -109,17 +147,17 @@ function useFycoData() {
       }
 
       return inspections.map(insp => {
-        const ship = shipmentMap.get(insp.shipment_id);
+        const ship = (insp as any).shipments;
         const bc = insp.barcode ?? insp.parcel_barcode ?? '—';
         return {
           id: insp.id,
           barcode: bc,
-          created_at: insp.scan_time ?? '',
+          created_at: insp.created_at ?? '',
           shipment_id: insp.shipment_id,
           mawb: ship?.mawb ?? '—',
           hub_code: null,
-          warehouse: ship?.warehouse ?? null,
-          subklant: (ship as any)?.subklanten?.name ?? null,
+          warehouse: ship?.warehouse_id ? warehouseMap.get(ship.warehouse_id) ?? ship.warehouse_id : null,
+          subklant: ship?.subklanten?.name ?? null,
           location: insp.location,
           scan_time: insp.scan_time,
           checked_at: insp.checked_at,
