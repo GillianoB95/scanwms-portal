@@ -30,16 +30,25 @@ function normalizeBoxBarcode(value: unknown): string {
 }
 
 // Parse a cleaned manifest XLSX blob and return maps: BoxBagbarcode -> hub, BoxBagbarcode -> weight, BoxBagbarcode -> parcel_barcodes
-async function parseManifestData(blob: Blob): Promise<{ hubMap: Map<string, string>; weightMap: Map<string, number>; boxToParcelMap: Map<string, string[]> }> {
+// Parse a cleaned manifest XLSX blob and return maps
+async function parseManifestData(blob: Blob): Promise<{
+  hubMap: Map<string, string>;
+  weightMap: Map<string, number>;
+  boxToParcelMap: Map<string, string[]>;
+  parcelSet: Set<string>;
+  parcelToBoxMap: Map<string, string>;
+}> {
   const hubMap = new Map<string, string>();
   const weightMap = new Map<string, number>();
   const boxToParcelMap = new Map<string, string[]>();
+  const parcelSet = new Set<string>();
+  const parcelToBoxMap = new Map<string, string>();
   try {
     const arrayBuffer = await blob.arrayBuffer();
     const workbook = XLSX.read(arrayBuffer, { type: 'array' });
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
     const rows: any[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
-    if (rows.length < 2) return { hubMap, weightMap, boxToParcelMap };
+    if (rows.length < 2) return { hubMap, weightMap, boxToParcelMap, parcelSet, parcelToBoxMap };
 
     const header = rows[0].map((h: any) => String(h).trim().toLowerCase());
     let boxBagCol = 2;
@@ -80,20 +89,22 @@ async function parseManifestData(blob: Blob): Promise<{ hubMap: Map<string, stri
         weightMap.set(boxBag, (weightMap.get(boxBag) || 0) + weight);
       }
 
-      // Map box to parcel barcodes
+      // Map box to parcel barcodes and build parcel lookup
       if (parcelCol >= 0 && boxBag) {
         const parcelBarcode = String(row[parcelCol] || '').trim();
         if (parcelBarcode) {
           const existing = boxToParcelMap.get(boxBag) || [];
           existing.push(parcelBarcode);
           boxToParcelMap.set(boxBag, existing);
+          parcelSet.add(parcelBarcode.toUpperCase());
+          parcelToBoxMap.set(parcelBarcode.toUpperCase(), boxBag);
         }
       }
     }
   } catch (err) {
     console.error('Failed to parse manifest:', err);
   }
-  return { hubMap, weightMap, boxToParcelMap };
+  return { hubMap, weightMap, boxToParcelMap, parcelSet, parcelToBoxMap };
 }
 
 export default function InboundScanning() {
