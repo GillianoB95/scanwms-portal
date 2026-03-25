@@ -594,6 +594,7 @@ export default function FycoManagement() {
                 <TableHead className="w-10">
                   <Checkbox checked={allSelected} onCheckedChange={toggleAll} />
                 </TableHead>
+                <TableHead className="w-8">⚠️</TableHead>
                 <TableHead>MAWB</TableHead>
                 <TableHead>Warehouse</TableHead>
                 <TableHead>Parcel</TableHead>
