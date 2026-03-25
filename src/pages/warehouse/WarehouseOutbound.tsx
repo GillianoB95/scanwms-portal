@@ -616,7 +616,7 @@ export default function WarehouseOutbound() {
                     <TableCell colSpan={4} className="font-semibold">Total ({pallets.length} pallets)</TableCell>
                     <TableCell className="text-right font-semibold">{totalColli}</TableCell>
                     <TableCell className="text-right font-semibold">{totalWeight.toFixed(2)} kg</TableCell>
-                    <TableCell />
+                    <TableCell colSpan={2} />
                   </TableRow>
                 </TableFooter>
               )}
