@@ -117,8 +117,7 @@ export default function WarehouseDashboard() {
         .from('outbounds')
         .select('id')
         .eq('status', 'departed')
-        .gte('updated_at', `${today}T00:00:00`)
-        .lte('updated_at', `${today}T23:59:59`);
+        .eq('pickup_date', today);
       if (warehouseId) query.eq('warehouse_id', warehouseId);
       const { data } = await query;
       const ids = (data ?? []).map((o: any) => o.id);
