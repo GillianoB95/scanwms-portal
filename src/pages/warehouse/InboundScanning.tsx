@@ -239,7 +239,6 @@ export default function InboundScanning() {
         .from('outerboxes')
         .select('id, barcode, scanned_in_at, hub, pallet_id, status, weight')
         .eq('shipment_id', shipment.id)
-        .in('status', ['scanned_in', 'deleted'])
         .order('scanned_in_at', { ascending: false });
 
       // Fetch pallet numbers for boxes with pallet_id
