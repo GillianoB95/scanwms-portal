@@ -268,15 +268,47 @@ export default function InboundScanning() {
         .select('*, outbounds(status, outbound_number, outbound_id)')
         .eq('shipment_id', shipment.id)
         .order('created_at', { ascending: false });
-      return (data ?? []).map((p: any) => {
+      if (!data || data.length === 0) return [];
+
+      // Fetch all outerboxes for these pallets to derive real status
+      const palletIds = data.map((p: any) => p.id);
+      const { data: allBoxes } = await supabase
+        .from('outerboxes')
+        .select('pallet_id, status')
+        .in('pallet_id', palletIds);
+
+      const boxesByPallet = new Map<string, any[]>();
+      (allBoxes ?? []).forEach((b: any) => {
+        const arr = boxesByPallet.get(b.pallet_id) || [];
+        arr.push(b);
+        boxesByPallet.set(b.pallet_id, arr);
+      });
+
+      return data.map((p: any) => {
         const outboundStatus = p.outbounds?.status;
-        let displayStatus = p.status || '—';
+        const boxes = boxesByPallet.get(p.id) || [];
+        const activeBoxes = boxes.filter((b: any) => b.status !== 'deleted');
+        const deletedBoxes = boxes.filter((b: any) => b.status === 'deleted');
+
+        // Derive pallet status from boxes
+        let derivedStatus = p.status || 'Palletized';
+        if (boxes.length > 0 && activeBoxes.length === 0) derivedStatus = 'Deleted';
+        else if (deletedBoxes.length > 0 && activeBoxes.length > 0) derivedStatus = 'Partly deleted';
+
+        let displayStatus = derivedStatus;
         if (outboundStatus === 'departed') displayStatus = 'Departed';
         else if (outboundStatus === 'preparing' || outboundStatus === 'prepared') displayStatus = 'Prepared';
+
         const outboundLabel = p.outbound_id && p.outbounds
           ? `Outbound #${p.outbounds.outbound_number}`
           : null;
-        return { ...p, displayStatus, outboundLabel };
+
+        // Auto-fix DB if status is stale
+        if (derivedStatus !== p.status && (derivedStatus === 'Deleted' || derivedStatus === 'Partly deleted')) {
+          supabase.from('pallets').update({ status: derivedStatus, pieces: activeBoxes.length }).eq('id', p.id).then();
+        }
+
+        return { ...p, status: derivedStatus, displayStatus, outboundLabel };
       });
     },
     enabled: !!shipment?.id,
