@@ -659,15 +659,23 @@ export default function InboundScanning() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {existingPallets.map((p: any) => (
-                      <TableRow key={p.id}>
-                        <TableCell className="font-mono font-medium">{p.pallet_number}</TableCell>
-                        <TableCell>{p.hub_code || '—'}</TableCell>
-                        <TableCell>{p.pieces ?? p.colli_count ?? '—'}</TableCell>
-                        <TableCell>{(p.weight ?? p.weight_kg) != null ? `${Number(p.weight ?? p.weight_kg).toFixed(2)} kg` : '—'}</TableCell>
-                        <TableCell>{p.status || '—'}</TableCell>
+                    {existingPallets.map((p: any) => {
+                      const isDeletedPallet = p.status === 'Deleted';
+                      const isPartlyDeleted = p.status === 'Partly deleted';
+                      const statusColor = isDeletedPallet ? 'text-destructive' : 
+                        isPartlyDeleted ? 'text-orange-500' : 
+                        p.displayStatus === 'Departed' ? 'text-blue-500' :
+                        p.displayStatus === 'Prepared' ? 'text-yellow-600' : '';
+                      return (
+                      <TableRow key={p.id} className={isDeletedPallet ? 'opacity-50' : ''}>
+                        <TableCell className={`font-mono font-medium ${isDeletedPallet ? 'line-through' : ''}`}>{p.pallet_number}</TableCell>
+                        <TableCell className={isDeletedPallet ? 'line-through' : ''}>{p.hub_code || '—'}</TableCell>
+                        <TableCell className={isDeletedPallet ? 'line-through' : ''}>{p.pieces ?? p.colli_count ?? '—'}</TableCell>
+                        <TableCell className={isDeletedPallet ? 'line-through' : ''}>{(p.weight ?? p.weight_kg) != null ? `${Number(p.weight ?? p.weight_kg).toFixed(2)} kg` : '—'}</TableCell>
+                        <TableCell className={statusColor}>{p.displayStatus}</TableCell>
                       </TableRow>
-                    ))}
+                      );
+                    })}
                   </TableBody>
                 </Table>
               </CardContent>
