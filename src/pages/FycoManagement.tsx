@@ -724,12 +724,56 @@ export default function FycoManagement() {
                         {row.outbound_status === 'departed' ? 'Yes' : 'No'}
                       </Badge>
                     </TableCell>
+
+                    {/* Email Sent indicator */}
+                    <TableCell>
+                      {row.email_sent_at ? (
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger>
+                              <Mail className="h-3.5 w-3.5 text-muted-foreground" />
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>Sent {format(new Date(row.email_sent_at), 'dd/MM/yy HH:mm')}</p>
+                              {row.email_sent_by && <p className="text-xs">{row.email_sent_by}</p>}
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      ) : '—'}
+                    </TableCell>
+
+                    {/* Send to Customs - staff only */}
+                    {isStaff && (
+                      <TableCell>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7"
+                          title="Send to Customs"
+                          onClick={() => handleSendToCustoms(mawbGrouped.get(row.mawb) ?? [row])}
+                        >
+                          <Send className="h-3.5 w-3.5" />
+                        </Button>
+                      </TableCell>
+                    )}
                   </TableRow>
                 );
               })}
             </TableBody>
           </Table>
         </div>
+      )}
+
+      {/* Send to Customs Modal */}
+      {sendModalOpen && (
+        <SendToCustomsModal
+          open={sendModalOpen}
+          onOpenChange={setSendModalOpen}
+          parcels={sendModalParcels}
+          isStaff={isStaff}
+          userEmail={userEmail}
+          onSent={() => qc.invalidateQueries({ queryKey: ['fyco-management'] })}
+        />
       )}
     </div>
   );
