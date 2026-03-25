@@ -95,6 +95,7 @@ export default function InboundScanning() {
   const [currentHub, setCurrentHub] = useState<string | null>(null);
   const [hubMap, setHubMap] = useState<Map<string, string>>(new Map());
   const [weightMap, setWeightMap] = useState<Map<string, number>>(new Map());
+  const [notPreAlertedBarcode, setNotPreAlertedBarcode] = useState<string | null>(null);
   const barcodeRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const qc = useQueryClient();
