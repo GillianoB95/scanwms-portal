@@ -593,6 +593,42 @@ export default function WarehouseOutbound() {
           </CardContent>
         </Card>
 
+        {/* Box Detail Dialog */}
+        <Dialog open={!!boxDetailPalletId} onOpenChange={v => { if (!v) setBoxDetailPalletId(null); }}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Box Details — {pallets.find((p: any) => p.id === boxDetailPalletId)?.pallet_number}</DialogTitle>
+            </DialogHeader>
+            <div className="max-h-[400px] overflow-y-auto">
+              {(() => {
+                const pallet = pallets.find((p: any) => p.id === boxDetailPalletId);
+                const boxes = pallet?._boxes ?? [];
+                if (boxes.length === 0) return <p className="text-sm text-muted-foreground py-4 text-center">No boxes found</p>;
+                return (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Barcode</TableHead>
+                        <TableHead>Scanned At</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {boxes.map((b: any) => (
+                        <TableRow key={b.id}>
+                          <TableCell className="font-mono text-sm">{b.barcode}</TableCell>
+                          <TableCell className="text-xs text-muted-foreground">
+                            {b.scanned_in_at ? format(new Date(b.scanned_in_at), 'dd/MM/yyyy HH:mm') : '—'}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                );
+              })()}
+            </div>
+          </DialogContent>
+        </Dialog>
+
         {/* CMR Dialog */}
         <Dialog open={!!cmrOutbound} onOpenChange={v => { if (!v) setCmrOutbound(null); }}>
           <DialogContent>
