@@ -472,9 +472,9 @@ export default function WarehouseOutbound() {
     }
     setCmrGenerating(true);
     try {
-      const cmrMap = buildCmrDataPerSubClient();
-      if (cmrMap.size === 0) {
-        toast({ title: 'No data', description: 'No pallets found', variant: 'destructive' });
+      const { cmrMap, error } = buildCmrDataPerSubClient();
+      if (error) {
+        toast({ title: 'Cannot print CMR', description: error, variant: 'destructive' });
         return;
       }
       let printed = 0;
