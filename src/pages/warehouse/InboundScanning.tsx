@@ -18,6 +18,7 @@ import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { printPalletLabel, type PalletLabelData } from '@/lib/printnode';
 import { cn } from '@/lib/utils';
 import * as XLSX from 'xlsx';
+import { FycoParcelsPanel } from '@/components/warehouse/FycoParcelsPanel';
 
 function normalizeBoxBarcode(value: unknown): string {
   return String(value ?? '')
@@ -717,6 +718,7 @@ export default function InboundScanning() {
 
       {shipment && (
         <>
+          <FycoParcelsPanel shipmentId={shipment.id} />
           {scanningBlocked && (
             <Alert variant="destructive">
               <AlertTriangle className="h-4 w-4" />
