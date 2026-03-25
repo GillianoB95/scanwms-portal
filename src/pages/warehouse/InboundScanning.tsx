@@ -370,13 +370,16 @@ export default function InboundScanning() {
 
       return { boxHub, isPreAlerted };
     },
-    onSuccess: (boxHub) => {
-      // Set current hub if this is the first scan in session
-      if (boxHub && !currentHub) {
-        setCurrentHub(boxHub);
+    onSuccess: (result) => {
+      if (result.boxHub && !currentHub) {
+        setCurrentHub(result.boxHub);
       }
       qc.invalidateQueries({ queryKey: ['scanned-boxes', shipment?.id] });
-      toast({ title: 'Box scanned', description: barcode });
+      if (!result.isPreAlerted) {
+        toast({ title: 'Scanned but not pre-alerted', description: `${barcode} is not in the manifest`, variant: 'destructive' });
+      } else {
+        toast({ title: 'Box scanned', description: barcode });
+      }
       setBarcode('');
       barcodeRef.current?.focus();
     },
