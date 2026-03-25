@@ -266,10 +266,17 @@ export default function InboundScanning() {
       if (!shipment?.id) return [];
       const { data } = await supabase
         .from('pallets')
-        .select('*')
+        .select('*, outbounds(status)')
         .eq('shipment_id', shipment.id)
         .order('created_at', { ascending: false });
-      return data ?? [];
+      // Derive display status: if outbound has a status, show that
+      return (data ?? []).map((p: any) => {
+        const outboundStatus = p.outbounds?.status;
+        let displayStatus = p.status || '—';
+        if (outboundStatus === 'departed') displayStatus = 'Departed';
+        else if (outboundStatus === 'preparing') displayStatus = 'Prepared';
+        return { ...p, displayStatus };
+      });
     },
     enabled: !!shipment?.id,
   });
