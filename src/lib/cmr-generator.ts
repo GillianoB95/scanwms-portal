@@ -63,7 +63,7 @@ export function generateCmrWorkbook(data: CmrData): XLSX.WorkBook {
     const row = 26 + i;
     if (row > maxRow) return;
     set(cellRef('B', row), line.mawb);
-    set(cellRef('D', row), line.colli);
+    set(cellRef('D', row), `${line.colli} colli`);
     set(cellRef('G', row), line.weightKg);
     set(cellRef('H', row), 'KG');
     totalColli += line.colli;
@@ -71,12 +71,19 @@ export function generateCmrWorkbook(data: CmrData): XLSX.WorkBook {
   });
 
   // Totals
-  set('D41', totalColli);
+  set('B41', 'Totaal\t');
+  set('D41', `${totalColli} colli`);
   set('G41', totalWeight);
+  set('H41', 'KG');
 
   // Transport details
+  set('B44', 'MRN :');
+  set('B45', 'Ref: ');
   set('C45', data.truckReference);
   set('E45', data.outboundNumber);
+  set('B46', 'Carnet');
+  set('B47', 'Im-A / Ex-A');
+  set('B48', 'Sealnr');
   set('C48', data.sealNumber);
 
   // Footer
