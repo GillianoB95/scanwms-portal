@@ -13,6 +13,7 @@ import { Package, ScanBarcode, ArrowUpFromLine, Truck, PackageCheck, Search as S
 
 export default function WarehouseDashboard() {
   const { data: auth } = useWarehouseAuth();
+  const navigate = useNavigate();
   const warehouseId = auth?.warehouseId;
   const today = new Date().toISOString().split('T')[0];
 
@@ -149,6 +150,25 @@ export default function WarehouseDashboard() {
       return data ?? [];
     },
     enabled: !!auth,
+  });
+
+  // Fetch inspection counts per shipment for Fyco badge
+  const shipmentIds = useMemo(() => shipments.map((s: any) => s.id), [shipments]);
+  const { data: fycoCounts = {} } = useQuery({
+    queryKey: ['warehouse-fyco-counts', shipmentIds],
+    queryFn: async () => {
+      if (shipmentIds.length === 0) return {};
+      const { data } = await supabase
+        .from('inspections')
+        .select('shipment_id')
+        .in('shipment_id', shipmentIds);
+      const counts: Record<string, number> = {};
+      for (const row of (data ?? [])) {
+        counts[row.shipment_id] = (counts[row.shipment_id] || 0) + 1;
+      }
+      return counts;
+    },
+    enabled: shipmentIds.length > 0,
   });
 
   const [statusFilter, setStatusFilter] = useState<string[]>(['In Transit', 'In Stock']);
