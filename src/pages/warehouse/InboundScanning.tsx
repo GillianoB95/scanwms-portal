@@ -29,21 +29,23 @@ function normalizeBoxBarcode(value: unknown): string {
     .trim();
 }
 
-// Parse a cleaned manifest XLSX blob and return maps: BoxBagbarcode -> hub, BoxBagbarcode -> weight
-async function parseManifestData(blob: Blob): Promise<{ hubMap: Map<string, string>; weightMap: Map<string, number> }> {
+// Parse a cleaned manifest XLSX blob and return maps: BoxBagbarcode -> hub, BoxBagbarcode -> weight, BoxBagbarcode -> parcel_barcodes
+async function parseManifestData(blob: Blob): Promise<{ hubMap: Map<string, string>; weightMap: Map<string, number>; boxToParcelMap: Map<string, string[]> }> {
   const hubMap = new Map<string, string>();
   const weightMap = new Map<string, number>();
+  const boxToParcelMap = new Map<string, string[]>();
   try {
     const arrayBuffer = await blob.arrayBuffer();
     const workbook = XLSX.read(arrayBuffer, { type: 'array' });
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
     const rows: any[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
-    if (rows.length < 2) return { hubMap, weightMap };
+    if (rows.length < 2) return { hubMap, weightMap, boxToParcelMap };
 
     const header = rows[0].map((h: any) => String(h).trim().toLowerCase());
     let boxBagCol = 2;
     let waybillCol = 3;
     let weightCol = -1;
+    let parcelCol = -1;
 
     const bbIdx = header.findIndex(h => h.includes('boxbagbarcode') || h.includes('boxbag'));
     if (bbIdx >= 0) boxBagCol = bbIdx;
@@ -56,6 +58,8 @@ async function parseManifestData(blob: Blob): Promise<{ hubMap: Map<string, stri
     );
     if (twIdx >= 0) weightCol = twIdx;
     if (weightCol < 0) weightCol = 13;
+    const pIdx = header.findIndex(h => h.includes('parcelbarcode') || h.includes('parcel') || h === 'barcode');
+    if (pIdx >= 0) parcelCol = pIdx;
 
     let lastBoxBag = '';
     let lastHub = '';
@@ -75,11 +79,21 @@ async function parseManifestData(blob: Blob): Promise<{ hubMap: Map<string, stri
       if (boxBag && weight > 0) {
         weightMap.set(boxBag, (weightMap.get(boxBag) || 0) + weight);
       }
+
+      // Map box to parcel barcodes
+      if (parcelCol >= 0 && boxBag) {
+        const parcelBarcode = String(row[parcelCol] || '').trim();
+        if (parcelBarcode) {
+          const existing = boxToParcelMap.get(boxBag) || [];
+          existing.push(parcelBarcode);
+          boxToParcelMap.set(boxBag, existing);
+        }
+      }
     }
   } catch (err) {
     console.error('Failed to parse manifest:', err);
   }
-  return { hubMap, weightMap };
+  return { hubMap, weightMap, boxToParcelMap };
 }
 
 export default function InboundScanning() {
@@ -96,6 +110,8 @@ export default function InboundScanning() {
   const [hubMap, setHubMap] = useState<Map<string, string>>(new Map());
   const [weightMap, setWeightMap] = useState<Map<string, number>>(new Map());
   const [notPreAlertedBarcode, setNotPreAlertedBarcode] = useState<string | null>(null);
+  const [fycoBlockedBarcode, setFycoBlockedBarcode] = useState<string | null>(null);
+  const [boxToParcelMap, setBoxToParcelMap] = useState<Map<string, string[]>>(new Map());
   const barcodeRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const qc = useQueryClient();
@@ -135,7 +151,7 @@ export default function InboundScanning() {
   });
 
   const fetchManifestDataForShipment = useCallback(async (shipmentId: string) => {
-    const empty = { hubMap: new Map<string, string>(), weightMap: new Map<string, number>() };
+    const empty = { hubMap: new Map<string, string>(), weightMap: new Map<string, number>(), boxToParcelMap: new Map<string, string[]>() };
     try {
       const { data: files } = await supabase
         .from('shipment_files')
@@ -164,9 +180,10 @@ export default function InboundScanning() {
   }, []);
 
   const loadManifestHubs = useCallback(async (shipmentId: string) => {
-    const { hubMap: hMap, weightMap: wMap } = await fetchManifestDataForShipment(shipmentId);
+    const { hubMap: hMap, weightMap: wMap, boxToParcelMap: bpMap } = await fetchManifestDataForShipment(shipmentId);
     setHubMap(hMap);
     setWeightMap(wMap);
+    setBoxToParcelMap(bpMap);
   }, [fetchManifestDataForShipment]);
 
   const handleMawbSearch = async () => {
@@ -342,12 +359,32 @@ export default function InboundScanning() {
       const normalizedCode = normalizeBoxBarcode(code);
       const freshManifestData = await fetchManifestDataForShipment(shipment.id);
       const effectiveHubMap = freshManifestData.hubMap.size > 0 ? freshManifestData.hubMap : hubMap;
+      const effectiveBoxToParcelMap = freshManifestData.boxToParcelMap.size > 0 ? freshManifestData.boxToParcelMap : boxToParcelMap;
       const isPreAlerted = effectiveHubMap.has(normalizedCode);
-      return isPreAlerted;
+
+      // Fyco detection: check if any parcel under this outerbox is an inspection parcel without scan_time
+      if (isPreAlerted) {
+        const parcelsForBox = effectiveBoxToParcelMap.get(normalizedCode) || [];
+        if (parcelsForBox.length > 0) {
+          const { data: fycoInspections } = await supabase
+            .from('inspections')
+            .select('id, scan_time, parcel_barcode')
+            .eq('shipment_id', shipment.id)
+            .in('parcel_barcode', parcelsForBox)
+            .is('scan_time', null);
+          if (fycoInspections && fycoInspections.length > 0) {
+            return { isPreAlerted, fycoBlocked: true };
+          }
+        }
+      }
+
+      return { isPreAlerted, fycoBlocked: false };
     },
-    onSuccess: (isPreAlerted) => {
-      if (!isPreAlerted) {
+    onSuccess: (result) => {
+      if (!result.isPreAlerted) {
         setNotPreAlertedBarcode(barcode.trim());
+      } else if (result.fycoBlocked) {
+        setFycoBlockedBarcode(barcode.trim());
       } else {
         scanMutation.mutate(barcode.trim());
       }
@@ -873,6 +910,29 @@ export default function InboundScanning() {
           </p>
           <DialogFooter>
             <Button onClick={() => { setNotPreAlertedBarcode(null); setBarcode(''); barcodeRef.current?.focus(); }}>
+              OK
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Fyco blocked dialog */}
+      <Dialog open={!!fycoBlockedBarcode} onOpenChange={(v) => { if (!v) { setFycoBlockedBarcode(null); setBarcode(''); barcodeRef.current?.focus(); } }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-destructive" />
+              ⚠️ Fyco Parcel Detected
+            </DialogTitle>
+          </DialogHeader>
+          <p className="text-sm py-2">
+            Outerbox <span className="font-mono font-bold">{fycoBlockedBarcode}</span> contains a fyco inspection parcel that has not been individually scanned yet.
+          </p>
+          <p className="text-sm font-medium text-destructive">
+            Please scan the individual parcel barcode first.
+          </p>
+          <DialogFooter>
+            <Button onClick={() => { setFycoBlockedBarcode(null); setBarcode(''); barcodeRef.current?.focus(); }}>
               OK
             </Button>
           </DialogFooter>
