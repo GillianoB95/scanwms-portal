@@ -593,18 +593,8 @@ export default function WarehouseOutbound() {
               {hubOptions.map(h => <SelectItem key={h} value={h}>{h}</SelectItem>)}
             </SelectContent>
           </Select>
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-[180px]"><SelectValue placeholder="Status" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Statuses</SelectItem>
-              <SelectItem value="active">Active (Preparing + Prepared)</SelectItem>
-              <SelectItem value="preparing">Preparing</SelectItem>
-              <SelectItem value="prepared">Prepared</SelectItem>
-              <SelectItem value="departed">Departed</SelectItem>
-            </SelectContent>
-          </Select>
-          {(search || hubFilter !== 'all' || statusFilter !== 'active') && (
-            <Button variant="ghost" size="sm" onClick={() => { setSearch(''); setHubFilter('all'); setStatusFilter('active'); }}>
+          {(search || hubFilter !== 'all') && (
+            <Button variant="ghost" size="sm" onClick={() => { setSearch(''); setHubFilter('all'); }}>
               Clear filters
             </Button>
           )}
