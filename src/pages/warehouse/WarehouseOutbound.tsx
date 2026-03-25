@@ -772,6 +772,13 @@ export default function WarehouseOutbound() {
                           <TableCell className="text-right tabular-nums">{o.total_colli || 0}</TableCell>
                           <TableCell className="text-right tabular-nums">{o.total_weight ? `${Number(o.total_weight).toFixed(2)} kg` : '0 kg'}</TableCell>
                           <TableCell><StatusBadge status={o.status || 'Pending'} /></TableCell>
+                          <TableCell className="text-center">
+                            {o.cmr_uploaded ? (
+                              <Check className="h-4 w-4 text-[hsl(var(--status-delivered))] mx-auto" />
+                            ) : (
+                              <X className="h-4 w-4 text-muted-foreground/40 mx-auto" />
+                            )}
+                          </TableCell>
                           <TableCell>
                             <div className="flex items-center justify-end gap-1">
                               <Button variant="ghost" size="icon" className="h-8 w-8" title="Scan pallets" onClick={() => setActiveOutbound(o.id)}>
