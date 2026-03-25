@@ -263,9 +263,15 @@ export default function WarehouseOutbound() {
         .update({ outbound_id: activeOutbound })
         .eq('id', pallet.id);
       if (error) throw error;
+
+      // If outbound was already prepared, reset to preparing
+      if (activeOutboundRecord?.status === 'prepared') {
+        await supabase.from('outbounds').update({ status: 'preparing' }).eq('id', activeOutbound);
+      }
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['outbound-pallets', activeOutbound] });
+      qc.invalidateQueries({ queryKey: ['warehouse-outbounds'] });
       toast({ title: 'Pallet added to outbound' });
       setPalletBarcode('');
       palletRef.current?.focus();
@@ -297,6 +303,18 @@ export default function WarehouseOutbound() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['warehouse-outbounds'] });
       toast({ title: 'Scan finished — outbound prepared' });
+    },
+  });
+
+  const markDeparted = useMutation({
+    mutationFn: async () => {
+      if (!activeOutbound) return;
+      const { error } = await supabase.from('outbounds').update({ status: 'departed' }).eq('id', activeOutbound);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['warehouse-outbounds'] });
+      toast({ title: 'Truck departed' });
       setActiveOutbound(null);
     },
   });
@@ -523,10 +541,16 @@ export default function WarehouseOutbound() {
               )}
             </Table>
 
-            <div className="flex justify-end">
-              <Button onClick={() => confirmOutbound.mutate()} disabled={pallets.length === 0 || confirmOutbound.isPending}>
-                Scan finished
-              </Button>
+            <div className="flex justify-end gap-2">
+              {activeOutboundRecord?.status === 'prepared' ? (
+                <Button onClick={() => markDeparted.mutate()} disabled={markDeparted.isPending} variant="default">
+                  <Truck className="h-4 w-4 mr-2" />Truck departed
+                </Button>
+              ) : (
+                <Button onClick={() => confirmOutbound.mutate()} disabled={pallets.length === 0 || confirmOutbound.isPending}>
+                  Scan finished
+                </Button>
+              )}
             </div>
           </CardContent>
         </Card>
