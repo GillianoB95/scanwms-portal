@@ -349,7 +349,7 @@ export default function InboundScanning() {
       if (!isPreAlerted) {
         setNotPreAlertedBarcode(barcode.trim());
       } else {
-        doInsertScan(barcode.trim());
+        scanMutation.mutate(barcode.trim());
       }
     },
     onError: (err: any) => {
@@ -365,7 +365,6 @@ export default function InboundScanning() {
       const effectiveWeightMap = freshManifestData.weightMap.size > 0 ? freshManifestData.weightMap : weightMap;
 
       const boxHub = effectiveHubMap.get(normalizedCode) || null;
-      const isPreAlerted = effectiveHubMap.has(normalizedCode);
 
       if (boxHub && currentHub && boxHub !== currentHub) {
         throw new Error(`Cannot mix hubs on one pallet. Hub "${currentHub}" is active. Print the pallet label first to close this pallet, then you can scan "${boxHub}" boxes.`);
@@ -376,7 +375,7 @@ export default function InboundScanning() {
       const insertData: any = {
         shipment_id: shipment.id,
         barcode: code,
-        status: isPreAlerted ? 'scanned_in' : 'not_pre_alerted',
+        status: 'scanned_in',
         scanned_in_at: new Date().toISOString(),
       };
       if (boxHub) insertData.hub = boxHub;
@@ -385,18 +384,14 @@ export default function InboundScanning() {
       const { error } = await supabase.from('outerboxes').insert(insertData);
       if (error) throw error;
 
-      return { boxHub, isPreAlerted };
+      return { boxHub };
     },
     onSuccess: (result) => {
       if (result.boxHub && !currentHub) {
         setCurrentHub(result.boxHub);
       }
       qc.invalidateQueries({ queryKey: ['scanned-boxes', shipment?.id] });
-      if (!result.isPreAlerted) {
-        toast({ title: 'Scanned but not pre-alerted', description: `Barcode is not in the manifest`, variant: 'destructive' });
-      } else {
-        toast({ title: 'Box scanned', description: barcode });
-      }
+      toast({ title: 'Box scanned', description: barcode });
       setBarcode('');
       barcodeRef.current?.focus();
     },
@@ -404,10 +399,6 @@ export default function InboundScanning() {
       toast({ title: 'Scan failed', description: err.message, variant: 'destructive' });
     },
   });
-
-  const doInsertScan = (code: string) => {
-    scanMutation.mutate(code);
-  };
 
   const deleteMutation = useMutation({
     mutationFn: async (boxId: string) => {
