@@ -224,6 +224,16 @@ function CustomerFormDialog({ open, onOpenChange, customer, parentId, isAdmin }:
               </SelectContent>
             </Select>
           </div>
+          <div className="space-y-2">
+            <Label>Customs Email Grouping</Label>
+            <Select value={customsEmailGrouping} onValueChange={setCustomsEmailGrouping}>
+              <SelectTrigger><SelectValue placeholder="Select grouping" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="per_shipment">Per Shipment (all parcels in one email)</SelectItem>
+                <SelectItem value="per_parcel">Per Parcel (one email per parcel)</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
 
           {isNew && (
             <div className="border-t pt-4 space-y-3">
