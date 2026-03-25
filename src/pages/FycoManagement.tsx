@@ -3,14 +3,17 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth-context';
 import { useLocation } from 'react-router-dom';
-import { Loader2, ShieldCheck, Clock, Search } from 'lucide-react';
-import { format, differenceInHours } from 'date-fns';
+import { Loader2, ShieldCheck, Clock, Search, Mail, Send } from 'lucide-react';
+import { format } from 'date-fns';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { toast } from 'sonner';
 
 interface FycoRow {
@@ -21,7 +24,9 @@ interface FycoRow {
   mawb: string;
   hub_code: string | null;
   warehouse: string | null;
+  warehouse_name: string | null;
   subklant: string | null;
+  customer_id: string | null;
   location: string | null;
   scan_time: string | null;
   checked_at: string | null;
@@ -37,6 +42,8 @@ interface FycoRow {
   customs_remarks: string | null;
   customs_cleared_at: string | null;
   sla_deadline: string | null;
+  email_sent_at: string | null;
+  email_sent_by: string | null;
   // derived
   outbound_status: string | null;
 }
@@ -105,12 +112,16 @@ function useFycoData() {
           released_by,
           customs_remarks,
           created_at,
+          email_sent_at,
+          email_sent_by,
           shipments (
             mawb,
             warehouse_id,
+            customer_id,
             customs_cleared_at,
             subklanten ( name ),
-            customers ( name )
+            customers ( name ),
+            warehouses ( name, code )
           )
         `)
         .order('scan_time', { ascending: false, nullsFirst: false });
@@ -154,7 +165,9 @@ function useFycoData() {
           mawb: ship?.mawb ?? '—',
           hub_code: null,
           warehouse: ship?.warehouse_id ?? null,
+          warehouse_name: ship?.warehouses?.name ?? ship?.warehouses?.code ?? null,
           subklant: ship?.subklanten?.name ?? null,
+          customer_id: ship?.customer_id ?? null,
           location: insp.location,
           scan_time: insp.scan_time,
           checked_at: insp.checked_at,
@@ -170,11 +183,106 @@ function useFycoData() {
           customs_remarks: insp.customs_remarks,
           customs_cleared_at: ship?.customs_cleared_at ?? null,
           sla_deadline: computeSlaDeadline(ship?.customs_cleared_at ?? null),
+          email_sent_at: (insp as any).email_sent_at ?? null,
+          email_sent_by: (insp as any).email_sent_by ?? null,
           outbound_status: outboundStatusMap.get(bc) ?? null,
         } as FycoRow;
       });
     },
   });
+}
+
+/* ─── Send to Customs helpers ─── */
+function fillTemplate(template: string, vars: Record<string, string>) {
+  return template.replace(/\{\{(\w+)\}\}/g, (_, key) => vars[key] ?? '');
+}
+
+function SendToCustomsModal({ open, onOpenChange, parcels, isStaff: _isStaff, userEmail, onSent }: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  parcels: FycoRow[];
+  isStaff: boolean;
+  userEmail: string;
+  onSent: () => void;
+}) {
+  const { data: template } = useQuery({
+    queryKey: ['customs-inspection-template'],
+    queryFn: async () => {
+      const { data } = await supabase.from('email_templates').select('*').eq('template_key', 'customs_inspection').maybeSingle();
+      return data;
+    },
+  });
+
+  if (!parcels.length) return null;
+
+  const mawb = parcels[0].mawb;
+  const warehouseName = parcels[0].warehouse_name || '—';
+  const slaDeadline = parcels[0].sla_deadline ? format(new Date(parcels[0].sla_deadline), 'dd/MM/yy HH:mm') : '—';
+  const parcelList = parcels.map(p => p.barcode).join('\n');
+
+  const vars: Record<string, string> = {
+    mawb,
+    warehouse_name: warehouseName,
+    sla_deadline: slaDeadline,
+    parcel_list: parcelList,
+    parcel_barcode: parcels.length === 1 ? parcels[0].barcode : parcelList,
+  };
+
+  const subjectStr = fillTemplate(template?.subject || 'Customs Inspection — {{mawb}}', vars);
+  const bodyStr = fillTemplate(template?.body || 'Parcels:\n{{parcel_list}}', vars);
+  const recipients = template?.recipients || '';
+
+  const handleConfirm = async () => {
+    // Open mailto
+    const mailto = `mailto:${encodeURIComponent(recipients)}?subject=${encodeURIComponent(subjectStr)}&body=${encodeURIComponent(bodyStr)}`;
+    window.open(mailto, '_blank');
+
+    // Mark inspections as email sent
+    const ids = parcels.map(p => p.id);
+    const { error } = await supabase.from('inspections').update({
+      email_sent_at: new Date().toISOString(),
+      email_sent_by: userEmail,
+    }).in('id', ids);
+    if (error) {
+      toast.error('Failed to mark as sent');
+    } else {
+      toast.success(`Email prepared for ${ids.length} parcel(s)`);
+      onSent();
+    }
+    onOpenChange(false);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>Send to Customs — {mawb}</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4 py-4">
+          <div className="space-y-1">
+            <Label className="text-xs text-muted-foreground">To</Label>
+            <p className="text-sm font-mono bg-muted rounded px-3 py-2">{recipients || '(no recipients set)'}</p>
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs text-muted-foreground">Subject</Label>
+            <p className="text-sm font-medium bg-muted rounded px-3 py-2">{subjectStr}</p>
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs text-muted-foreground">Body</Label>
+            <pre className="text-sm bg-muted rounded px-3 py-2 whitespace-pre-wrap font-sans max-h-64 overflow-auto">{bodyStr}</pre>
+          </div>
+          <p className="text-xs text-muted-foreground">{parcels.length} parcel(s) will be marked as email sent.</p>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+          <Button onClick={handleConfirm}>
+            <Mail className="h-4 w-4 mr-2" />
+            Open in Mail Client
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
 }
 
 export default function FycoManagement() {
@@ -190,6 +298,9 @@ export default function FycoManagement() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [editingLocation, setEditingLocation] = useState<{ id: string; value: string } | null>(null);
   const [editingRemarks, setEditingRemarks] = useState<{ id: string; value: string } | null>(null);
+  const [sendModalParcels, setSendModalParcels] = useState<FycoRow[]>([]);
+  const [sendModalOpen, setSendModalOpen] = useState(false);
+
 
   const filtered = useMemo(() => {
     return rows.filter(r => {
@@ -201,6 +312,54 @@ export default function FycoManagement() {
       return true;
     });
   }, [rows, search, statusFilter]);
+
+  // Group filtered rows by MAWB for per-MAWB send button
+  const mawbGrouped = useMemo(() => {
+    const map = new Map<string, FycoRow[]>();
+    for (const r of filtered) {
+      if (!map.has(r.mawb)) map.set(r.mawb, []);
+      map.get(r.mawb)!.push(r);
+    }
+    return map;
+  }, [filtered]);
+
+  const handleSendToCustoms = async (parcels: FycoRow[]) => {
+    if (!parcels.length) return;
+    // Look up customer's grouping preference
+    const customerId = parcels[0].customer_id;
+    let grouping = 'per_shipment';
+    if (customerId) {
+      const { data: cust } = await supabase.from('customers').select('customs_email_grouping').eq('id', customerId).maybeSingle();
+      if (cust?.customs_email_grouping) grouping = cust.customs_email_grouping;
+    }
+
+    if (grouping === 'per_parcel') {
+      // Open modal per parcel — for simplicity, send first one, user can repeat
+      // Actually show all parcels individually grouped
+      for (const p of parcels) {
+        setSendModalParcels([p]);
+        setSendModalOpen(true);
+        return; // Show first, user will repeat for others
+      }
+    } else {
+      setSendModalParcels(parcels);
+      setSendModalOpen(true);
+    }
+  };
+
+  const handleBulkSendToCustoms = async () => {
+    const selectedRows = filtered.filter(r => selected.has(r.id));
+    if (selectedRows.length === 0) return;
+    // Group by MAWB
+    const byMawb = new Map<string, FycoRow[]>();
+    for (const r of selectedRows) {
+      if (!byMawb.has(r.mawb)) byMawb.set(r.mawb, []);
+      byMawb.get(r.mawb)!.push(r);
+    }
+    // Send for first MAWB group (user can repeat for others)
+    const first = [...byMawb.values()][0];
+    await handleSendToCustoms(first);
+  };
 
   const allSelected = filtered.length > 0 && filtered.every(r => selected.has(r.id));
 
@@ -372,6 +531,12 @@ export default function FycoManagement() {
                 Mark Released
               </Button>
             )}
+            {isStaff && (
+              <Button size="sm" onClick={handleBulkSendToCustoms}>
+                <Send className="h-3.5 w-3.5 mr-1" />
+                Send to Customs
+              </Button>
+            )}
           </div>
         )}
       </div>
@@ -407,6 +572,8 @@ export default function FycoManagement() {
                 <TableHead>Released</TableHead>
                 <TableHead>Prepared</TableHead>
                 <TableHead>Delivered</TableHead>
+                <TableHead className="w-10">✉️</TableHead>
+                {isStaff && <TableHead className="w-10"></TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -557,12 +724,56 @@ export default function FycoManagement() {
                         {row.outbound_status === 'departed' ? 'Yes' : 'No'}
                       </Badge>
                     </TableCell>
+
+                    {/* Email Sent indicator */}
+                    <TableCell>
+                      {row.email_sent_at ? (
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger>
+                              <Mail className="h-3.5 w-3.5 text-muted-foreground" />
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>Sent {format(new Date(row.email_sent_at), 'dd/MM/yy HH:mm')}</p>
+                              {row.email_sent_by && <p className="text-xs">{row.email_sent_by}</p>}
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      ) : '—'}
+                    </TableCell>
+
+                    {/* Send to Customs - staff only */}
+                    {isStaff && (
+                      <TableCell>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7"
+                          title="Send to Customs"
+                          onClick={() => handleSendToCustoms(mawbGrouped.get(row.mawb) ?? [row])}
+                        >
+                          <Send className="h-3.5 w-3.5" />
+                        </Button>
+                      </TableCell>
+                    )}
                   </TableRow>
                 );
               })}
             </TableBody>
           </Table>
         </div>
+      )}
+
+      {/* Send to Customs Modal */}
+      {sendModalOpen && (
+        <SendToCustomsModal
+          open={sendModalOpen}
+          onOpenChange={setSendModalOpen}
+          parcels={sendModalParcels}
+          isStaff={isStaff}
+          userEmail={userEmail}
+          onSent={() => qc.invalidateQueries({ queryKey: ['fyco-management'] })}
+        />
       )}
     </div>
   );

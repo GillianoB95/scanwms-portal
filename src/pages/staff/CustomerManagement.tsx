@@ -127,6 +127,7 @@ function CustomerFormDialog({ open, onOpenChange, customer, parentId, isAdmin }:
   const [shortName, setShortName] = useState(customer?.short_name ?? '');
   const [email, setEmail] = useState(customer?.email ?? '');
   const [warehouseId, setWarehouseId] = useState(customer?.warehouse_id || '__none__');
+  const [customsEmailGrouping, setCustomsEmailGrouping] = useState(customer?.customs_email_grouping || 'per_shipment');
   const [userEmail, setUserEmail] = useState('');
   const [userPassword, setUserPassword] = useState('');
   const [saving, setSaving] = useState(false);
@@ -138,7 +139,7 @@ function CustomerFormDialog({ open, onOpenChange, customer, parentId, isAdmin }:
     if (!name) return;
     setSaving(true);
     try {
-      const payload: any = { name, short_name: shortName || null, email: email || null, warehouse_id: warehouseId === '__none__' ? null : warehouseId || null };
+      const payload: any = { name, short_name: shortName || null, email: email || null, warehouse_id: warehouseId === '__none__' ? null : warehouseId || null, customs_email_grouping: customsEmailGrouping };
       if (parentId) payload.parent_customer_id = parentId;
 
       if (customer?.id) {
@@ -221,6 +222,16 @@ function CustomerFormDialog({ open, onOpenChange, customer, parentId, isAdmin }:
                 {warehouses.map((w: any) => (
                   <SelectItem key={w.id} value={w.id}>{w.code} — {w.name}</SelectItem>
                 ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label>Customs Email Grouping</Label>
+            <Select value={customsEmailGrouping} onValueChange={setCustomsEmailGrouping}>
+              <SelectTrigger><SelectValue placeholder="Select grouping" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="per_shipment">Per Shipment (all parcels in one email)</SelectItem>
+                <SelectItem value="per_parcel">Per Parcel (one email per parcel)</SelectItem>
               </SelectContent>
             </Select>
           </div>
