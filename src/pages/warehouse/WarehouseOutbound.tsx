@@ -178,6 +178,15 @@ export default function WarehouseOutbound() {
     return Array.from(map.entries()).sort(([a], [b]) => b.localeCompare(a));
   }, [filtered]);
 
+  // Auto-expand most recent date
+  const hasAutoExpanded = useRef(false);
+  useEffect(() => {
+    if (grouped.length > 0 && !hasAutoExpanded.current) {
+      setExpandedDates(new Set([grouped[0][0]]));
+      hasAutoExpanded.current = true;
+    }
+  }, [grouped]);
+
   const toggleDate = (date: string) => {
     setExpandedDates(prev => {
       const next = new Set(prev);
