@@ -289,6 +289,7 @@ function SendToCustomsModal({ open, onOpenChange, parcels, isStaff: _isStaff, us
 
 export default function FycoManagement() {
   const { data: rows = [], isLoading } = useFycoData();
+  const { data: alarmSettings = DEFAULT_ALARM_SETTINGS } = useAlarmSettings();
   const { user } = useAuth();
   const location = useLocation();
   const qc = useQueryClient();
@@ -297,12 +298,21 @@ export default function FycoManagement() {
 
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [alarmFilter, setAlarmFilter] = useState<'all' | 'alarms' | '1' | '2' | '3' | '4'>('all');
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [editingLocation, setEditingLocation] = useState<{ id: string; value: string } | null>(null);
   const [editingRemarks, setEditingRemarks] = useState<{ id: string; value: string } | null>(null);
   const [sendModalParcels, setSendModalParcels] = useState<FycoRow[]>([]);
   const [sendModalOpen, setSendModalOpen] = useState(false);
 
+  // Compute alarms per row
+  const rowAlarms = useMemo(() => {
+    const map = new Map<string, FycoAlarm | null>();
+    for (const r of rows) {
+      map.set(r.id, getFycoAlarm(r, alarmSettings));
+    }
+    return map;
+  }, [rows, alarmSettings]);
 
   const filtered = useMemo(() => {
     return rows.filter(r => {
@@ -311,9 +321,19 @@ export default function FycoManagement() {
         const q = search.toLowerCase();
         if (!r.mawb.toLowerCase().includes(q) && !r.barcode.toLowerCase().includes(q)) return false;
       }
+      // Alarm filter
+      if (alarmFilter !== 'all') {
+        const alarm = rowAlarms.get(r.id);
+        if (alarmFilter === 'alarms') {
+          if (!alarm) return false;
+        } else {
+          const stage = parseInt(alarmFilter);
+          if (!alarm || alarm.stage !== stage) return false;
+        }
+      }
       return true;
     });
-  }, [rows, search, statusFilter]);
+  }, [rows, search, statusFilter, alarmFilter, rowAlarms]);
 
   // Group filtered rows by MAWB for per-MAWB send button
   const mawbGrouped = useMemo(() => {
