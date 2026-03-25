@@ -52,14 +52,9 @@ function useFycoData() {
           created_at: insp.created_at,
           shipment_id: insp.shipment_id,
           mawb: ship?.mawb ?? '—',
-          hub_code: ship?.hub_code ?? null,
+          hub_code: null,
           warehouse: ship?.warehouse ?? null,
           subklant: (ship as any)?.subklanten?.name ?? null,
-          // These fields are placeholders for future logic
-          location: null,
-          checked: false,
-          released: false,
-          delivered: false,
         } as FycoRow;
       });
     },
