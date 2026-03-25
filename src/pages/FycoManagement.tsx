@@ -59,9 +59,24 @@ function getStatusFilter(row: FycoRow): string {
   return 'pending';
 }
 
+function computeSlaDeadline(customsClearedAt: string | null): string | null {
+  if (!customsClearedAt) return null;
+  const cleared = new Date(customsClearedAt);
+  const hours = cleared.getHours();
+  if (hours < 12) {
+    // Same day 23:59
+    return new Date(cleared.getFullYear(), cleared.getMonth(), cleared.getDate(), 23, 59, 59).toISOString();
+  } else {
+    // Next day 23:59
+    const next = new Date(cleared.getFullYear(), cleared.getMonth(), cleared.getDate() + 1, 23, 59, 59);
+    return next.toISOString();
+  }
+}
+
 function isSlaWarning(row: FycoRow): boolean {
   if (!row.scan_time || row.checked_at) return false;
-  return differenceInHours(new Date(), new Date(row.scan_time)) >= 24;
+  if (!row.sla_deadline) return false;
+  return new Date() > new Date(row.sla_deadline);
 }
 
 function useFycoData() {
