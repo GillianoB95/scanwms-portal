@@ -35,6 +35,8 @@ interface FycoRow {
   released_at: string | null;
   released_by: string | null;
   customs_remarks: string | null;
+  customs_cleared_at: string | null;
+  sla_deadline: string | null;
   // derived
   outbound_status: string | null;
 }
@@ -57,9 +59,24 @@ function getStatusFilter(row: FycoRow): string {
   return 'pending';
 }
 
+function computeSlaDeadline(customsClearedAt: string | null): string | null {
+  if (!customsClearedAt) return null;
+  const cleared = new Date(customsClearedAt);
+  const hours = cleared.getHours();
+  if (hours < 12) {
+    // Same day 23:59
+    return new Date(cleared.getFullYear(), cleared.getMonth(), cleared.getDate(), 23, 59, 59).toISOString();
+  } else {
+    // Next day 23:59
+    const next = new Date(cleared.getFullYear(), cleared.getMonth(), cleared.getDate() + 1, 23, 59, 59);
+    return next.toISOString();
+  }
+}
+
 function isSlaWarning(row: FycoRow): boolean {
   if (!row.scan_time || row.checked_at) return false;
-  return differenceInHours(new Date(), new Date(row.scan_time)) >= 24;
+  if (!row.sla_deadline) return false;
+  return new Date() > new Date(row.sla_deadline);
 }
 
 function useFycoData() {
@@ -91,6 +108,7 @@ function useFycoData() {
           shipments (
             mawb,
             warehouse_id,
+            customs_cleared_at,
             subklanten ( name ),
             customers ( name )
           )
@@ -150,6 +168,8 @@ function useFycoData() {
           released_at: insp.released_at,
           released_by: insp.released_by,
           customs_remarks: insp.customs_remarks,
+          customs_cleared_at: ship?.customs_cleared_at ?? null,
+          sla_deadline: computeSlaDeadline(ship?.customs_cleared_at ?? null),
           outbound_status: outboundStatusMap.get(bc) ?? null,
         } as FycoRow;
       });
@@ -378,6 +398,7 @@ export default function FycoManagement() {
                 <TableHead>Sub Client</TableHead>
                 <TableHead>Location</TableHead>
                 <TableHead>Scan Time</TableHead>
+                <TableHead>SLA Deadline</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Checked</TableHead>
                 <TableHead>Docs Req.</TableHead>
@@ -430,6 +451,16 @@ export default function FycoManagement() {
                     <TableCell className="text-sm text-muted-foreground whitespace-nowrap">
                       {slaWarn && <Clock className="h-3.5 w-3.5 text-destructive inline mr-1" />}
                       {row.scan_time ? format(new Date(row.scan_time), 'dd/MM/yy HH:mm') : '—'}
+                    </TableCell>
+
+                    {/* SLA Deadline */}
+                    <TableCell className="text-sm whitespace-nowrap">
+                      {slaWarn && <span className="mr-1">⏰</span>}
+                      {row.sla_deadline ? (
+                        <span className={slaWarn ? 'text-destructive font-medium' : 'text-muted-foreground'}>
+                          {format(new Date(row.sla_deadline), 'dd/MM/yy HH:mm')}
+                        </span>
+                      ) : '—'}
                     </TableCell>
 
                     {/* Status badge */}

@@ -89,6 +89,7 @@ function BlockModal({ shipment, open, onOpenChange }: { shipment: any; open: boo
 
 /* ─── CC Yes Modal ─── */
 function CcYesModal({ shipment, open, onOpenChange }: { shipment: any; open: boolean; onOpenChange: (v: boolean) => void }) {
+  const { user } = useAuth();
   const updateShipment = useUpdateShipment();
   const createInspections = useCreateInspections();
   const [hasInspections, setHasInspections] = useState<boolean | null>(null);
@@ -99,6 +100,8 @@ function CcYesModal({ shipment, open, onOpenChange }: { shipment: any; open: boo
 
   const handleSave = async () => {
     setSaving(true);
+    const now = new Date().toISOString();
+    const clearedBy = user?.email ?? 'unknown';
     try {
       if (hasInspections) {
         const lines = barcodes.split('\n').map(l => l.trim()).filter(Boolean);
@@ -114,6 +117,8 @@ function CcYesModal({ shipment, open, onOpenChange }: { shipment: any; open: boo
           id: shipment.id,
           customs_cleared: true,
           clearance_status: 'cleared_with_inspections',
+          customs_cleared_at: now,
+          customs_cleared_by: clearedBy,
         });
         toast.success(`Cleared with ${lines.length} inspection(s)`);
       } else {
@@ -121,6 +126,8 @@ function CcYesModal({ shipment, open, onOpenChange }: { shipment: any; open: boo
           id: shipment.id,
           customs_cleared: true,
           clearance_status: 'cleared',
+          customs_cleared_at: now,
+          customs_cleared_by: clearedBy,
         });
         toast.success('Customs cleared — no inspections');
       }
