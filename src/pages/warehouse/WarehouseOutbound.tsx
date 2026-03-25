@@ -16,7 +16,7 @@ import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import {
   Plus, ScanBarcode, FileText, Download, Printer, Upload, ArrowLeft,
-  Search, ChevronDown, ChevronRight, Loader2, Truck, Undo2, Check, X
+  Search, ChevronDown, ChevronRight, Loader2, Truck, Undo2, Check, X, Trash2
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { generateCmrWorkbook, downloadCmrWorkbook, printCmrViaPrintNode, type CmrData } from '@/lib/cmr-generator';
@@ -559,11 +559,12 @@ export default function WarehouseOutbound() {
                   <TableHead className="text-right">Colli</TableHead>
                   <TableHead className="text-right">Weight</TableHead>
                   <TableHead>Scanned</TableHead>
+                  <TableHead className="w-10"></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {pallets.length === 0 ? (
-                  <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-6">Scan pallets to add</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground py-6">Scan pallets to add</TableCell></TableRow>
                 ) : pallets.map((p: any) => (
                   <TableRow key={p.id}>
                     <TableCell className="font-mono font-medium">{p.pallet_number}</TableCell>
@@ -584,6 +585,28 @@ export default function WarehouseOutbound() {
                     <TableCell className="text-xs text-muted-foreground">
                       {p._scannedAt ? format(new Date(p._scannedAt), 'dd/MM HH:mm') : '—'}
                     </TableCell>
+                    <TableCell>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 text-destructive hover:text-destructive"
+                        title="Remove from outbound"
+                        onClick={async () => {
+                          const { error } = await supabase
+                            .from('pallets')
+                            .update({ outbound_id: null })
+                            .eq('id', p.id);
+                          if (error) {
+                            toast({ title: 'Failed to remove', description: error.message, variant: 'destructive' });
+                          } else {
+                            toast({ title: `${p.pallet_number} removed from outbound` });
+                            qc.invalidateQueries({ queryKey: ['outbound-pallets', activeOutbound] });
+                          }
+                        }}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -593,7 +616,7 @@ export default function WarehouseOutbound() {
                     <TableCell colSpan={4} className="font-semibold">Total ({pallets.length} pallets)</TableCell>
                     <TableCell className="text-right font-semibold">{totalColli}</TableCell>
                     <TableCell className="text-right font-semibold">{totalWeight.toFixed(2)} kg</TableCell>
-                    <TableCell />
+                    <TableCell colSpan={2} />
                   </TableRow>
                 </TableFooter>
               )}
