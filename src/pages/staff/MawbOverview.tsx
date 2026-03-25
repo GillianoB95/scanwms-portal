@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { StatusBadge } from '@/components/StatusBadge';
 import { useAllShipments, useUpdateShipment, useDeleteShipment, useShipmentBlocks, useCreateBlock, useRemoveBlock, useShipmentInspections, useCreateInspections } from '@/hooks/use-staff-data';
 import { supabase } from '@/lib/supabase';
+import { fetchManifestParcelBarcodes } from '@/lib/manifest-parcels';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
