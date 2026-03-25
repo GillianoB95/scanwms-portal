@@ -3,7 +3,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '@/lib/auth-context';
 import {
   LayoutDashboard, Package, ArrowDownToLine, ArrowUpFromLine,
-  MapPin, Users, UserCog, Settings, LogOut, Menu, X, Shield, Warehouse
+  MapPin, Users, UserCog, Settings, LogOut, Menu, X, Shield, Warehouse, ShieldCheck
 } from 'lucide-react';
 
 const navItems = [
@@ -13,6 +13,7 @@ const navItems = [
   { to: '/staff/hubs', label: 'Hub Management', icon: MapPin },
   { to: '/staff/warehouses', label: 'Warehouse Management', icon: Warehouse },
   { to: '/staff/customers', label: 'Customer Management', icon: Users },
+  { to: '/staff/fyco', label: 'Fyco Management', icon: ShieldCheck },
   { to: '/staff/staff-users', label: 'Staff Management', icon: UserCog },
   { to: '/staff/settings', label: 'Settings', icon: Settings },
 ];

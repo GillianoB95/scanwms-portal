@@ -27,6 +27,7 @@ import InboundScanning from "./pages/warehouse/InboundScanning";
 import WarehouseOutbound from "./pages/warehouse/WarehouseOutbound";
 import PrintLabels from "./pages/warehouse/PrintLabels";
 import StockOverview from "./pages/warehouse/StockOverview";
+import FycoManagement from "./pages/FycoManagement";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -99,6 +100,7 @@ const App = () => (
             <Route path="/staff/staff-users" element={<StaffRoute><StaffManagement /></StaffRoute>} />
             <Route path="/staff/settings" element={<StaffRoute><SettingsPage /></StaffRoute>} />
             <Route path="/staff/shipments/:id" element={<StaffRoute><StaffShipmentDetail /></StaffRoute>} />
+            <Route path="/staff/fyco" element={<StaffRoute><FycoManagement /></StaffRoute>} />
 
             {/* Warehouse Portal */}
             <Route path="/warehouse" element={<WarehouseRoute><WarehouseDashboard /></WarehouseRoute>} />
@@ -106,6 +108,7 @@ const App = () => (
             <Route path="/warehouse/outbound" element={<WarehouseRoute><WarehouseOutbound /></WarehouseRoute>} />
             <Route path="/warehouse/labels" element={<WarehouseRoute><PrintLabels /></WarehouseRoute>} />
             <Route path="/warehouse/stock" element={<WarehouseRoute><StockOverview /></WarehouseRoute>} />
+            <Route path="/warehouse/fyco" element={<WarehouseRoute><FycoManagement /></WarehouseRoute>} />
 
             <Route path="/" element={<Navigate to="/login" replace />} />
             <Route path="*" element={<NotFound />} />

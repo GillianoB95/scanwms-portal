@@ -3,7 +3,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '@/lib/auth-context';
 import {
   LayoutDashboard, ScanBarcode, ArrowUpFromLine,
-  PackageSearch, LogOut, Menu, X, Warehouse
+  PackageSearch, LogOut, Menu, X, Warehouse, ShieldCheck
 } from 'lucide-react';
 
 const navItems = [
@@ -11,6 +11,7 @@ const navItems = [
   { to: '/warehouse/inbound', label: 'Inbound Scanning', icon: ScanBarcode },
   { to: '/warehouse/outbound', label: 'Outbound', icon: ArrowUpFromLine },
   { to: '/warehouse/stock', label: 'Stock Overview', icon: PackageSearch },
+  { to: '/warehouse/fyco', label: 'Fyco Management', icon: ShieldCheck },
 ];
 
 export function WarehouseLayout({ children }: { children: ReactNode }) {
