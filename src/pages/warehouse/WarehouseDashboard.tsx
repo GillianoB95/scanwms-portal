@@ -135,14 +135,15 @@ export default function WarehouseDashboard() {
 
 
 
-  // Active Shipments assigned to this warehouse
+  // All shipments assigned to this warehouse (broader fetch for filtering)
+  const allStatuses = ['Awaiting NOA', 'Partial NOA', 'NOA Complete', 'In Transit', 'In Stock', 'Outbound'];
   const { data: shipments = [] } = useQuery({
     queryKey: ['warehouse-shipments', warehouseId],
     queryFn: async () => {
       const query = supabase
         .from('shipments')
         .select('*, customers(name, short_name)')
-        .in('status', ['Awaiting NOA', 'Partial NOA', 'NOA Complete', 'In Transit', 'In Stock'])
+        .in('status', allStatuses)
         .order('created_at', { ascending: false });
       if (warehouseId) query.eq('warehouse_id', warehouseId);
       const { data } = await query;
@@ -150,6 +151,19 @@ export default function WarehouseDashboard() {
     },
     enabled: !!auth,
   });
+
+  const [statusFilter, setStatusFilter] = useState<string[]>(['In Transit', 'In Stock']);
+
+  const filteredShipments = useMemo(() => {
+    if (statusFilter.length === 0) return shipments;
+    return shipments.filter((s: any) => statusFilter.includes(s.status));
+  }, [shipments, statusFilter]);
+
+  const toggleStatus = (status: string) => {
+    setStatusFilter(prev =>
+      prev.includes(status) ? prev.filter(s => s !== status) : [...prev, status]
+    );
+  };
 
   const preparedTrucks = typeof preparedData === 'object' ? preparedData?.trucks ?? 0 : 0;
   const preparedColli = typeof preparedData === 'object' ? preparedData?.colli ?? 0 : 0;
