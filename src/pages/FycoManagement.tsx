@@ -238,15 +238,10 @@ export default function FycoManagement() {
   };
 
   const handleToggleField = async (id: string, field: string, currentValue: boolean) => {
+    // Only staff can toggle additional_action_required
+    if (field === 'additional_action_required' && !isStaff) return;
+
     const updates: Record<string, any> = { [field]: !currentValue };
-    if (!currentValue) {
-      updates[`${field}_at`] = new Date().toISOString();
-      updates[`${field}_by`] = userEmail;
-    } else {
-      updates[`${field}_at`] = null;
-      updates[`${field}_by`] = null;
-    }
-    // Fix field naming for the _at/_by columns
     if (field === 'documents_requested') {
       if (!currentValue) {
         updates.documents_requested_at = new Date().toISOString();
@@ -266,15 +261,25 @@ export default function FycoManagement() {
       }
     }
     try {
-      await updateMutation.mutateAsync({ ids: [id], updates });
-    } catch { toast.error('Failed to update'); }
+      const { error } = await supabase.from('inspections').update(updates).eq('id', id);
+      if (error) throw error;
+      qc.invalidateQueries({ queryKey: ['fyco-management'] });
+    } catch (e) {
+      console.error('Failed to update field:', field, e);
+      toast.error('Failed to update');
+    }
   };
 
   const handleSaveLocation = async (id: string, value: string) => {
     try {
-      await updateMutation.mutateAsync({ ids: [id], updates: { location: value || null } });
+      const { error } = await supabase.from('inspections').update({ location: value || null }).eq('id', id);
+      if (error) throw error;
+      qc.invalidateQueries({ queryKey: ['fyco-management'] });
       setEditingLocation(null);
-    } catch { toast.error('Failed to update location'); }
+    } catch (e) {
+      console.error('Failed to update location:', e);
+      toast.error('Failed to update location');
+    }
   };
 
   const handleSaveRemarks = async (id: string, value: string) => {
