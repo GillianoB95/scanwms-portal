@@ -242,8 +242,23 @@ export default function WarehouseDashboard() {
       </div>
 
       <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">Active Shipments</CardTitle>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+          <CardTitle className="text-lg">Shipments</CardTitle>
+          <div className="flex flex-wrap gap-1.5">
+            {allStatuses.map(status => (
+              <button
+                key={status}
+                onClick={() => toggleStatus(status)}
+                className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${
+                  statusFilter.includes(status)
+                    ? 'bg-accent text-accent-foreground'
+                    : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                }`}
+              >
+                {status}
+              </button>
+            ))}
+          </div>
         </CardHeader>
         <CardContent>
           <Table>
@@ -257,9 +272,9 @@ export default function WarehouseDashboard() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {shipments.length === 0 ? (
-                <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-8">No active shipments</TableCell></TableRow>
-              ) : shipments.map((s: any) => (
+              {filteredShipments.length === 0 ? (
+                <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-8">No shipments found</TableCell></TableRow>
+              ) : filteredShipments.map((s: any) => (
                 <TableRow key={s.id}>
                   <TableCell className="font-mono font-medium">{s.mawb}</TableCell>
                   <TableCell>{(s.customers as any)?.name ?? '—'}</TableCell>
