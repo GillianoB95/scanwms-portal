@@ -95,6 +95,7 @@ export default function InboundScanning() {
   const [currentHub, setCurrentHub] = useState<string | null>(null);
   const [hubMap, setHubMap] = useState<Map<string, string>>(new Map());
   const [weightMap, setWeightMap] = useState<Map<string, number>>(new Map());
+  const [notPreAlertedBarcode, setNotPreAlertedBarcode] = useState<string | null>(null);
   const barcodeRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const qc = useQueryClient();
@@ -315,9 +316,9 @@ export default function InboundScanning() {
     enabled: !!shipment?.id,
   });
 
-  const scanMutation = useMutation({
+  // Pre-check mutation: validates barcode, returns whether it's pre-alerted
+  const preCheckMutation = useMutation({
     mutationFn: async (code: string) => {
-      // Check for active inbound block
       const { data: blocks } = await supabase
         .from('shipment_blocks')
         .select('reason')
@@ -328,9 +329,6 @@ export default function InboundScanning() {
         throw new Error(`Inbound blocked: ${blocks[0].reason || 'No reason provided'}`);
       }
 
-      const normalizedCode = normalizeBoxBarcode(code);
-
-      // Check for duplicate barcode
       const { data: existing } = await supabase
         .from('outerboxes')
         .select('id, status')
@@ -341,21 +339,39 @@ export default function InboundScanning() {
         throw new Error(`Barcode "${code}" is already scanned for this shipment.`);
       }
 
+      const normalizedCode = normalizeBoxBarcode(code);
+      const freshManifestData = await fetchManifestDataForShipment(shipment.id);
+      const effectiveHubMap = freshManifestData.hubMap.size > 0 ? freshManifestData.hubMap : hubMap;
+      const isPreAlerted = effectiveHubMap.has(normalizedCode);
+      return isPreAlerted;
+    },
+    onSuccess: (isPreAlerted) => {
+      if (!isPreAlerted) {
+        setNotPreAlertedBarcode(barcode.trim());
+      } else {
+        doInsertScan(barcode.trim());
+      }
+    },
+    onError: (err: any) => {
+      toast({ title: 'Scan failed', description: err.message, variant: 'destructive' });
+    },
+  });
+
+  const scanMutation = useMutation({
+    mutationFn: async (code: string) => {
+      const normalizedCode = normalizeBoxBarcode(code);
       const freshManifestData = await fetchManifestDataForShipment(shipment.id);
       const effectiveHubMap = freshManifestData.hubMap.size > 0 ? freshManifestData.hubMap : hubMap;
       const effectiveWeightMap = freshManifestData.weightMap.size > 0 ? freshManifestData.weightMap : weightMap;
 
-      // Look up hub + weight from manifest
       const boxHub = effectiveHubMap.get(normalizedCode) || null;
       const isPreAlerted = effectiveHubMap.has(normalizedCode);
 
-      // Hub consistency check
       if (boxHub && currentHub && boxHub !== currentHub) {
         throw new Error(`Cannot mix hubs on one pallet. Hub "${currentHub}" is active. Print the pallet label first to close this pallet, then you can scan "${boxHub}" boxes.`);
       }
 
       const boxWeight = effectiveWeightMap.get(normalizedCode) || null;
-      console.log(`[Scan] Barcode: ${code}, hubMap size: ${effectiveHubMap.size}, weightMap size: ${effectiveWeightMap.size}, weight: ${boxWeight}, preAlerted: ${isPreAlerted}`);
 
       const insertData: any = {
         shipment_id: shipment.id,
@@ -377,7 +393,7 @@ export default function InboundScanning() {
       }
       qc.invalidateQueries({ queryKey: ['scanned-boxes', shipment?.id] });
       if (!result.isPreAlerted) {
-        toast({ title: 'Scanned but not pre-alerted', description: `${barcode} is not in the manifest`, variant: 'destructive' });
+        toast({ title: 'Scanned but not pre-alerted', description: `Barcode is not in the manifest`, variant: 'destructive' });
       } else {
         toast({ title: 'Box scanned', description: barcode });
       }
@@ -388,6 +404,10 @@ export default function InboundScanning() {
       toast({ title: 'Scan failed', description: err.message, variant: 'destructive' });
     },
   });
+
+  const doInsertScan = (code: string) => {
+    scanMutation.mutate(code);
+  };
 
   const deleteMutation = useMutation({
     mutationFn: async (boxId: string) => {
@@ -457,7 +477,7 @@ export default function InboundScanning() {
   const handleScan = (e: React.FormEvent) => {
     e.preventDefault();
     if (!barcode.trim() || !shipment) return;
-    scanMutation.mutate(barcode.trim());
+    preCheckMutation.mutate(barcode.trim());
   };
 
   const handleMawbKeyDown = (e: React.KeyboardEvent) => {
@@ -841,6 +861,35 @@ export default function InboundScanning() {
             <Button onClick={handlePrint} disabled={printing}>
               {printing ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Printer className="h-4 w-4 mr-2" />}
               Send to Printer
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Not Pre-Alerted Confirmation Dialog */}
+      <Dialog open={!!notPreAlertedBarcode} onOpenChange={(v) => { if (!v) { setNotPreAlertedBarcode(null); barcodeRef.current?.focus(); } }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-yellow-500" />
+              Not Pre-Alerted
+            </DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground py-2">
+            Barcode <span className="font-mono font-bold">{notPreAlertedBarcode}</span> was not found in the manifest. This label might not be correct, are you sure?
+          </p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setNotPreAlertedBarcode(null); barcodeRef.current?.focus(); }}>Cancel</Button>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                if (notPreAlertedBarcode) {
+                  doInsertScan(notPreAlertedBarcode);
+                  setNotPreAlertedBarcode(null);
+                }
+              }}
+            >
+              Confirm Scan
             </Button>
           </DialogFooter>
         </DialogContent>
