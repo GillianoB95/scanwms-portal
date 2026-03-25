@@ -192,6 +192,99 @@ function useFycoData() {
   });
 }
 
+/* ─── Send to Customs helpers ─── */
+function fillTemplate(template: string, vars: Record<string, string>) {
+  return template.replace(/\{\{(\w+)\}\}/g, (_, key) => vars[key] ?? '');
+}
+
+function SendToCustomsModal({ open, onOpenChange, parcels, isStaff: _isStaff, userEmail, onSent }: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  parcels: FycoRow[];
+  isStaff: boolean;
+  userEmail: string;
+  onSent: () => void;
+}) {
+  const { data: template } = useQuery({
+    queryKey: ['customs-inspection-template'],
+    queryFn: async () => {
+      const { data } = await supabase.from('email_templates').select('*').eq('template_key', 'customs_inspection').maybeSingle();
+      return data;
+    },
+  });
+
+  if (!parcels.length) return null;
+
+  const mawb = parcels[0].mawb;
+  const warehouseName = parcels[0].warehouse_name || '—';
+  const slaDeadline = parcels[0].sla_deadline ? format(new Date(parcels[0].sla_deadline), 'dd/MM/yy HH:mm') : '—';
+  const parcelList = parcels.map(p => p.barcode).join('\n');
+
+  const vars: Record<string, string> = {
+    mawb,
+    warehouse_name: warehouseName,
+    sla_deadline: slaDeadline,
+    parcel_list: parcelList,
+    parcel_barcode: parcels.length === 1 ? parcels[0].barcode : parcelList,
+  };
+
+  const subjectStr = fillTemplate(template?.subject || 'Customs Inspection — {{mawb}}', vars);
+  const bodyStr = fillTemplate(template?.body || 'Parcels:\n{{parcel_list}}', vars);
+  const recipients = template?.recipients || '';
+
+  const handleConfirm = async () => {
+    // Open mailto
+    const mailto = `mailto:${encodeURIComponent(recipients)}?subject=${encodeURIComponent(subjectStr)}&body=${encodeURIComponent(bodyStr)}`;
+    window.open(mailto, '_blank');
+
+    // Mark inspections as email sent
+    const ids = parcels.map(p => p.id);
+    const { error } = await supabase.from('inspections').update({
+      email_sent_at: new Date().toISOString(),
+      email_sent_by: userEmail,
+    }).in('id', ids);
+    if (error) {
+      toast.error('Failed to mark as sent');
+    } else {
+      toast.success(`Email prepared for ${ids.length} parcel(s)`);
+      onSent();
+    }
+    onOpenChange(false);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>Send to Customs — {mawb}</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4 py-4">
+          <div className="space-y-1">
+            <Label className="text-xs text-muted-foreground">To</Label>
+            <p className="text-sm font-mono bg-muted rounded px-3 py-2">{recipients || '(no recipients set)'}</p>
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs text-muted-foreground">Subject</Label>
+            <p className="text-sm font-medium bg-muted rounded px-3 py-2">{subjectStr}</p>
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs text-muted-foreground">Body</Label>
+            <pre className="text-sm bg-muted rounded px-3 py-2 whitespace-pre-wrap font-sans max-h-64 overflow-auto">{bodyStr}</pre>
+          </div>
+          <p className="text-xs text-muted-foreground">{parcels.length} parcel(s) will be marked as email sent.</p>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+          <Button onClick={handleConfirm}>
+            <Mail className="h-4 w-4 mr-2" />
+            Open in Mail Client
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export default function FycoManagement() {
   const { data: rows = [], isLoading } = useFycoData();
   const { user } = useAuth();
@@ -205,6 +298,18 @@ export default function FycoManagement() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [editingLocation, setEditingLocation] = useState<{ id: string; value: string } | null>(null);
   const [editingRemarks, setEditingRemarks] = useState<{ id: string; value: string } | null>(null);
+  const [sendModalParcels, setSendModalParcels] = useState<FycoRow[]>([]);
+  const [sendModalOpen, setSendModalOpen] = useState(false);
+
+  // Group rows by MAWB for per-MAWB send button
+  const mawbGroups = useMemo(() => {
+    const map = new Map<string, FycoRow[]>();
+    for (const r of filtered) {
+      if (!map.has(r.mawb)) map.set(r.mawb, []);
+      map.get(r.mawb)!.push(r);
+    }
+    return map;
+  }, [rows, search, statusFilter]);
 
   const filtered = useMemo(() => {
     return rows.filter(r => {
