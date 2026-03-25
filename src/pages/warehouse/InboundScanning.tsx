@@ -696,12 +696,13 @@ export default function InboundScanning() {
             <CardContent>
               <Table>
                 <TableHeader>
-                  <TableRow>
+                   <TableRow>
                     <TableHead>#</TableHead>
                     <TableHead>Barcode</TableHead>
                     <TableHead>Hub</TableHead>
                     <TableHead>Scanned At</TableHead>
                     <TableHead>Pallet Nr</TableHead>
+                    <TableHead>Status</TableHead>
                     <TableHead className="w-10"></TableHead>
                   </TableRow>
                 </TableHeader>
@@ -717,8 +718,13 @@ export default function InboundScanning() {
                       <TableCell className={`font-mono ${isDeleted ? 'line-through' : ''}`}>{box.pallet_number || '—'}</TableCell>
                       <TableCell>
                         {isDeleted ? (
-                          <span className="text-xs text-destructive font-medium">Removed</span>
+                          <span className="text-xs text-destructive font-medium line-through">Deleted</span>
                         ) : (
+                          <span className="text-xs text-muted-foreground">Scanned</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {!isDeleted && (
                           <Button
                             variant="ghost"
                             size="icon"
