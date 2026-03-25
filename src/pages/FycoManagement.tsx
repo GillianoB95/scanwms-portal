@@ -531,6 +531,12 @@ export default function FycoManagement() {
                 Mark Released
               </Button>
             )}
+            {isStaff && (
+              <Button size="sm" onClick={handleBulkSendToCustoms}>
+                <Send className="h-3.5 w-3.5 mr-1" />
+                Send to Customs
+              </Button>
+            )}
           </div>
         )}
       </div>
