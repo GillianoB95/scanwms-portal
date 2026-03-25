@@ -109,7 +109,7 @@ export function ActionRequiredPanel() {
   const filteredFyco = filter === 'shipments' ? [] : fycoAlarms;
   const filteredShipments = filter === 'fyco' ? [] : shipmentAlarms;
 
-  if (totalCount === 0) return null;
+  
 
   return (
     <>
