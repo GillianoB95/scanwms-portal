@@ -740,7 +740,7 @@ export default function InboundScanning() {
                     );
                   })}
                   {scannedBoxes.length === 0 && (
-                    <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-6">No boxes scanned yet</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-6">No boxes scanned yet</TableCell></TableRow>
                   )}
                 </TableBody>
               </Table>
