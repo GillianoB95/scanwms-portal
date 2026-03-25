@@ -16,6 +16,7 @@ import { useToast } from '@/hooks/use-toast';
 import { ScanBarcode, CheckCircle2, Search, Printer, Loader2, AlertTriangle, Trash2 } from 'lucide-react';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { printPalletLabel, type PalletLabelData } from '@/lib/printnode';
+import { cn } from '@/lib/utils';
 import * as XLSX from 'xlsx';
 
 function normalizeBoxBarcode(value: unknown): string {
@@ -329,12 +330,24 @@ export default function InboundScanning() {
 
       const normalizedCode = normalizeBoxBarcode(code);
 
+      // Check for duplicate barcode
+      const { data: existing } = await supabase
+        .from('outerboxes')
+        .select('id, status')
+        .eq('shipment_id', shipment.id)
+        .eq('barcode', code)
+        .neq('status', 'deleted');
+      if (existing && existing.length > 0) {
+        throw new Error(`Barcode "${code}" is already scanned for this shipment.`);
+      }
+
       const freshManifestData = await fetchManifestDataForShipment(shipment.id);
       const effectiveHubMap = freshManifestData.hubMap.size > 0 ? freshManifestData.hubMap : hubMap;
       const effectiveWeightMap = freshManifestData.weightMap.size > 0 ? freshManifestData.weightMap : weightMap;
 
       // Look up hub + weight from manifest
       const boxHub = effectiveHubMap.get(normalizedCode) || null;
+      const isPreAlerted = effectiveHubMap.has(normalizedCode);
 
       // Hub consistency check
       if (boxHub && currentHub && boxHub !== currentHub) {
@@ -342,12 +355,12 @@ export default function InboundScanning() {
       }
 
       const boxWeight = effectiveWeightMap.get(normalizedCode) || null;
-      console.log(`[Scan] Barcode: ${code}, hubMap size: ${effectiveHubMap.size}, weightMap size: ${effectiveWeightMap.size}, weight: ${boxWeight}`);
+      console.log(`[Scan] Barcode: ${code}, hubMap size: ${effectiveHubMap.size}, weightMap size: ${effectiveWeightMap.size}, weight: ${boxWeight}, preAlerted: ${isPreAlerted}`);
 
       const insertData: any = {
         shipment_id: shipment.id,
         barcode: code,
-        status: 'scanned_in',
+        status: isPreAlerted ? 'scanned_in' : 'not_pre_alerted',
         scanned_in_at: new Date().toISOString(),
       };
       if (boxHub) insertData.hub = boxHub;
@@ -356,15 +369,18 @@ export default function InboundScanning() {
       const { error } = await supabase.from('outerboxes').insert(insertData);
       if (error) throw error;
 
-      return boxHub;
+      return { boxHub, isPreAlerted };
     },
-    onSuccess: (boxHub) => {
-      // Set current hub if this is the first scan in session
-      if (boxHub && !currentHub) {
-        setCurrentHub(boxHub);
+    onSuccess: (result) => {
+      if (result.boxHub && !currentHub) {
+        setCurrentHub(result.boxHub);
       }
       qc.invalidateQueries({ queryKey: ['scanned-boxes', shipment?.id] });
-      toast({ title: 'Box scanned', description: barcode });
+      if (!result.isPreAlerted) {
+        toast({ title: 'Scanned but not pre-alerted', description: `${barcode} is not in the manifest`, variant: 'destructive' });
+      } else {
+        toast({ title: 'Box scanned', description: barcode });
+      }
       setBarcode('');
       barcodeRef.current?.focus();
     },
@@ -741,16 +757,25 @@ export default function InboundScanning() {
                 <TableBody>
                 {scannedBoxes.map((box: any, i: number) => {
                     const isDeleted = box.status === 'deleted';
+                    const isNotPreAlerted = box.status === 'not_pre_alerted';
                     return (
-                    <TableRow key={box.id} className={isDeleted ? 'opacity-40' : ''}>
+                    <TableRow key={box.id} className={cn(
+                      isDeleted && 'opacity-40',
+                      isNotPreAlerted && 'bg-yellow-500/10'
+                    )}>
                       <TableCell className={isDeleted ? 'line-through' : ''}>{i + 1}</TableCell>
-                      <TableCell className={`font-mono ${isDeleted ? 'line-through' : ''}`}>{box.barcode}</TableCell>
+                      <TableCell className={`font-mono ${isDeleted ? 'line-through' : ''}`}>
+                        {isNotPreAlerted && <AlertTriangle className="h-3.5 w-3.5 text-yellow-500 inline mr-1.5" />}
+                        {box.barcode}
+                      </TableCell>
                       <TableCell className={`font-mono ${isDeleted ? 'line-through' : ''}`}>{box.hub || '—'}</TableCell>
                       <TableCell className={isDeleted ? 'line-through' : ''}>{new Date(box.scanned_in_at).toLocaleTimeString()}</TableCell>
                       <TableCell className={`font-mono ${isDeleted ? 'line-through' : ''}`}>{box.pallet_number || '—'}</TableCell>
                       <TableCell>
                         {isDeleted ? (
                           <span className="text-xs text-destructive font-medium line-through">Deleted</span>
+                        ) : isNotPreAlerted ? (
+                          <span className="text-xs text-yellow-600 font-medium">Not pre-alerted</span>
                         ) : (
                           <span className="text-xs text-muted-foreground">Scanned</span>
                         )}
