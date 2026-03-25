@@ -7,11 +7,13 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { StatusBadge } from '@/components/StatusBadge';
-import { Link } from 'react-router-dom';
-import { Package, ScanBarcode, ArrowUpFromLine, Truck, PackageCheck } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Link, useNavigate } from 'react-router-dom';
+import { Package, ScanBarcode, ArrowUpFromLine, Truck, PackageCheck, Search as SearchIcon } from 'lucide-react';
 
 export default function WarehouseDashboard() {
   const { data: auth } = useWarehouseAuth();
+  const navigate = useNavigate();
   const warehouseId = auth?.warehouseId;
   const today = new Date().toISOString().split('T')[0];
 
@@ -150,6 +152,25 @@ export default function WarehouseDashboard() {
     enabled: !!auth,
   });
 
+  // Fetch inspection counts per shipment for Fyco badge
+  const shipmentIds = useMemo(() => shipments.map((s: any) => s.id), [shipments]);
+  const { data: fycoCounts = {} } = useQuery({
+    queryKey: ['warehouse-fyco-counts', shipmentIds],
+    queryFn: async () => {
+      if (shipmentIds.length === 0) return {};
+      const { data } = await supabase
+        .from('inspections')
+        .select('shipment_id')
+        .in('shipment_id', shipmentIds);
+      const counts: Record<string, number> = {};
+      for (const row of (data ?? [])) {
+        counts[row.shipment_id] = (counts[row.shipment_id] || 0) + 1;
+      }
+      return counts;
+    },
+    enabled: shipmentIds.length > 0,
+  });
+
   const [statusFilter, setStatusFilter] = useState<string[]>(['In Transit', 'In Stock']);
 
   const filteredShipments = useMemo(() => {
@@ -272,15 +293,29 @@ export default function WarehouseDashboard() {
             <TableBody>
               {filteredShipments.length === 0 ? (
                 <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-8">No shipments found</TableCell></TableRow>
-              ) : filteredShipments.map((s: any) => (
+              ) : filteredShipments.map((s: any) => {
+                const fycoCount = (fycoCounts as Record<string, number>)[s.id] || 0;
+                return (
                 <TableRow key={s.id}>
-                  <TableCell className="font-mono font-medium">{s.mawb}</TableCell>
+                  <TableCell className="font-mono font-medium">
+                    {s.mawb}
+                    {fycoCount > 0 && (
+                      <Badge
+                        className="ml-2 cursor-pointer bg-amber-500/15 text-amber-600 border-amber-500/30 hover:bg-amber-500/25"
+                        onClick={(e) => { e.stopPropagation(); navigate(`/warehouse/inbound?mawb=${s.mawb}`); }}
+                      >
+                        <SearchIcon className="h-3 w-3 mr-1" />
+                        FYCO ({fycoCount})
+                      </Badge>
+                    )}
+                  </TableCell>
                   <TableCell>{(s.customers as any)?.name ?? '—'}</TableCell>
                   <TableCell>{s.colli_expected ?? '—'}</TableCell>
                   <TableCell><StatusBadge status={s.status} /></TableCell>
                   <TableCell>{s.eta ?? '—'}</TableCell>
                 </TableRow>
-              ))}
+                );
+              })}
             </TableBody>
           </Table>
         </CardContent>
