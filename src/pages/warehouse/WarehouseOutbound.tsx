@@ -564,7 +564,7 @@ export default function WarehouseOutbound() {
               </TableHeader>
               <TableBody>
                 {pallets.length === 0 ? (
-                  <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-6">Scan pallets to add</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground py-6">Scan pallets to add</TableCell></TableRow>
                 ) : pallets.map((p: any) => (
                   <TableRow key={p.id}>
                     <TableCell className="font-mono font-medium">{p.pallet_number}</TableCell>
