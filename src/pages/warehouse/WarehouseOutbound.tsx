@@ -16,7 +16,7 @@ import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import {
   Plus, ScanBarcode, FileText, Download, Printer, Upload, ArrowLeft,
-  Search, ChevronDown, ChevronRight, Loader2, Truck, Undo2, Check, X
+  Search, ChevronDown, ChevronRight, Loader2, Truck, Undo2, Check, X, Trash2
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { generateCmrWorkbook, downloadCmrWorkbook, printCmrViaPrintNode, type CmrData } from '@/lib/cmr-generator';
