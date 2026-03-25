@@ -1,8 +1,10 @@
+import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useWarehouseAuth } from '@/hooks/use-warehouse-auth';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { StatusBadge } from '@/components/StatusBadge';
 import { Link } from 'react-router-dom';
@@ -133,14 +135,15 @@ export default function WarehouseDashboard() {
 
 
 
-  // Active Shipments assigned to this warehouse
+  // All shipments assigned to this warehouse (broader fetch for filtering)
+  const allStatuses = ['Awaiting NOA', 'Partial NOA', 'NOA Complete', 'In Transit', 'In Stock', 'Outbound'];
   const { data: shipments = [] } = useQuery({
     queryKey: ['warehouse-shipments', warehouseId],
     queryFn: async () => {
       const query = supabase
         .from('shipments')
         .select('*, customers(name, short_name)')
-        .in('status', ['Awaiting NOA', 'Partial NOA', 'NOA Complete', 'In Transit', 'In Stock'])
+        .in('status', allStatuses)
         .order('created_at', { ascending: false });
       if (warehouseId) query.eq('warehouse_id', warehouseId);
       const { data } = await query;
@@ -148,6 +151,19 @@ export default function WarehouseDashboard() {
     },
     enabled: !!auth,
   });
+
+  const [statusFilter, setStatusFilter] = useState<string[]>(['In Transit', 'In Stock']);
+
+  const filteredShipments = useMemo(() => {
+    if (statusFilter.length === 0) return shipments;
+    return shipments.filter((s: any) => statusFilter.includes(s.status));
+  }, [shipments, statusFilter]);
+
+  const toggleStatus = (status: string) => {
+    setStatusFilter(prev =>
+      prev.includes(status) ? prev.filter(s => s !== status) : [...prev, status]
+    );
+  };
 
   const preparedTrucks = typeof preparedData === 'object' ? preparedData?.trucks ?? 0 : 0;
   const preparedColli = typeof preparedData === 'object' ? preparedData?.colli ?? 0 : 0;
@@ -226,8 +242,23 @@ export default function WarehouseDashboard() {
       </div>
 
       <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">Active Shipments</CardTitle>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+          <CardTitle className="text-lg">Shipments</CardTitle>
+          <div className="flex flex-wrap gap-1.5">
+            {allStatuses.map(status => (
+              <button
+                key={status}
+                onClick={() => toggleStatus(status)}
+                className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${
+                  statusFilter.includes(status)
+                    ? 'bg-accent text-accent-foreground'
+                    : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                }`}
+              >
+                {status}
+              </button>
+            ))}
+          </div>
         </CardHeader>
         <CardContent>
           <Table>
@@ -241,9 +272,9 @@ export default function WarehouseDashboard() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {shipments.length === 0 ? (
-                <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-8">No active shipments</TableCell></TableRow>
-              ) : shipments.map((s: any) => (
+              {filteredShipments.length === 0 ? (
+                <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-8">No shipments found</TableCell></TableRow>
+              ) : filteredShipments.map((s: any) => (
                 <TableRow key={s.id}>
                   <TableCell className="font-mono font-medium">{s.mawb}</TableCell>
                   <TableCell>{(s.customers as any)?.name ?? '—'}</TableCell>
