@@ -103,27 +103,6 @@ function useFycoData() {
       }
       if (!inspections || inspections.length === 0) return [];
 
-      const warehouseIds = [...new Set(
-        inspections
-          .map(insp => (insp as any).shipments?.warehouse_id)
-          .filter(Boolean)
-      )] as string[];
-
-      let warehouseMap = new Map<string, string>();
-      if (warehouseIds.length > 0) {
-        const { data: warehouses, error: warehouseError } = await supabase
-          .from('warehouses')
-          .select('id, name')
-          .in('id', warehouseIds);
-
-        if (warehouseError) {
-          console.error('Fyco warehouses query error:', warehouseError);
-          throw warehouseError;
-        }
-
-        warehouseMap = new Map((warehouses ?? []).map(warehouse => [warehouse.id, warehouse.name]));
-      }
-
       const barcodes = inspections.map(i => i.barcode ?? i.parcel_barcode).filter(Boolean);
       let outboundStatusMap = new Map<string, string>();
       if (barcodes.length > 0) {
