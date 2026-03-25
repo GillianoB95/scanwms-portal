@@ -46,6 +46,7 @@ export default function WarehouseOutbound() {
   // Active outbound (scan view)
   const [activeOutbound, setActiveOutbound] = useState<string | null>(null);
   const [palletBarcode, setPalletBarcode] = useState('');
+  const [boxDetailPalletId, setBoxDetailPalletId] = useState<string | null>(null);
 
   // CMR state
   const [cmrOutbound, setCmrOutbound] = useState<any>(null);
@@ -106,7 +107,28 @@ export default function WarehouseOutbound() {
         .from('pallets')
         .select('*, shipments(mawb, customs_cleared, customers(short_name))')
         .eq('outbound_id', activeOutbound);
-      return data ?? [];
+      // Fetch outerboxes for each pallet to get scanned_in_at
+      const palletData = data ?? [];
+      if (palletData.length > 0) {
+        const palletIds = palletData.map((p: any) => p.id);
+        const { data: boxes } = await supabase
+          .from('outerboxes')
+          .select('id, barcode, pallet_id, scanned_in_at')
+          .in('pallet_id', palletIds)
+          .neq('status', 'deleted');
+        const boxMap = new Map<string, any[]>();
+        for (const b of (boxes ?? [])) {
+          if (!boxMap.has(b.pallet_id)) boxMap.set(b.pallet_id, []);
+          boxMap.get(b.pallet_id)!.push(b);
+        }
+        for (const p of palletData) {
+          p._boxes = boxMap.get(p.id) ?? [];
+          // Use earliest box scan time as pallet scan time
+          const scanTimes = p._boxes.filter((b: any) => b.scanned_in_at).map((b: any) => new Date(b.scanned_in_at).getTime());
+          p._scannedAt = scanTimes.length > 0 ? new Date(Math.min(...scanTimes)).toISOString() : null;
+        }
+      }
+      return palletData;
     },
     enabled: !!activeOutbound,
   });
@@ -509,33 +531,49 @@ export default function WarehouseOutbound() {
 
             <Table>
               <TableHeader>
-                <TableRow>
+                 <TableRow>
                   <TableHead>Pallet</TableHead>
+                  <TableHead>MAWB</TableHead>
                   <TableHead>Client</TableHead>
                   <TableHead>Hub</TableHead>
                   <TableHead className="text-right">Colli</TableHead>
                   <TableHead className="text-right">Weight</TableHead>
+                  <TableHead>Scanned</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {pallets.length === 0 ? (
-                  <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-6">Scan pallets to add</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-6">Scan pallets to add</TableCell></TableRow>
                 ) : pallets.map((p: any) => (
                   <TableRow key={p.id}>
                     <TableCell className="font-mono font-medium">{p.pallet_number}</TableCell>
+                    <TableCell className="font-mono text-sm">{(p.shipments as any)?.mawb ?? '—'}</TableCell>
                     <TableCell>{(p.shipments as any)?.customers?.short_name ?? '—'}</TableCell>
                     <TableCell>{p.hub_code}</TableCell>
-                    <TableCell className="text-right">{p.pieces ?? '—'}</TableCell>
+                    <TableCell className="text-right">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-auto py-0.5 px-1.5 font-semibold tabular-nums"
+                        onClick={() => setBoxDetailPalletId(p.id)}
+                      >
+                        {p.pieces ?? 0}
+                      </Button>
+                    </TableCell>
                     <TableCell className="text-right">{p.weight != null ? `${Number(p.weight).toFixed(2)} kg` : '—'}</TableCell>
+                    <TableCell className="text-xs text-muted-foreground">
+                      {p._scannedAt ? format(new Date(p._scannedAt), 'dd/MM HH:mm') : '—'}
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
               {pallets.length > 0 && (
                 <TableFooter>
                   <TableRow>
-                    <TableCell colSpan={3} className="font-semibold">Total ({pallets.length} pallets)</TableCell>
+                    <TableCell colSpan={4} className="font-semibold">Total ({pallets.length} pallets)</TableCell>
                     <TableCell className="text-right font-semibold">{totalColli}</TableCell>
                     <TableCell className="text-right font-semibold">{totalWeight.toFixed(2)} kg</TableCell>
+                    <TableCell />
                   </TableRow>
                 </TableFooter>
               )}
@@ -554,6 +592,42 @@ export default function WarehouseOutbound() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Box Detail Dialog */}
+        <Dialog open={!!boxDetailPalletId} onOpenChange={v => { if (!v) setBoxDetailPalletId(null); }}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Box Details — {pallets.find((p: any) => p.id === boxDetailPalletId)?.pallet_number}</DialogTitle>
+            </DialogHeader>
+            <div className="max-h-[400px] overflow-y-auto">
+              {(() => {
+                const pallet = pallets.find((p: any) => p.id === boxDetailPalletId);
+                const boxes = pallet?._boxes ?? [];
+                if (boxes.length === 0) return <p className="text-sm text-muted-foreground py-4 text-center">No boxes found</p>;
+                return (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Barcode</TableHead>
+                        <TableHead>Scanned At</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {boxes.map((b: any) => (
+                        <TableRow key={b.id}>
+                          <TableCell className="font-mono text-sm">{b.barcode}</TableCell>
+                          <TableCell className="text-xs text-muted-foreground">
+                            {b.scanned_in_at ? format(new Date(b.scanned_in_at), 'dd/MM/yyyy HH:mm') : '—'}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                );
+              })()}
+            </div>
+          </DialogContent>
+        </Dialog>
 
         {/* CMR Dialog */}
         <Dialog open={!!cmrOutbound} onOpenChange={v => { if (!v) setCmrOutbound(null); }}>
