@@ -857,30 +857,23 @@ export default function InboundScanning() {
         </DialogContent>
       </Dialog>
 
-      {/* Not Pre-Alerted Confirmation Dialog */}
-      <Dialog open={!!notPreAlertedBarcode} onOpenChange={(v) => { if (!v) { setNotPreAlertedBarcode(null); barcodeRef.current?.focus(); } }}>
+      <Dialog open={!!notPreAlertedBarcode} onOpenChange={(v) => { if (!v) { setNotPreAlertedBarcode(null); setBarcode(''); barcodeRef.current?.focus(); } }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <AlertTriangle className="h-5 w-5 text-yellow-500" />
-              Not Pre-Alerted
+              <AlertTriangle className="h-5 w-5 text-destructive" />
+              Unknown Barcode
             </DialogTitle>
           </DialogHeader>
-          <p className="text-sm text-muted-foreground py-2">
-            Barcode <span className="font-mono font-bold">{notPreAlertedBarcode}</span> was not found in the manifest. This label might not be correct, are you sure?
+          <p className="text-sm py-2">
+            Barcode <span className="font-mono font-bold">{notPreAlertedBarcode}</span> was not found in the manifest.
+          </p>
+          <p className="text-sm font-medium text-destructive">
+            Recheck the label and/or report to the supervisor.
           </p>
           <DialogFooter>
-            <Button variant="outline" onClick={() => { setNotPreAlertedBarcode(null); barcodeRef.current?.focus(); }}>Cancel</Button>
-            <Button
-              variant="destructive"
-              onClick={() => {
-                if (notPreAlertedBarcode) {
-                  doInsertScan(notPreAlertedBarcode);
-                  setNotPreAlertedBarcode(null);
-                }
-              }}
-            >
-              Confirm Scan
+            <Button onClick={() => { setNotPreAlertedBarcode(null); setBarcode(''); barcodeRef.current?.focus(); }}>
+              OK
             </Button>
           </DialogFooter>
         </DialogContent>
