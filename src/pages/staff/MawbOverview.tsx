@@ -9,6 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { StatusBadge } from '@/components/StatusBadge';
 import { useAllShipments, useUpdateShipment, useDeleteShipment, useShipmentBlocks, useCreateBlock, useRemoveBlock, useShipmentInspections, useCreateInspections } from '@/hooks/use-staff-data';
+import { supabase } from '@/lib/supabase';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
@@ -107,6 +108,18 @@ function CcYesModal({ shipment, open, onOpenChange }: { shipment: any; open: boo
         const lines = barcodes.split('\n').map(l => l.trim()).filter(Boolean);
         if (lines.length === 0) {
           toast.error('Enter at least one barcode');
+          setSaving(false);
+          return;
+        }
+        // Validate barcodes against manifest (outerboxes table)
+        const { data: manifestParcels } = await supabase
+          .from('outerboxes')
+          .select('barcode')
+          .eq('shipment_id', shipment.id);
+        const manifestBarcodes = new Set((manifestParcels ?? []).map((p: any) => p.barcode?.trim()));
+        const invalidBarcodes = lines.filter(b => !manifestBarcodes.has(b));
+        if (invalidBarcodes.length > 0) {
+          toast.error(`This parcel barcode was not found in the manifest for this shipment. Please check the barcode and try again.\n\nNot found: ${invalidBarcodes.join(', ')}`);
           setSaving(false);
           return;
         }
