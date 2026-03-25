@@ -365,9 +365,24 @@ export default function WarehouseOutbound() {
   const totalWeight = pallets.reduce((sum: number, p: any) => sum + (p.weight || 0), 0);
 
   // ─── CMR logic ───
-  const buildCmrDataPerSubClient = (): Map<string, CmrData> => {
+  const buildCmrDataPerSubClient = (): { cmrMap: Map<string, CmrData>; error?: string } => {
     const selectedAddress = hubAddresses.find((a: any) => a.id === cmrAddressId);
-    if (!selectedAddress || !warehouseData) return new Map();
+    if (!selectedAddress) {
+      return { cmrMap: new Map(), error: 'Select a hub address first' };
+    }
+
+    if (cmrPallets.length === 0) {
+      return { cmrMap: new Map(), error: 'No pallets found for this outbound' };
+    }
+
+    const warehouseConfig = warehouseData ?? {
+      name: auth?.warehouseId ? '' : 'Warehouse',
+      cmr_name: '',
+      cmr_street: '',
+      cmr_postal_city: '',
+      cmr_country: '',
+      cmr_city: '',
+    };
 
     const subClientGroups = new Map<string, typeof cmrPallets>();
     for (const p of cmrPallets) {
@@ -394,12 +409,12 @@ export default function WarehouseOutbound() {
       }));
 
       result.set(subClient, {
-        warehouseName: warehouseData.cmr_name || warehouseData.name || '',
-        warehouseStreet: warehouseData.cmr_street || '',
-        warehousePostalCity: warehouseData.cmr_postal_city || '',
-        warehouseCountry: warehouseData.cmr_country || '',
-        warehouseCity: warehouseData.cmr_city || '',
-        hubName: selectedAddress.name,
+        warehouseName: warehouseConfig.cmr_name || warehouseConfig.name || '',
+        warehouseStreet: warehouseConfig.cmr_street || '',
+        warehousePostalCity: warehouseConfig.cmr_postal_city || '',
+        warehouseCountry: warehouseConfig.cmr_country || '',
+        warehouseCity: warehouseConfig.cmr_city || '',
+        hubName: selectedAddress.hub_name || selectedAddress.name,
         hubStreet: selectedAddress.street || '',
         hubHouseNumber: selectedAddress.house_number || '',
         hubPostalCode: selectedAddress.postal_code || '',
@@ -411,15 +426,16 @@ export default function WarehouseOutbound() {
         lines,
       });
     }
-    return result;
+
+    return { cmrMap: result };
   };
 
   const handleDownloadCmr = async () => {
     setCmrGenerating(true);
     try {
-      const cmrMap = buildCmrDataPerSubClient();
-      if (cmrMap.size === 0) {
-        toast({ title: 'No data', description: 'No pallets found for CMR generation', variant: 'destructive' });
+      const { cmrMap, error } = buildCmrDataPerSubClient();
+      if (error) {
+        toast({ title: 'Cannot generate CMR', description: error, variant: 'destructive' });
         return;
       }
       if (cmrMap.size === 1) {
