@@ -262,10 +262,12 @@ export default function HubManagement() {
                       <Trash2 className="h-3 w-3" />
                     </Button>
                   </div>
-                  <div className="space-y-2">
+                  <div className="space-y-1">
+                    <label className="text-xs text-muted-foreground">Hub Name (shown on CMR)</label>
                     <Input placeholder="Hub Name" value={addr.hub_name} onChange={e => updateAddress(idx, 'hub_name', e.target.value)} />
                   </div>
-                  <div className="space-y-2">
+                  <div className="space-y-1">
+                    <label className="text-xs text-muted-foreground">Company Name</label>
                     <Input placeholder="Company Name" value={addr.name} onChange={e => updateAddress(idx, 'name', e.target.value)} />
                   </div>
                   <div className="grid grid-cols-3 gap-2">
