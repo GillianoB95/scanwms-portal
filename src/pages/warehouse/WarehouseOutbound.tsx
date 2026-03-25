@@ -156,11 +156,15 @@ export default function WarehouseOutbound() {
   const { data: warehouseData } = useQuery({
     queryKey: ['warehouse-cmr-data', warehouseId],
     queryFn: async () => {
-      if (!warehouseId) return null;
-      const { data } = await supabase.from('warehouses').select('*').eq('id', warehouseId).maybeSingle();
+      if (warehouseId) {
+        const { data } = await supabase.from('warehouses').select('*').eq('id', warehouseId).maybeSingle();
+        if (data) return data;
+      }
+      // Fallback: fetch first warehouse if no warehouse_id assigned
+      const { data } = await supabase.from('warehouses').select('*').order('code').limit(1).maybeSingle();
       return data;
     },
-    enabled: !!warehouseId,
+    enabled: !!auth?.isWarehouse,
   });
 
   const { data: cmrPallets = [] } = useQuery({
