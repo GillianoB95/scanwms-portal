@@ -657,6 +657,7 @@ export default function InboundScanning() {
                       <TableHead>Pieces</TableHead>
                       <TableHead>Weight</TableHead>
                       <TableHead>Status</TableHead>
+                      <TableHead>Outbound</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
