@@ -493,7 +493,7 @@ export default function WarehouseOutbound() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Pallet</TableHead>
-                  <TableHead>Subklant</TableHead>
+                  <TableHead>Client</TableHead>
                   <TableHead>Hub</TableHead>
                   <TableHead className="text-right">Colli</TableHead>
                   <TableHead className="text-right">Weight</TableHead>
