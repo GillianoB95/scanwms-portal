@@ -653,6 +653,7 @@ export default function InboundScanning() {
                   <TableHeader>
                     <TableRow>
                       <TableHead>Pallet #</TableHead>
+                      <TableHead>Created</TableHead>
                       <TableHead>Hub</TableHead>
                       <TableHead>Pieces</TableHead>
                       <TableHead>Weight</TableHead>
