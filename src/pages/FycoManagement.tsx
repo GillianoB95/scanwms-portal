@@ -112,12 +112,16 @@ function useFycoData() {
           released_by,
           customs_remarks,
           created_at,
+          email_sent_at,
+          email_sent_by,
           shipments (
             mawb,
             warehouse_id,
+            customer_id,
             customs_cleared_at,
             subklanten ( name ),
-            customers ( name )
+            customers ( name ),
+            warehouses ( name, code )
           )
         `)
         .order('scan_time', { ascending: false, nullsFirst: false });
