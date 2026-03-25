@@ -31,15 +31,19 @@ export function generateCmrWorkbook(data: CmrData): XLSX.WorkBook {
   const ws: XLSX.WorkSheet = {};
 
   // Helper to set cell value
-  const set = (ref: string, val: string | number) => {
-    ws[ref] = { t: typeof val === 'number' ? 'n' : 's', v: val };
+  const set = (ref: string, val: string | number, bold = false) => {
+    ws[ref] = {
+      t: typeof val === 'number' ? 'n' : 's',
+      v: val,
+      s: bold ? { font: { bold: true } } : undefined,
+    };
   };
 
-  // Sender (warehouse)
-  set('B1', data.warehouseName);
-  set('B2', data.warehouseStreet);
-  set('B3', data.warehousePostalCity);
-  set('B4', data.warehouseCountry);
+  // Sender (warehouse) — bold
+  set('B1', data.warehouseName, true);
+  set('B2', data.warehouseStreet, true);
+  set('B3', data.warehousePostalCity, true);
+  set('B4', data.warehouseCountry, true);
 
   // Receiver (hub address)
   set('B7', data.hubName);
@@ -53,7 +57,7 @@ export function generateCmrWorkbook(data: CmrData): XLSX.WorkBook {
 
   // Place/date of loading
   set('B18', `${data.warehouseCity}, ${data.warehouseCountry}`);
-  set('H18', `Loading ref: ${data.truckReference}`);
+  set('H18', `  Loading ref: ${data.truckReference}`);
 
   // Cargo lines (MAWB rows starting at row 26, max row 39)
   let totalColli = 0;
@@ -70,9 +74,9 @@ export function generateCmrWorkbook(data: CmrData): XLSX.WorkBook {
     totalWeight += line.weightKg;
   });
 
-  // Totals
-  set('B41', 'Totaal\t');
-  set('D41', `${totalColli} colli`);
+  // Totals — bold
+  set('B41', 'Totaal\t', true);
+  set('D41', `${totalColli} colli`, true);
   set('G41', totalWeight);
   set('H41', 'KG');
 
@@ -91,6 +95,18 @@ export function generateCmrWorkbook(data: CmrData): XLSX.WorkBook {
   set('B59', data.warehouseName);
   set('B60', data.warehouseStreet);
   set('B61', data.warehousePostalCity);
+
+  // Column widths (match template)
+  ws['!cols'] = [
+    { wch: 2 },   // A
+    { wch: 22 },  // B
+    { wch: 8.43 },// C (default)
+    { wch: 16 },  // D
+    { wch: 6 },   // E
+    { wch: 8.43 },// F (default)
+    { wch: 17 },  // G
+    { wch: 19 },  // H
+  ];
 
   // Set sheet range to cover all used cells
   ws['!ref'] = 'A1:I61';
