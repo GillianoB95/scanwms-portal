@@ -915,6 +915,29 @@ export default function InboundScanning() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Fyco blocked dialog */}
+      <Dialog open={!!fycoBlockedBarcode} onOpenChange={(v) => { if (!v) { setFycoBlockedBarcode(null); setBarcode(''); barcodeRef.current?.focus(); } }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-destructive" />
+              ⚠️ Fyco Parcel Detected
+            </DialogTitle>
+          </DialogHeader>
+          <p className="text-sm py-2">
+            Outerbox <span className="font-mono font-bold">{fycoBlockedBarcode}</span> contains a fyco inspection parcel that has not been individually scanned yet.
+          </p>
+          <p className="text-sm font-medium text-destructive">
+            Please scan the individual parcel barcode first.
+          </p>
+          <DialogFooter>
+            <Button onClick={() => { setFycoBlockedBarcode(null); setBarcode(''); barcodeRef.current?.focus(); }}>
+              OK
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
