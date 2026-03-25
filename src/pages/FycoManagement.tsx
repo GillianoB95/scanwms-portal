@@ -24,7 +24,9 @@ interface FycoRow {
   mawb: string;
   hub_code: string | null;
   warehouse: string | null;
+  warehouse_name: string | null;
   subklant: string | null;
+  customer_id: string | null;
   location: string | null;
   scan_time: string | null;
   checked_at: string | null;
@@ -40,6 +42,8 @@ interface FycoRow {
   customs_remarks: string | null;
   customs_cleared_at: string | null;
   sla_deadline: string | null;
+  email_sent_at: string | null;
+  email_sent_by: string | null;
   // derived
   outbound_status: string | null;
 }
