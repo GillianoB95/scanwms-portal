@@ -46,6 +46,7 @@ export default function WarehouseOutbound() {
   // Active outbound (scan view)
   const [activeOutbound, setActiveOutbound] = useState<string | null>(null);
   const [palletBarcode, setPalletBarcode] = useState('');
+  const [boxDetailPalletId, setBoxDetailPalletId] = useState<string | null>(null);
 
   // CMR state
   const [cmrOutbound, setCmrOutbound] = useState<any>(null);
