@@ -46,7 +46,7 @@ function useEmailTemplates() {
   return useQuery({
     queryKey: ['email-templates'],
     queryFn: async () => {
-      const { data, error } = await supabase.from('email_templates').select('*').order('template_key');
+      const { data, error } = await supabase.from('email_templates').select('*').order('template_type');
       if (error) throw error;
       return data ?? [];
     },
@@ -56,8 +56,8 @@ function useEmailTemplates() {
 function useUpsertTemplate() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (tpl: { template_key: string; subject: string; body: string }) => {
-      const { data: existing } = await supabase.from('email_templates').select('id').eq('template_key', tpl.template_key).maybeSingle();
+    mutationFn: async (tpl: { template_type: string; subject: string; body: string }) => {
+      const { data: existing } = await supabase.from('email_templates').select('id').eq('template_type', tpl.template_type).maybeSingle();
       if (existing) {
         const { error } = await supabase.from('email_templates').update({ subject: tpl.subject, body: tpl.body }).eq('id', existing.id);
         if (error) throw error;
@@ -81,7 +81,7 @@ function EmailTemplatesTab() {
   const [body, setBody] = useState('');
 
   const startEdit = (key: string) => {
-    const saved = templates.find((t: any) => t.template_key === key);
+    const saved = templates.find((t: any) => t.template_type === key);
     const def = DEFAULT_TEMPLATES.find(d => d.key === key)!;
     setSubject(saved?.subject ?? def.default_subject);
     setBody(saved?.body ?? def.default_body);
@@ -90,7 +90,7 @@ function EmailTemplatesTab() {
 
   const handleSave = async () => {
     if (!editing) return;
-    await upsert.mutateAsync({ template_key: editing, subject, body });
+    await upsert.mutateAsync({ template_type: editing, subject, body });
     setEditing(null);
   };
 
@@ -112,7 +112,7 @@ function EmailTemplatesTab() {
           </TableHeader>
           <TableBody>
             {DEFAULT_TEMPLATES.map(def => {
-              const saved = templates.find((t: any) => t.template_key === def.key);
+              const saved = templates.find((t: any) => t.template_type === def.key);
               return (
                 <TableRow key={def.key}>
                   <TableCell className="font-medium">{def.label}</TableCell>
@@ -393,7 +393,7 @@ function useCustomsInspectionTemplate() {
       const { data, error } = await supabase
         .from('email_templates')
         .select('*')
-        .eq('template_key', 'customs_inspection')
+        .eq('template_type', 'customs_inspection')
         .maybeSingle();
       if (error) throw error;
       return data;
@@ -423,12 +423,12 @@ function CustomsInspectionTab() {
 
   const handleSave = async () => {
     // Upsert template + recipients
-    const { data: existing } = await supabase.from('email_templates').select('id').eq('template_key', 'customs_inspection').maybeSingle();
+    const { data: existing } = await supabase.from('email_templates').select('id').eq('template_type', 'customs_inspection').maybeSingle();
     if (existing) {
       const { error } = await supabase.from('email_templates').update({ subject, body, recipients }).eq('id', existing.id);
       if (error) { toast.error('Failed to save'); return; }
     } else {
-      const { error } = await supabase.from('email_templates').insert({ template_key: 'customs_inspection', subject, body, recipients });
+      const { error } = await supabase.from('email_templates').insert({ template_type: 'customs_inspection', subject, body, recipients });
       if (error) { toast.error('Failed to save'); return; }
     }
     toast.success('Customs inspection template saved');

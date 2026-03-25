@@ -208,7 +208,7 @@ function SendToCustomsModal({ open, onOpenChange, parcels, isStaff: _isStaff, us
   const { data: template } = useQuery({
     queryKey: ['customs-inspection-template'],
     queryFn: async () => {
-      const { data } = await supabase.from('email_templates').select('*').eq('template_key', 'customs_inspection').maybeSingle();
+      const { data } = await supabase.from('email_templates').select('*').eq('template_type', 'customs_inspection').maybeSingle();
       return data;
     },
   });
