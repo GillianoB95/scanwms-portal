@@ -329,12 +329,24 @@ export default function InboundScanning() {
 
       const normalizedCode = normalizeBoxBarcode(code);
 
+      // Check for duplicate barcode
+      const { data: existing } = await supabase
+        .from('outerboxes')
+        .select('id, status')
+        .eq('shipment_id', shipment.id)
+        .eq('barcode', code)
+        .neq('status', 'deleted');
+      if (existing && existing.length > 0) {
+        throw new Error(`Barcode "${code}" is already scanned for this shipment.`);
+      }
+
       const freshManifestData = await fetchManifestDataForShipment(shipment.id);
       const effectiveHubMap = freshManifestData.hubMap.size > 0 ? freshManifestData.hubMap : hubMap;
       const effectiveWeightMap = freshManifestData.weightMap.size > 0 ? freshManifestData.weightMap : weightMap;
 
       // Look up hub + weight from manifest
       const boxHub = effectiveHubMap.get(normalizedCode) || null;
+      const isPreAlerted = effectiveHubMap.has(normalizedCode);
 
       // Hub consistency check
       if (boxHub && currentHub && boxHub !== currentHub) {
@@ -342,12 +354,12 @@ export default function InboundScanning() {
       }
 
       const boxWeight = effectiveWeightMap.get(normalizedCode) || null;
-      console.log(`[Scan] Barcode: ${code}, hubMap size: ${effectiveHubMap.size}, weightMap size: ${effectiveWeightMap.size}, weight: ${boxWeight}`);
+      console.log(`[Scan] Barcode: ${code}, hubMap size: ${effectiveHubMap.size}, weightMap size: ${effectiveWeightMap.size}, weight: ${boxWeight}, preAlerted: ${isPreAlerted}`);
 
       const insertData: any = {
         shipment_id: shipment.id,
         barcode: code,
-        status: 'scanned_in',
+        status: isPreAlerted ? 'scanned_in' : 'not_pre_alerted',
         scanned_in_at: new Date().toISOString(),
       };
       if (boxHub) insertData.hub = boxHub;
@@ -356,7 +368,7 @@ export default function InboundScanning() {
       const { error } = await supabase.from('outerboxes').insert(insertData);
       if (error) throw error;
 
-      return boxHub;
+      return { boxHub, isPreAlerted };
     },
     onSuccess: (boxHub) => {
       // Set current hub if this is the first scan in session
