@@ -35,6 +35,8 @@ interface FycoRow {
   released_at: string | null;
   released_by: string | null;
   customs_remarks: string | null;
+  customs_cleared_at: string | null;
+  sla_deadline: string | null;
   // derived
   outbound_status: string | null;
 }
