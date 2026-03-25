@@ -30,16 +30,25 @@ function normalizeBoxBarcode(value: unknown): string {
 }
 
 // Parse a cleaned manifest XLSX blob and return maps: BoxBagbarcode -> hub, BoxBagbarcode -> weight, BoxBagbarcode -> parcel_barcodes
-async function parseManifestData(blob: Blob): Promise<{ hubMap: Map<string, string>; weightMap: Map<string, number>; boxToParcelMap: Map<string, string[]> }> {
+// Parse a cleaned manifest XLSX blob and return maps
+async function parseManifestData(blob: Blob): Promise<{
+  hubMap: Map<string, string>;
+  weightMap: Map<string, number>;
+  boxToParcelMap: Map<string, string[]>;
+  parcelSet: Set<string>;
+  parcelToBoxMap: Map<string, string>;
+}> {
   const hubMap = new Map<string, string>();
   const weightMap = new Map<string, number>();
   const boxToParcelMap = new Map<string, string[]>();
+  const parcelSet = new Set<string>();
+  const parcelToBoxMap = new Map<string, string>();
   try {
     const arrayBuffer = await blob.arrayBuffer();
     const workbook = XLSX.read(arrayBuffer, { type: 'array' });
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
     const rows: any[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
-    if (rows.length < 2) return { hubMap, weightMap, boxToParcelMap };
+    if (rows.length < 2) return { hubMap, weightMap, boxToParcelMap, parcelSet, parcelToBoxMap };
 
     const header = rows[0].map((h: any) => String(h).trim().toLowerCase());
     let boxBagCol = 2;
@@ -80,20 +89,22 @@ async function parseManifestData(blob: Blob): Promise<{ hubMap: Map<string, stri
         weightMap.set(boxBag, (weightMap.get(boxBag) || 0) + weight);
       }
 
-      // Map box to parcel barcodes
+      // Map box to parcel barcodes and build parcel lookup
       if (parcelCol >= 0 && boxBag) {
         const parcelBarcode = String(row[parcelCol] || '').trim();
         if (parcelBarcode) {
           const existing = boxToParcelMap.get(boxBag) || [];
           existing.push(parcelBarcode);
           boxToParcelMap.set(boxBag, existing);
+          parcelSet.add(parcelBarcode.toUpperCase());
+          parcelToBoxMap.set(parcelBarcode.toUpperCase(), boxBag);
         }
       }
     }
   } catch (err) {
     console.error('Failed to parse manifest:', err);
   }
-  return { hubMap, weightMap, boxToParcelMap };
+  return { hubMap, weightMap, boxToParcelMap, parcelSet, parcelToBoxMap };
 }
 
 export default function InboundScanning() {
@@ -112,6 +123,8 @@ export default function InboundScanning() {
   const [notPreAlertedBarcode, setNotPreAlertedBarcode] = useState<string | null>(null);
   const [fycoBlockedBarcode, setFycoBlockedBarcode] = useState<string | null>(null);
   const [boxToParcelMap, setBoxToParcelMap] = useState<Map<string, string[]>>(new Map());
+  const [parcelSet, setParcelSet] = useState<Set<string>>(new Set());
+  const [parcelToBoxMap, setParcelToBoxMap] = useState<Map<string, string>>(new Map());
   const barcodeRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const qc = useQueryClient();
@@ -151,7 +164,7 @@ export default function InboundScanning() {
   });
 
   const fetchManifestDataForShipment = useCallback(async (shipmentId: string) => {
-    const empty = { hubMap: new Map<string, string>(), weightMap: new Map<string, number>(), boxToParcelMap: new Map<string, string[]>() };
+    const empty = { hubMap: new Map<string, string>(), weightMap: new Map<string, number>(), boxToParcelMap: new Map<string, string[]>(), parcelSet: new Set<string>(), parcelToBoxMap: new Map<string, string>() };
     try {
       const { data: files } = await supabase
         .from('shipment_files')
@@ -180,10 +193,12 @@ export default function InboundScanning() {
   }, []);
 
   const loadManifestHubs = useCallback(async (shipmentId: string) => {
-    const { hubMap: hMap, weightMap: wMap, boxToParcelMap: bpMap } = await fetchManifestDataForShipment(shipmentId);
+    const { hubMap: hMap, weightMap: wMap, boxToParcelMap: bpMap, parcelSet: pSet, parcelToBoxMap: ptbMap } = await fetchManifestDataForShipment(shipmentId);
     setHubMap(hMap);
     setWeightMap(wMap);
     setBoxToParcelMap(bpMap);
+    setParcelSet(pSet);
+    setParcelToBoxMap(ptbMap);
   }, [fetchManifestDataForShipment]);
 
   const handleMawbSearch = async () => {
@@ -346,24 +361,48 @@ export default function InboundScanning() {
         throw new Error(`Inbound blocked: ${blocks[0].reason || 'No reason provided'}`);
       }
 
-      const { data: existing } = await supabase
-        .from('outerboxes')
-        .select('id, status')
-        .eq('shipment_id', shipment.id)
-        .eq('barcode', code)
-        .neq('status', 'deleted');
-      if (existing && existing.length > 0) {
-        throw new Error(`Barcode "${code}" is already scanned for this shipment.`);
-      }
-
       const normalizedCode = normalizeBoxBarcode(code);
       const freshManifestData = await fetchManifestDataForShipment(shipment.id);
       const effectiveHubMap = freshManifestData.hubMap.size > 0 ? freshManifestData.hubMap : hubMap;
       const effectiveBoxToParcelMap = freshManifestData.boxToParcelMap.size > 0 ? freshManifestData.boxToParcelMap : boxToParcelMap;
-      const isPreAlerted = effectiveHubMap.has(normalizedCode);
+      const effectiveParcelSet = freshManifestData.parcelSet.size > 0 ? freshManifestData.parcelSet : parcelSet;
+
+      const isBoxPreAlerted = effectiveHubMap.has(normalizedCode);
+      const isParcelInManifest = effectiveParcelSet.has(code.toUpperCase());
+
+      // If this is a parcel barcode from the manifest → it's a fyco individual parcel scan
+      if (!isBoxPreAlerted && isParcelInManifest) {
+        // Set scan_time on the matching inspection record
+        const { data: inspection } = await supabase
+          .from('inspections')
+          .select('id, scan_time')
+          .eq('shipment_id', shipment.id)
+          .eq('parcel_barcode', code)
+          .maybeSingle();
+        if (inspection && !inspection.scan_time) {
+          await supabase
+            .from('inspections')
+            .update({ scan_time: new Date().toISOString() })
+            .eq('id', inspection.id);
+        }
+        return { isPreAlerted: true, fycoBlocked: false, isParcelScan: true };
+      }
+
+      // Check duplicate for outerbox scans
+      if (isBoxPreAlerted) {
+        const { data: existing } = await supabase
+          .from('outerboxes')
+          .select('id, status')
+          .eq('shipment_id', shipment.id)
+          .eq('barcode', code)
+          .neq('status', 'deleted');
+        if (existing && existing.length > 0) {
+          throw new Error(`Barcode "${code}" is already scanned for this shipment.`);
+        }
+      }
 
       // Fyco detection: check if any parcel under this outerbox is an inspection parcel without scan_time
-      if (isPreAlerted) {
+      if (isBoxPreAlerted) {
         const parcelsForBox = effectiveBoxToParcelMap.get(normalizedCode) || [];
         if (parcelsForBox.length > 0) {
           const { data: fycoInspections } = await supabase
@@ -373,15 +412,21 @@ export default function InboundScanning() {
             .in('parcel_barcode', parcelsForBox)
             .is('scan_time', null);
           if (fycoInspections && fycoInspections.length > 0) {
-            return { isPreAlerted, fycoBlocked: true };
+            return { isPreAlerted: true, fycoBlocked: true, isParcelScan: false };
           }
         }
       }
 
-      return { isPreAlerted, fycoBlocked: false };
+      return { isPreAlerted: isBoxPreAlerted, fycoBlocked: false, isParcelScan: false };
     },
     onSuccess: (result) => {
-      if (!result.isPreAlerted) {
+      if (result.isParcelScan) {
+        // Individual parcel scan succeeded — scan_time set
+        toast({ title: 'Fyco parcel scanned', description: `${barcode.trim()} — scan time recorded` });
+        setBarcode('');
+        barcodeRef.current?.focus();
+        qc.invalidateQueries({ queryKey: ['fyco-management'] });
+      } else if (!result.isPreAlerted) {
         setNotPreAlertedBarcode(barcode.trim());
       } else if (result.fycoBlocked) {
         setFycoBlockedBarcode(barcode.trim());
