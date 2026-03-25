@@ -107,7 +107,28 @@ export default function WarehouseOutbound() {
         .from('pallets')
         .select('*, shipments(mawb, customs_cleared, customers(short_name))')
         .eq('outbound_id', activeOutbound);
-      return data ?? [];
+      // Fetch outerboxes for each pallet to get scanned_in_at
+      const palletData = data ?? [];
+      if (palletData.length > 0) {
+        const palletIds = palletData.map((p: any) => p.id);
+        const { data: boxes } = await supabase
+          .from('outerboxes')
+          .select('id, barcode, pallet_id, scanned_in_at')
+          .in('pallet_id', palletIds)
+          .neq('status', 'deleted');
+        const boxMap = new Map<string, any[]>();
+        for (const b of (boxes ?? [])) {
+          if (!boxMap.has(b.pallet_id)) boxMap.set(b.pallet_id, []);
+          boxMap.get(b.pallet_id)!.push(b);
+        }
+        for (const p of palletData) {
+          p._boxes = boxMap.get(p.id) ?? [];
+          // Use earliest box scan time as pallet scan time
+          const scanTimes = p._boxes.filter((b: any) => b.scanned_in_at).map((b: any) => new Date(b.scanned_in_at).getTime());
+          p._scannedAt = scanTimes.length > 0 ? new Date(Math.min(...scanTimes)).toISOString() : null;
+        }
+      }
+      return palletData;
     },
     enabled: !!activeOutbound,
   });
