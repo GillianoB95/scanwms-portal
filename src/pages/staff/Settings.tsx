@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
-import { Loader2, Plus, Pencil, Trash2, Save } from 'lucide-react';
+import { Loader2, Plus, Pencil, Trash2, Save, AlertTriangle } from 'lucide-react';
+import { useAlarmSettings, useUpdateAlarmSettings } from '@/hooks/use-alarm-settings';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
@@ -465,13 +466,85 @@ function CustomsInspectionTab() {
   );
 }
 
+/* ─── Alarm Settings Tab ─── */
+const ALARM_FIELDS = [
+  { key: 'fyco_no_check_days', label: 'Fyco: no check alarm', unit: 'working days', description: 'Days after scan without customs check' },
+  { key: 'fyco_no_action_days', label: 'Fyco: no action after check', unit: 'working days', description: 'Days after check without further action' },
+  { key: 'fyco_docs_no_release_days', label: 'Fyco: docs requested, no release', unit: 'working days', description: 'Days after docs requested without release' },
+  { key: 'fyco_action_no_release_days', label: 'Fyco: action required, no release', unit: 'working days', description: 'Days after action required without release' },
+  { key: 'shipment_noa_not_unloaded_hours', label: 'Shipment: NOA not unloaded', unit: 'hours', description: 'Hours after NOA received without unloading' },
+  { key: 'shipment_no_noa_after_eta_days', label: 'Shipment: no NOA after ETA', unit: 'working days', description: 'Working days after ETA without NOA' },
+] as const;
+
+function AlarmSettingsTab() {
+  const { data: settings, isLoading } = useAlarmSettings();
+  const updateSettings = useUpdateAlarmSettings();
+  const [values, setValues] = useState<Record<string, number>>({});
+  const [initialized, setInitialized] = useState(false);
+
+  if (settings && !initialized) {
+    const v: Record<string, number> = {};
+    for (const f of ALARM_FIELDS) {
+      v[f.key] = (settings as any)[f.key] ?? 0;
+    }
+    setValues(v);
+    setInitialized(true);
+  }
+
+  const handleSave = async () => {
+    try {
+      await updateSettings.mutateAsync({ id: (settings as any)?.id, ...values });
+      toast.success('Alarm settings saved');
+    } catch {
+      toast.error('Failed to save alarm settings');
+    }
+  };
+
+  if (isLoading) return <div className="flex justify-center py-8"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>;
+
+  return (
+    <div className="space-y-4">
+      <p className="text-sm text-muted-foreground">
+        Configure alarm thresholds. Working days count Mon–Fri only. Alarms appear in the Action Required panel.
+      </p>
+      <div className="bg-card rounded-xl border p-6 space-y-5">
+        {ALARM_FIELDS.map(field => (
+          <div key={field.key} className="flex items-center gap-4">
+            <div className="flex-1 min-w-0">
+              <Label className="text-sm font-medium">{field.label}</Label>
+              <p className="text-xs text-muted-foreground">{field.description}</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <Input
+                type="number"
+                min={0}
+                className="w-20 text-center h-9"
+                value={values[field.key] ?? 0}
+                onChange={e => setValues(prev => ({ ...prev, [field.key]: parseInt(e.target.value) || 0 }))}
+              />
+              <span className="text-xs text-muted-foreground w-24">{field.unit}</span>
+            </div>
+          </div>
+        ))}
+        <div className="flex justify-end pt-2">
+          <Button onClick={handleSave} disabled={updateSettings.isPending}>
+            {updateSettings.isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+            <Save className="h-4 w-4 mr-2" />
+            Save Settings
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ─── Main Settings Page ─── */
 export default function SettingsPage() {
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold">Settings</h1>
-        <p className="text-muted-foreground text-sm mt-1">Manage email templates and accounts</p>
+        <p className="text-muted-foreground text-sm mt-1">Manage email templates, accounts, and alarm thresholds</p>
       </div>
 
       <Tabs defaultValue="templates">
@@ -479,6 +552,10 @@ export default function SettingsPage() {
           <TabsTrigger value="templates">Email Templates</TabsTrigger>
           <TabsTrigger value="customs">Customs Inspection Email</TabsTrigger>
           <TabsTrigger value="accounts">Email Accounts</TabsTrigger>
+          <TabsTrigger value="alarms">
+            <AlertTriangle className="h-3.5 w-3.5 mr-1" />
+            Alarm Settings
+          </TabsTrigger>
         </TabsList>
         <TabsContent value="templates" className="mt-4">
           <EmailTemplatesTab />
@@ -488,6 +565,9 @@ export default function SettingsPage() {
         </TabsContent>
         <TabsContent value="accounts" className="mt-4">
           <EmailAccountsTab />
+        </TabsContent>
+        <TabsContent value="alarms" className="mt-4">
+          <AlarmSettingsTab />
         </TabsContent>
       </Tabs>
     </div>

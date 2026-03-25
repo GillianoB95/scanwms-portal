@@ -3,7 +3,9 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth-context';
 import { useLocation } from 'react-router-dom';
-import { Loader2, ShieldCheck, Clock, Search, Mail, Send } from 'lucide-react';
+import { Loader2, ShieldCheck, Clock, Search, Mail, Send, AlertTriangle } from 'lucide-react';
+import { useAlarmSettings } from '@/hooks/use-alarm-settings';
+import { getFycoAlarm, DEFAULT_ALARM_SETTINGS, type FycoAlarm } from '@/lib/alarm-utils';
 import { format } from 'date-fns';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
@@ -287,6 +289,7 @@ function SendToCustomsModal({ open, onOpenChange, parcels, isStaff: _isStaff, us
 
 export default function FycoManagement() {
   const { data: rows = [], isLoading } = useFycoData();
+  const { data: alarmSettings = DEFAULT_ALARM_SETTINGS } = useAlarmSettings();
   const { user } = useAuth();
   const location = useLocation();
   const qc = useQueryClient();
@@ -295,12 +298,21 @@ export default function FycoManagement() {
 
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [alarmFilter, setAlarmFilter] = useState<'all' | 'alarms' | '1' | '2' | '3' | '4'>('all');
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [editingLocation, setEditingLocation] = useState<{ id: string; value: string } | null>(null);
   const [editingRemarks, setEditingRemarks] = useState<{ id: string; value: string } | null>(null);
   const [sendModalParcels, setSendModalParcels] = useState<FycoRow[]>([]);
   const [sendModalOpen, setSendModalOpen] = useState(false);
 
+  // Compute alarms per row
+  const rowAlarms = useMemo(() => {
+    const map = new Map<string, FycoAlarm | null>();
+    for (const r of rows) {
+      map.set(r.id, getFycoAlarm(r, alarmSettings));
+    }
+    return map;
+  }, [rows, alarmSettings]);
 
   const filtered = useMemo(() => {
     return rows.filter(r => {
@@ -309,9 +321,19 @@ export default function FycoManagement() {
         const q = search.toLowerCase();
         if (!r.mawb.toLowerCase().includes(q) && !r.barcode.toLowerCase().includes(q)) return false;
       }
+      // Alarm filter
+      if (alarmFilter !== 'all') {
+        const alarm = rowAlarms.get(r.id);
+        if (alarmFilter === 'alarms') {
+          if (!alarm) return false;
+        } else {
+          const stage = parseInt(alarmFilter);
+          if (!alarm || alarm.stage !== stage) return false;
+        }
+      }
       return true;
     });
-  }, [rows, search, statusFilter]);
+  }, [rows, search, statusFilter, alarmFilter, rowAlarms]);
 
   // Group filtered rows by MAWB for per-MAWB send button
   const mawbGrouped = useMemo(() => {
@@ -513,10 +535,25 @@ export default function FycoManagement() {
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All</SelectItem>
+            <SelectItem value="all">All Statuses</SelectItem>
             <SelectItem value="pending">Pending</SelectItem>
             <SelectItem value="released">Released</SelectItem>
             <SelectItem value="delivered">Prepared / Delivered</SelectItem>
+          </SelectContent>
+        </Select>
+
+        {/* Alarm filter */}
+        <Select value={alarmFilter} onValueChange={v => setAlarmFilter(v as any)}>
+          <SelectTrigger className="w-[180px]">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Alarms</SelectItem>
+            <SelectItem value="alarms">🔴 Alarms Only</SelectItem>
+            <SelectItem value="1">Stage 1: No check</SelectItem>
+            <SelectItem value="2">Stage 2: No action</SelectItem>
+            <SelectItem value="3">Stage 3: Docs no release</SelectItem>
+            <SelectItem value="4">Stage 4: Action no release</SelectItem>
           </SelectContent>
         </Select>
 
@@ -557,6 +594,7 @@ export default function FycoManagement() {
                 <TableHead className="w-10">
                   <Checkbox checked={allSelected} onCheckedChange={toggleAll} />
                 </TableHead>
+                <TableHead className="w-8">⚠️</TableHead>
                 <TableHead>MAWB</TableHead>
                 <TableHead>Warehouse</TableHead>
                 <TableHead>Parcel</TableHead>
@@ -580,13 +618,28 @@ export default function FycoManagement() {
               {filtered.map(row => {
                 const status = getStatusBadge(row);
                 const slaWarn = isSlaWarning(row);
+                const alarm = rowAlarms.get(row.id);
                 return (
-                  <TableRow key={row.id} className={slaWarn ? 'border-l-4 border-l-destructive' : ''}>
+                  <TableRow key={row.id} className={slaWarn || alarm ? 'border-l-4 border-l-destructive' : ''}>
                     <TableCell>
                       <Checkbox
                         checked={selected.has(row.id)}
                         onCheckedChange={() => toggleOne(row.id)}
                       />
+                    </TableCell>
+                    <TableCell>
+                      {alarm ? (
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger>
+                              <AlertTriangle className="h-4 w-4 text-destructive" />
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p className="text-xs">{alarm.description}</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      ) : null}
                     </TableCell>
                     <TableCell className="font-mono text-sm font-medium">{row.mawb}</TableCell>
                     <TableCell>{row.warehouse ?? '—'}</TableCell>

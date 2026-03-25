@@ -5,6 +5,7 @@ import {
   LayoutDashboard, Package, ArrowDownToLine, ArrowUpFromLine,
   MapPin, Users, UserCog, Settings, LogOut, Menu, X, Shield, Warehouse, ShieldCheck
 } from 'lucide-react';
+import { ActionRequiredPanel } from '@/components/staff/ActionRequiredPanel';
 
 const navItems = [
   { to: '/staff', label: 'MAWB Overview', icon: LayoutDashboard, exact: true },
@@ -112,6 +113,9 @@ export function StaffLayout({ children }: { children: ReactNode }) {
           {children}
         </main>
       </div>
+
+      {/* Global alarm panel */}
+      <ActionRequiredPanel />
     </div>
   );
 }
