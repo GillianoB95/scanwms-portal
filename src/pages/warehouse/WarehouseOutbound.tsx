@@ -271,6 +271,7 @@ export default function WarehouseOutbound() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['outbound-pallets', activeOutbound] });
+      qc.invalidateQueries({ queryKey: ['warehouse-outbounds'] });
       toast({ title: 'Pallet added to outbound' });
       setPalletBarcode('');
       palletRef.current?.focus();
