@@ -297,14 +297,37 @@ export default function InboundScanning() {
     queryKey: ['scanned-boxes', shipment?.id],
     queryFn: async () => {
       if (!shipment?.id) return [];
-      const { data } = await supabase
-        .from('outerboxes')
-        .select('id, barcode, scanned_in_at, hub, pallet_id, status, weight')
-        .eq('shipment_id', shipment.id)
-        .order('scanned_in_at', { ascending: false });
+
+      // Fetch outerbox scans and fyco inspection scans in parallel
+      const [boxesRes, fycoRes] = await Promise.all([
+        supabase
+          .from('outerboxes')
+          .select('id, barcode, scanned_in_at, hub, pallet_id, status, weight')
+          .eq('shipment_id', shipment.id)
+          .order('scanned_in_at', { ascending: false }),
+        supabase
+          .from('inspections')
+          .select('id, parcel_barcode, scan_time')
+          .eq('shipment_id', shipment.id)
+          .not('scan_time', 'is', null),
+      ]);
+
+      const data = boxesRes.data ?? [];
+      const fycoScans = (fycoRes.data ?? []).map((f: any) => ({
+        id: `fyco-${f.id}`,
+        barcode: f.parcel_barcode,
+        scanned_in_at: f.scan_time,
+        hub: null,
+        pallet_id: null,
+        status: 'fyco',
+        weight: null,
+        pallet_number: null,
+        isFyco: true,
+      }));
 
       // Fetch pallet numbers for boxes with pallet_id
-      if (data && data.length > 0) {
+      let enrichedBoxes = data.map(box => ({ ...box, pallet_number: null as string | null, isFyco: false }));
+      if (data.length > 0) {
         const palletIds = [...new Set(data.filter(b => b.pallet_id).map(b => b.pallet_id))];
         if (palletIds.length > 0) {
           const { data: pallets } = await supabase
@@ -312,10 +335,14 @@ export default function InboundScanning() {
             .select('id, pallet_number')
             .in('id', palletIds);
           const palletMap = new Map((pallets || []).map(p => [p.id, p.pallet_number]));
-          return data.map(box => ({ ...box, pallet_number: palletMap.get(box.pallet_id) || null }));
+          enrichedBoxes = data.map(box => ({ ...box, pallet_number: palletMap.get(box.pallet_id) || null, isFyco: false }));
         }
       }
-      return (data ?? []).map(box => ({ ...box, pallet_number: null }));
+
+      // Merge and sort by scan time descending
+      const all = [...enrichedBoxes, ...fycoScans];
+      all.sort((a, b) => new Date(b.scanned_in_at).getTime() - new Date(a.scanned_in_at).getTime());
+      return all;
     },
     enabled: !!shipment?.id,
   });
