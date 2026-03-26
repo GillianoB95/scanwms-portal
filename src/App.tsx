@@ -28,6 +28,7 @@ import WarehouseOutbound from "./pages/warehouse/WarehouseOutbound";
 import PrintLabels from "./pages/warehouse/PrintLabels";
 import StockOverview from "./pages/warehouse/StockOverview";
 import FycoManagement from "./pages/FycoManagement";
+import Outbounds from "./pages/Outbounds";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
