@@ -121,9 +121,7 @@ function useFycoData() {
             warehouse_id,
             customer_id,
             customs_cleared_at,
-            subklanten ( name ),
-            customers ( name ),
-            warehouses ( name, code )
+            subklant_id
           )
         `)
         .order('scan_time', { ascending: false, nullsFirst: false });
@@ -133,6 +131,27 @@ function useFycoData() {
         throw error;
       }
       if (!inspections || inspections.length === 0) return [];
+
+      // Batch-fetch customer names, subklant names, and warehouse names
+      const customerIds = [...new Set(inspections.map(i => (i as any).shipments?.customer_id).filter(Boolean))];
+      const subklantIds = [...new Set(inspections.map(i => (i as any).shipments?.subklant_id).filter(Boolean))];
+      const warehouseCodes = [...new Set(inspections.map(i => (i as any).shipments?.warehouse_id).filter(Boolean))];
+
+      const [customersRes, subklantenRes, warehousesRes] = await Promise.all([
+        customerIds.length > 0
+          ? supabase.from('customers').select('id, name').in('id', customerIds)
+          : Promise.resolve({ data: [] }),
+        subklantIds.length > 0
+          ? supabase.from('subklanten').select('id, name').in('id', subklantIds)
+          : Promise.resolve({ data: [] }),
+        warehouseCodes.length > 0
+          ? supabase.from('warehouses').select('code, name').in('code', warehouseCodes)
+          : Promise.resolve({ data: [] }),
+      ]);
+
+      const customerMap = new Map((customersRes.data ?? []).map((c: any) => [c.id, c.name]));
+      const subklantMap = new Map((subklantenRes.data ?? []).map((s: any) => [s.id, s.name]));
+      const warehouseMap = new Map((warehousesRes.data ?? []).map((w: any) => [w.code, w.name]));
 
       const barcodes = inspections.map(i => i.barcode ?? i.parcel_barcode).filter(Boolean);
       let outboundStatusMap = new Map<string, string>();
@@ -167,8 +186,8 @@ function useFycoData() {
           mawb: ship?.mawb ?? '—',
           hub_code: null,
           warehouse: ship?.warehouse_id ?? null,
-          warehouse_name: ship?.warehouses?.name ?? ship?.warehouses?.code ?? null,
-          subklant: ship?.subklanten?.name ?? null,
+          warehouse_name: warehouseMap.get(ship?.warehouse_id) ?? ship?.warehouse_id ?? null,
+          subklant: subklantMap.get(ship?.subklant_id) ?? null,
           customer_id: ship?.customer_id ?? null,
           location: insp.location,
           scan_time: insp.scan_time,
