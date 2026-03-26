@@ -113,15 +113,11 @@ export default function WarehouseDashboard() {
     enabled: !!auth,
   });
 
-  // Outbound Prepared Today
+  // Outbound Prepared (real-time, no time filter)
   const { data: preparedData } = useQuery({
-    queryKey: ['warehouse-prepared-today', warehouseId, today],
+    queryKey: ['warehouse-prepared', warehouseId],
     queryFn: async () => {
-      const query = supabase
-        .from('outbounds')
-        .select('id')
-        .eq('status', 'prepared')
-        .eq('pickup_date', today);
+      const query = supabase.from('outbounds').select('id').eq('status', 'prepared');
       if (warehouseId) query.eq('warehouse_id', warehouseId);
       const { data } = await query;
       const ids = (data ?? []).map((o: any) => o.id);
@@ -135,15 +131,13 @@ export default function WarehouseDashboard() {
     enabled: !!auth,
   });
 
-  // Outbound Departed Today
+  // Outbound Departed (time-filtered)
   const { data: departedData } = useQuery({
-    queryKey: ['warehouse-departed-today', warehouseId, today],
+    queryKey: ['warehouse-departed', warehouseId, rangeFrom, rangeTo],
     queryFn: async () => {
-      const query = supabase
-        .from('outbounds')
-        .select('id')
-        .eq('status', 'departed')
-        .eq('pickup_date', today);
+      const query = supabase.from('outbounds').select('id, pickup_date').eq('status', 'departed')
+        .gte('pickup_date', rangeFrom.split('T')[0])
+        .lte('pickup_date', rangeTo.split('T')[0]);
       if (warehouseId) query.eq('warehouse_id', warehouseId);
       const { data } = await query;
       const ids = (data ?? []).map((o: any) => o.id);
