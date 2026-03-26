@@ -387,48 +387,20 @@ export default function NewShipment() {
               <div className="grid grid-cols-3 gap-3">
                 <div>
                   <label className="text-xs text-muted-foreground block mb-1">Colli (pieces)</label>
-                  <input type="number" min="0" value={manualColli} onChange={e => setManualColli(e.target.value)} placeholder="0"
-                    className="w-full h-9 px-2.5 rounded-md border bg-background text-sm tabular-nums font-mono text-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
+                  <input type="number" min="0" value={manualColli} onChange={e => { if (!awbData?.pieces) setManualColli(e.target.value); }} readOnly={!!awbData?.pieces} placeholder="0"
+                    className={`w-full h-9 px-2.5 rounded-md border text-sm tabular-nums font-mono text-foreground focus:outline-none focus:ring-2 focus:ring-ring ${awbData?.pieces ? 'bg-muted/50 cursor-not-allowed' : 'bg-background'}`} />
                 </div>
                 <div>
                   <label className="text-xs text-muted-foreground block mb-1">Gross Weight (kg)</label>
-                  <input type="number" min="0" step="0.01" value={manualGrossWeight} onChange={e => setManualGrossWeight(e.target.value)} placeholder="0"
-                    className="w-full h-9 px-2.5 rounded-md border bg-background text-sm tabular-nums font-mono text-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
+                  <input type="number" min="0" step="0.01" value={manualGrossWeight} onChange={e => { if (!awbData?.gross_weight) setManualGrossWeight(e.target.value); }} readOnly={!!awbData?.gross_weight} placeholder="0"
+                    className={`w-full h-9 px-2.5 rounded-md border text-sm tabular-nums font-mono text-foreground focus:outline-none focus:ring-2 focus:ring-ring ${awbData?.gross_weight ? 'bg-muted/50 cursor-not-allowed' : 'bg-background'}`} />
                 </div>
                 <div>
                   <label className="text-xs text-muted-foreground block mb-1">Chargeable Weight (kg)</label>
-                  <input type="number" min="0" step="0.01" value={manualChargeableWeight} onChange={e => setManualChargeableWeight(e.target.value)} placeholder="0"
-                    className="w-full h-9 px-2.5 rounded-md border bg-background text-sm tabular-nums font-mono text-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
+                  <input type="number" min="0" step="0.01" value={manualChargeableWeight} onChange={e => { if (!awbData?.chargeable_weight) setManualChargeableWeight(e.target.value); }} readOnly={!!awbData?.chargeable_weight} placeholder="0"
+                    className={`w-full h-9 px-2.5 rounded-md border text-sm tabular-nums font-mono text-foreground focus:outline-none focus:ring-2 focus:ring-ring ${awbData?.chargeable_weight ? 'bg-muted/50 cursor-not-allowed' : 'bg-background'}`} />
                 </div>
               </div>
-              {awbData && (awbData.origin || awbData.destination || awbData.shipper || awbData.consignee) && (
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-1">
-                  {awbData.origin && (
-                    <div>
-                      <label className="text-xs text-muted-foreground block mb-1">Origin</label>
-                      <div className="h-9 px-2.5 rounded-md border bg-muted/50 text-sm font-mono flex items-center text-foreground">{awbData.origin}</div>
-                    </div>
-                  )}
-                  {awbData.destination && (
-                    <div>
-                      <label className="text-xs text-muted-foreground block mb-1">Destination</label>
-                      <div className="h-9 px-2.5 rounded-md border bg-muted/50 text-sm font-mono flex items-center text-foreground">{awbData.destination}</div>
-                    </div>
-                  )}
-                  {awbData.shipper && (
-                    <div>
-                      <label className="text-xs text-muted-foreground block mb-1">Shipper</label>
-                      <div className="h-9 px-2.5 rounded-md border bg-muted/50 text-sm flex items-center text-foreground truncate">{awbData.shipper}</div>
-                    </div>
-                  )}
-                  {awbData.consignee && (
-                    <div>
-                      <label className="text-xs text-muted-foreground block mb-1">Consignee</label>
-                      <div className="h-9 px-2.5 rounded-md border bg-muted/50 text-sm flex items-center text-foreground truncate">{awbData.consignee}</div>
-                    </div>
-                  )}
-                </div>
-              )}
             </div>
           )}
 
