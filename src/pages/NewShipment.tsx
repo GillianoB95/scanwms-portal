@@ -343,7 +343,7 @@ export default function NewShipment() {
             )}
           </div>
 
-          {!isSubAccount && (
+          {isStaffUser && (
             <div>
               <label className="block text-sm font-medium mb-1.5">Sub Client</label>
               <select value={subklantId} onChange={e => setSubklantId(e.target.value)}
