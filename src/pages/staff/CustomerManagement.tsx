@@ -142,8 +142,8 @@ function CustomerFormDialog({ open, onOpenChange, customer, parentId, isAdmin, a
     if (!name) return;
     setSaving(true);
     try {
-      const payload: any = { name, short_name: shortName || null, email: email || null, warehouse_id: warehouseId === '__none__' ? null : warehouseId || null, customs_email_grouping: customsEmailGrouping, kpi_palletized_hours: kpiPalletizedHours };
-      if (parentId) payload.parent_customer_id = parentId;
+      const resolvedParentId = parentId || (selectedParentId !== '__none__' ? selectedParentId : null);
+      const payload: any = { name, short_name: shortName || null, email: email || null, warehouse_id: warehouseId === '__none__' ? null : warehouseId || null, customs_email_grouping: customsEmailGrouping, kpi_palletized_hours: kpiPalletizedHours, parent_customer_id: resolvedParentId };
 
       if (customer?.id) {
         await updateCustomer.mutateAsync({ id: customer.id, ...payload });
