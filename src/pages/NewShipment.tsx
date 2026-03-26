@@ -34,7 +34,8 @@ interface ManifestParsedRow {
 
 export default function NewShipment() {
   const navigate = useNavigate();
-  const { user, customer } = useAuth();
+  const { user, customer, role } = useAuth();
+  const isStaffUser = role === 'staff' || role === 'admin';
   const { data: subklanten = [] } = useSubklanten();
   const { data: activeHubCodes = [] } = useHubs();
 
@@ -61,21 +62,24 @@ export default function NewShipment() {
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
-  // Auto-set subklantId for sub-accounts
+  // Auto-set subklantId for customer users (non-staff)
   const isSubAccount = !!customer?.parent_customer_id;
   useEffect(() => {
-    if (isSubAccount && subklanten.length > 0 && !subklantId) {
-      // Find the subklant entry matching this sub-account's name
-      const match = subklanten.find((s: any) =>
-        s.name?.toLowerCase() === customer?.name?.toLowerCase()
-      );
-      if (match) {
-        setSubklantId(match.id);
-      } else if (subklanten.length === 1) {
-        setSubklantId(subklanten[0].id);
+    if (isStaffUser) return; // Staff selects manually
+    if (subklanten.length > 0 && !subklantId) {
+      if (isSubAccount) {
+        // Sub-account: match by name
+        const match = subklanten.find((s: any) =>
+          s.name?.toLowerCase() === customer?.name?.toLowerCase()
+        );
+        if (match) setSubklantId(match.id);
+        else if (subklanten.length === 1) setSubklantId(subklanten[0].id);
+      } else {
+        // Main account with only one subklant: auto-select
+        if (subklanten.length === 1) setSubklantId(subklanten[0].id);
       }
     }
-  }, [isSubAccount, subklanten, customer?.name, subklantId]);
+  }, [isStaffUser, isSubAccount, subklanten, customer?.name, subklantId]);
 
   const formatMawb = useCallback((val: string) => {
     const digits = val.replace(/\D/g, '').slice(0, 11);
