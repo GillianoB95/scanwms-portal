@@ -735,6 +735,14 @@ export default function CustomerManagement() {
           onOpenChange={v => { if (!v) setNotifCustomer(null); }}
         />
       )}
+
+      {loginCustomer && (
+        <LoginManagementDialog
+          customer={loginCustomer}
+          open={!!loginCustomer}
+          onOpenChange={v => { if (!v) setLoginCustomer(null); }}
+        />
+      )}
     </div>
   );
 }
