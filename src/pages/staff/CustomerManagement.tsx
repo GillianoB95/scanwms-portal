@@ -535,6 +535,7 @@ export default function CustomerManagement() {
   const [editCustomer, setEditCustomer] = useState<any>(null);
   const [addSubParentId, setAddSubParentId] = useState<string | undefined>();
   const [notifCustomer, setNotifCustomer] = useState<any>(null);
+  const [loginCustomer, setLoginCustomer] = useState<any>(null);
 
   const mainCustomers = useMemo(() => {
     return customers
