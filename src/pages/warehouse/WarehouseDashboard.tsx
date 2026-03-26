@@ -366,7 +366,7 @@ function WarehouseShipmentRow({ shipment, fycoCount }: { shipment: any; fycoCoun
             </Badge>
           )}
         </TableCell>
-        <TableCell>{(shipment.customers as any)?.name ?? '—'}</TableCell>
+        <TableCell>{shipment.customer_name ?? '—'}</TableCell>
         <TableCell>{shipment.colli_expected ?? '—'}</TableCell>
         <TableCell><StatusBadge status={shipment.status} /></TableCell>
         <TableCell>{shipment.eta ?? '—'}</TableCell>
