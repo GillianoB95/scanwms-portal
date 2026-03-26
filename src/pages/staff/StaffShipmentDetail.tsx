@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { ArrowLeft, Download, CheckCircle2, Circle, Truck, Loader2, Shield, AlertTriangle } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
@@ -5,6 +6,7 @@ import { supabase } from '@/lib/supabase';
 import { useStatusHistory, useNoas, useOutbounds, useOuterboxes, useClearances, useInspections } from '@/hooks/use-shipment-data';
 import { useAllWarehouses } from '@/hooks/use-staff-data';
 import { StatusBadge } from '@/components/StatusBadge';
+import { Progress } from '@/components/ui/progress';
 import { getStatusClass } from '@/lib/mock-data';
 
 function useStaffShipment(id: string | undefined) {
@@ -21,6 +23,40 @@ function useStaffShipment(id: string | undefined) {
       return data;
     },
     enabled: !!id,
+  });
+}
+
+function useManifestParcels(shipmentId: string | undefined) {
+  return useQuery({
+    queryKey: ['manifest-parcels-hubs', shipmentId],
+    queryFn: async () => {
+      if (!shipmentId) return [];
+      const { data, error } = await supabase
+        .from('manifest_parcels')
+        .select('shipment_id, hub, outerbox_barcode')
+        .eq('shipment_id', shipmentId)
+        .not('outerbox_barcode', 'is', null)
+        .neq('outerbox_barcode', '');
+      if (error) throw error;
+      return data ?? [];
+    },
+    enabled: !!shipmentId,
+  });
+}
+
+function usePallets(palletIds: string[]) {
+  return useQuery({
+    queryKey: ['pallets-detail', palletIds],
+    queryFn: async () => {
+      if (palletIds.length === 0) return [];
+      const { data, error } = await supabase
+        .from('pallets')
+        .select('id, pallet_number, outbound_id, hub, outbounds(status, pickup_date, truck_reference)')
+        .in('id', palletIds);
+      if (error) throw error;
+      return data ?? [];
+    },
+    enabled: palletIds.length > 0,
   });
 }
 
@@ -109,6 +145,55 @@ function InspectionsSection({ shipmentId }: { shipmentId: string }) {
   );
 }
 
+function HubScanProgress({ shipmentId, outerboxes }: { shipmentId: string; outerboxes: any[] }) {
+  const { data: manifestParcels = [] } = useManifestParcels(shipmentId);
+
+  const hubData = useMemo(() => {
+    const map = new Map<string, { total: number; scanned: number }>();
+    const distinctKeys = new Set<string>();
+    for (const mp of manifestParcels) {
+      const hub = (mp as any).hub || 'Unknown';
+      const barcode = (mp as any).outerbox_barcode;
+      const key = `${hub}|${barcode}`;
+      if (!distinctKeys.has(key)) {
+        distinctKeys.add(key);
+        if (!map.has(hub)) map.set(hub, { total: 0, scanned: 0 });
+        map.get(hub)!.total++;
+      }
+    }
+    for (const box of outerboxes) {
+      const hub = (box as any).hub || 'Unknown';
+      if (!map.has(hub)) map.set(hub, { total: 0, scanned: 0 });
+      if (['scanned_in', 'palletized', 'in_stock', 'scanned_out'].includes(box.status)) {
+        map.get(hub)!.scanned++;
+      }
+    }
+    return Array.from(map.entries()).sort(([a], [b]) => a.localeCompare(b));
+  }, [manifestParcels, outerboxes]);
+
+  if (hubData.length === 0) return null;
+
+  return (
+    <div className="bg-card rounded-xl border p-5 animate-fade-in" style={{ animationDelay: '360ms' }}>
+      <h2 className="font-semibold mb-4">Scan Progress per Hub</h2>
+      <div className="space-y-3">
+        {hubData.map(([hub, data]) => {
+          const pct = data.total > 0 ? Math.round((data.scanned / data.total) * 100) : 0;
+          return (
+            <div key={hub} className="space-y-1">
+              <div className="flex items-center justify-between text-sm">
+                <span className="font-medium">{hub}</span>
+                <span className="text-muted-foreground tabular-nums">{data.scanned} / {data.total} ({pct}%)</span>
+              </div>
+              <Progress value={pct} className="h-2" />
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 export default function StaffShipmentDetail() {
   const { id } = useParams<{ id: string }>();
   const { data: shipment, isLoading } = useStaffShipment(id);
@@ -122,6 +207,13 @@ export default function StaffShipmentDetail() {
     ? allWarehouses.find((w: any) => w.id === shipment.warehouse_id)
     : null;
   const warehouseDisplay = warehouseMatch ? `${warehouseMatch.code} — ${warehouseMatch.name}` : '—';
+
+  const palletIds = useMemo(() => {
+    const ids = new Set<string>();
+    outerboxes.forEach((b: any) => { if (b.pallet_id) ids.add(b.pallet_id); });
+    return Array.from(ids);
+  }, [outerboxes]);
+  const { data: pallets = [] } = usePallets(palletIds);
 
   if (isLoading) {
     return <div className="flex items-center justify-center py-24"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>;
@@ -148,10 +240,10 @@ export default function StaffShipmentDetail() {
     const hubCode = ob.hubs?.code || 'Unknown';
     const hubName = ob.hubs?.name || hubCode;
     if (!acc[hubCode]) acc[hubCode] = { hubCode, hubName, pickups: [], totalPieces: 0 };
-    const pallets = ob.pallets || [];
-    const pieces = pallets.reduce((s: number, p: any) => s + (p.pieces || 0), 0);
+    const obPallets = ob.pallets || [];
+    const pieces = obPallets.reduce((s: number, p: any) => s + (p.pieces || 0), 0);
     acc[hubCode].totalPieces += pieces;
-    acc[hubCode].pickups.push({ date: ob.pickup_date, truckReference: ob.truck_reference, pallets, totalPieces: pieces });
+    acc[hubCode].pickups.push({ date: ob.pickup_date, truckReference: ob.truck_reference, status: ob.status, pallets: obPallets, totalPieces: pieces });
     return acc;
   }, {});
 
@@ -175,8 +267,9 @@ export default function StaffShipmentDetail() {
           <div><span className="text-muted-foreground block text-xs mb-0.5">Transport</span>{shipment.transport_type}</div>
           <div><span className="text-muted-foreground block text-xs mb-0.5">Warehouse</span>{warehouseDisplay}</div>
           <div><span className="text-muted-foreground block text-xs mb-0.5">Created</span>{new Date(shipment.created_at).toLocaleDateString('en-GB')}</div>
-          <div><span className="text-muted-foreground block text-xs mb-0.5">Weight</span>{Number(shipment.chargeable_weight || 0).toLocaleString()} kg</div>
+          <div><span className="text-muted-foreground block text-xs mb-0.5">Colli Expected</span><span className="tabular-nums font-medium">{shipment.colli_expected ?? 0}</span></div>
           <div><span className="text-muted-foreground block text-xs mb-0.5">Gross Weight</span>{Number(shipment.gross_weight || 0).toLocaleString()} kg</div>
+          <div><span className="text-muted-foreground block text-xs mb-0.5">Chargeable Weight</span>{Number(shipment.chargeable_weight || 0).toLocaleString()} kg</div>
           <div><span className="text-muted-foreground block text-xs mb-0.5">Sub Client</span>{subklantName}</div>
           <div><span className="text-muted-foreground block text-xs mb-0.5">ETA</span>{shipment.eta ? new Date(shipment.eta).toLocaleDateString('en-GB') : '—'}</div>
         </div>
@@ -293,24 +386,62 @@ export default function StaffShipmentDetail() {
       <ClearanceSection shipmentId={shipment.id} colliExpected={shipment.colli_expected || 0} />
       <InspectionsSection shipmentId={shipment.id} />
 
-      {outerboxes.length > 0 && (
-        <div className="bg-card rounded-xl border p-5 animate-fade-in" style={{ animationDelay: '400ms' }}>
-          <h2 className="font-semibold mb-4">Warehouse Tracking</h2>
-          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 text-sm mb-4">
-            <div className="bg-muted rounded-lg px-3 py-2"><span className="text-muted-foreground text-xs block">Expected</span><span className="font-bold tabular-nums">{outerboxes.length}</span></div>
-            <div className="bg-muted rounded-lg px-3 py-2"><span className="text-muted-foreground text-xs block">Scanned In ✅</span><span className="font-bold tabular-nums">{scannedIn}</span></div>
-            <div className="bg-muted rounded-lg px-3 py-2"><span className="text-muted-foreground text-xs block">Not Scanned ❌</span><span className="font-bold tabular-nums">{notScanned}</span></div>
-            <div className="bg-muted rounded-lg px-3 py-2"><span className="text-muted-foreground text-xs block">In Stock 📦</span><span className="font-bold tabular-nums">{inStock}</span></div>
-            <div className="bg-muted rounded-lg px-3 py-2"><span className="text-muted-foreground text-xs block">Scanned Out 🚚</span><span className="font-bold tabular-nums">{scannedOut}</span></div>
-          </div>
-          <div className="w-full h-2.5 bg-muted rounded-full overflow-hidden flex">
-            {scannedOut > 0 && <div className="bg-[hsl(var(--status-delivered))] h-full" style={{ width: `${(scannedOut / outerboxes.length) * 100}%` }} />}
-            {inStock > 0 && <div className="bg-[hsl(var(--status-instock))] h-full" style={{ width: `${(inStock / outerboxes.length) * 100}%` }} />}
-            {(scannedIn - inStock - scannedOut) > 0 && <div className="bg-[hsl(var(--status-noa-complete))] h-full" style={{ width: `${((scannedIn - inStock - scannedOut) / outerboxes.length) * 100}%` }} />}
+      {/* Warehouse Tracking */}
+      <div className="bg-card rounded-xl border p-5 animate-fade-in" style={{ animationDelay: '400ms' }}>
+        <h2 className="font-semibold mb-4">Warehouse Tracking</h2>
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 text-sm mb-4">
+          <div className="bg-muted rounded-lg px-3 py-2"><span className="text-muted-foreground text-xs block">Expected</span><span className="font-bold tabular-nums">{shipment.colli_expected ?? 0}</span></div>
+          <div className="bg-muted rounded-lg px-3 py-2"><span className="text-muted-foreground text-xs block">Scanned In ✅</span><span className="font-bold tabular-nums">{scannedIn}</span></div>
+          <div className="bg-muted rounded-lg px-3 py-2"><span className="text-muted-foreground text-xs block">Not Scanned ❌</span><span className="font-bold tabular-nums">{notScanned}</span></div>
+          <div className="bg-muted rounded-lg px-3 py-2"><span className="text-muted-foreground text-xs block">In Stock 📦</span><span className="font-bold tabular-nums">{inStock}</span></div>
+          <div className="bg-muted rounded-lg px-3 py-2"><span className="text-muted-foreground text-xs block">Scanned Out 🚚</span><span className="font-bold tabular-nums">{scannedOut}</span></div>
+        </div>
+        <div className="w-full h-2.5 bg-muted rounded-full overflow-hidden flex">
+          {scannedOut > 0 && <div className="bg-[hsl(var(--status-delivered))] h-full" style={{ width: `${(scannedOut / (shipment.colli_expected || 1)) * 100}%` }} />}
+          {inStock > 0 && <div className="bg-[hsl(var(--status-instock))] h-full" style={{ width: `${(inStock / (shipment.colli_expected || 1)) * 100}%` }} />}
+          {(scannedIn - inStock - scannedOut) > 0 && <div className="bg-[hsl(var(--status-noa-complete))] h-full" style={{ width: `${((scannedIn - inStock - scannedOut) / (shipment.colli_expected || 1)) * 100}%` }} />}
+        </div>
+      </div>
+
+      {/* Hub Scan Progress */}
+      <HubScanProgress shipmentId={shipment.id} outerboxes={outerboxes} />
+
+      {/* Pallet Overview */}
+      {pallets.length > 0 && (
+        <div className="bg-card rounded-xl border animate-fade-in" style={{ animationDelay: '420ms' }}>
+          <div className="px-5 py-4 border-b"><h2 className="font-semibold">Pallet Overview</h2></div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b text-muted-foreground">
+                  <th className="text-left px-5 py-3 font-medium">Pallet #</th>
+                  <th className="text-left px-5 py-3 font-medium">Hub</th>
+                  <th className="text-left px-5 py-3 font-medium">Boxes</th>
+                  <th className="text-left px-5 py-3 font-medium">Outbound Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {pallets.map((p: any) => {
+                  const boxCount = outerboxes.filter((b: any) => b.pallet_id === p.id).length;
+                  const obStatus = p.outbounds?.status;
+                  return (
+                    <tr key={p.id} className="border-b last:border-0">
+                      <td className="px-5 py-3 font-mono font-medium">{p.pallet_number || p.id.slice(0, 8)}</td>
+                      <td className="px-5 py-3">{p.hub || '—'}</td>
+                      <td className="px-5 py-3 tabular-nums">{boxCount}</td>
+                      <td className="px-5 py-3">
+                        {obStatus ? <StatusBadge status={obStatus} /> : <span className="text-muted-foreground text-xs">Not assigned</span>}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
         </div>
       )}
 
+      {/* Outbound */}
       {Object.keys(hubGroups).length > 0 && (
         <div className="bg-card rounded-xl border animate-fade-in" style={{ animationDelay: '480ms' }}>
           <div className="px-5 py-4 border-b"><h2 className="font-semibold">Outbound</h2></div>
@@ -335,10 +466,11 @@ export default function StaffShipmentDetail() {
                   <div className="space-y-3">
                     {group.pickups.map((pickup: any, pi: number) => (
                       <div key={pi} className="bg-muted/40 rounded-lg p-3">
-                        <div className="flex items-center gap-2 mb-2 text-sm">
+                        <div className="flex items-center gap-2 text-sm">
                           <Truck className="h-3.5 w-3.5 text-muted-foreground" />
                           <span className="font-medium">{pickup.date ? new Date(pickup.date).toLocaleDateString('en-GB') : 'No date'}</span>
                           {pickup.truckReference && <span className="text-muted-foreground text-xs">· Truck: {pickup.truckReference}</span>}
+                          {pickup.status && <StatusBadge status={pickup.status} />}
                           <span className="text-muted-foreground text-xs ml-auto">{pickup.totalPieces} pcs</span>
                         </div>
                       </div>

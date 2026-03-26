@@ -357,11 +357,12 @@ export default function WarehouseDashboard() {
 }
 
 function WarehouseShipmentRow({ shipment, fycoCount }: { shipment: any; fycoCount: number }) {
+  const navigate = useNavigate();
   const [fycoOpen, setFycoOpen] = useState(false);
 
   return (
     <>
-      <TableRow>
+      <TableRow className="cursor-pointer hover:bg-muted/50" onClick={() => navigate(`/warehouse/shipments/${shipment.id}`)}>
         <TableCell className="font-mono font-medium">
           {shipment.mawb}
           {fycoCount > 0 && (
