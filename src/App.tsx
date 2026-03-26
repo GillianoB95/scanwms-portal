@@ -27,6 +27,7 @@ import InboundScanning from "./pages/warehouse/InboundScanning";
 import WarehouseOutbound from "./pages/warehouse/WarehouseOutbound";
 import PrintLabels from "./pages/warehouse/PrintLabels";
 import StockOverview from "./pages/warehouse/StockOverview";
+import WarehouseShipmentDetail from "./pages/warehouse/WarehouseShipmentDetail";
 import FycoManagement from "./pages/FycoManagement";
 import Outbounds from "./pages/Outbounds";
 import NotFound from "./pages/NotFound";
@@ -110,6 +111,7 @@ const App = () => (
             <Route path="/warehouse/outbound" element={<WarehouseRoute><WarehouseOutbound /></WarehouseRoute>} />
             <Route path="/warehouse/labels" element={<WarehouseRoute><PrintLabels /></WarehouseRoute>} />
             <Route path="/warehouse/stock" element={<WarehouseRoute><StockOverview /></WarehouseRoute>} />
+            <Route path="/warehouse/shipments/:id" element={<WarehouseRoute><WarehouseShipmentDetail /></WarehouseRoute>} />
             <Route path="/warehouse/fyco" element={<WarehouseRoute><FycoManagement /></WarehouseRoute>} />
 
             <Route path="/" element={<Navigate to="/login" replace />} />
