@@ -298,7 +298,6 @@ export default function NewShipment() {
                 product_weight: productWeightCol >= 0 ? parseFloat(String(r[productWeightCol] || '').replace(',', '.')) || null : null,
                 quantity: quantityCol >= 0 ? parseInt(String(r[quantityCol] || '')) || null : null,
                 destination_country: destCountryCol >= 0 ? String(r[destCountryCol] || '').trim() || null : null,
-                hub: waybill || lastHub || null,
               });
             }
             // Insert in batches of 500
