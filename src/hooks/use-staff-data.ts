@@ -8,7 +8,7 @@ export function useAllShipments() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('shipments')
-        .select('*, customers(name), subklanten(name), warehouses(code, name)')
+        .select('*, customers(name), subklanten(name)')
         .order('created_at', { ascending: false });
       if (error) throw error;
       return data ?? [];
