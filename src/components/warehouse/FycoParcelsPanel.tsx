@@ -58,7 +58,7 @@ export function FycoParcelsPanel({ shipmentId }: Props) {
     if (key) {
       parcelToBox.set(key, {
         boxBarcode: mp.outerbox_barcode || '—',
-        hub: mp.waybill || '—',
+        hub: mp.hub || '—',
       });
     }
   }
