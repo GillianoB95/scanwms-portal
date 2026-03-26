@@ -736,7 +736,7 @@ export default function InboundScanning() {
                 >
                   <div>
                     <span className="font-mono font-medium">{s.mawb}</span>
-                    <span className="text-sm text-muted-foreground ml-3">{(s.customers as any)?.name ?? ''}</span>
+                    <span className="text-sm text-muted-foreground ml-3">{s.customer_name ?? ''}</span>
                   </div>
                   <span className="text-xs text-muted-foreground">{s.status}</span>
                 </button>
