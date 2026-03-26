@@ -238,11 +238,16 @@ export default function Shipments() {
                 <th className="text-right px-5 py-3 font-medium">Pieces</th>
                 <th className="text-right px-5 py-3 font-medium">Weight</th>
                 <th className="text-left px-5 py-3 font-medium">Status</th>
+                <th className="text-left px-5 py-3 font-medium">Scan Progress</th>
                 <th className="text-left px-5 py-3 font-medium">Created</th>
               </tr>
             </thead>
             <tbody>
-              {paginated.map((s: any) => (
+              {paginated.map((s: any) => {
+                const sp = scanProgress[s.id];
+                const hasProgress = sp && sp.expected > 0;
+                const progressPct = hasProgress ? Math.round(((sp.inWarehouse + sp.shipped) / sp.expected) * 100) : 0;
+                return (
                 <tr
                   key={s.id}
                   onClick={() => navigate(`/shipments/${s.id}`)}
@@ -256,13 +261,28 @@ export default function Shipments() {
                   <td className="px-5 py-3">
                     <StatusBadge status={s.status} />
                   </td>
+                  <td className="px-5 py-3">
+                    {hasProgress ? (
+                      <div className="space-y-1 min-w-[180px]">
+                        <div className="flex items-center gap-3 text-xs tabular-nums text-muted-foreground">
+                          <span>Expected: <strong className="text-foreground">{sp.expected}</strong></span>
+                          <span>In warehouse: <strong className="text-foreground">{sp.inWarehouse}</strong></span>
+                          <span>Shipped: <strong className="text-foreground">{sp.shipped}</strong></span>
+                        </div>
+                        <Progress value={progressPct} className="h-1.5" />
+                      </div>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">—</span>
+                    )}
+                  </td>
                   <td className="px-5 py-3 text-muted-foreground tabular-nums">
                     {new Date(s.created_at).toLocaleDateString('en-GB')}
                   </td>
                 </tr>
-              ))}
+                );
+              })}
               {paginated.length === 0 && (
-                <tr><td colSpan={5} className="px-5 py-12 text-center text-muted-foreground">No shipments found</td></tr>
+                <tr><td colSpan={6} className="px-5 py-12 text-center text-muted-foreground">No shipments found</td></tr>
               )}
             </tbody>
           </table>
