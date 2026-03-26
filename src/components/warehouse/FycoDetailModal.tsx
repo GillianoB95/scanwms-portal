@@ -110,7 +110,7 @@ export function WarehouseFycoDetailModal({ shipment, open, onOpenChange }: { shi
             <TableBody>
               {inspections.map((insp: any, idx: number) => {
                 const statusCfg = getDisplayStatus(insp);
-                const boxBarcode = boxMap.get(insp.parcel_barcode?.toUpperCase()) ?? '—';
+                const boxBarcode = getBoxBarcode(insp);
                 return (
                   <TableRow key={insp.id}>
                     <TableCell className="text-muted-foreground">{idx + 1}</TableCell>
