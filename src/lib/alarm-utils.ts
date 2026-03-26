@@ -122,7 +122,7 @@ export function getFycoAlarm(
 }
 
 export interface ShipmentAlarm {
-  type: 'noa_not_unloaded' | 'no_noa_after_eta' | 'action_required';
+  type: 'noa_not_unloaded' | 'no_noa_after_eta' | 'no_noa_after_created' | 'action_required';
   label: string;
   description: string;
 }
@@ -134,11 +134,13 @@ export function getShipmentAlarms(
     mawb: string;
     status: string;
     eta: string | null;
+    created_at: string | null;
     noa_received_at: string | null;
     unloaded_at: string | null;
     customer_name: string | null;
   },
   settings: AlarmSettings,
+): ShipmentAlarm[] {
 ): ShipmentAlarm[] {
   const alarms: ShipmentAlarm[] = [];
   const now = new Date();
