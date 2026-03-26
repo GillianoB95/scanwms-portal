@@ -18,6 +18,7 @@ import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { printPalletLabel, type PalletLabelData } from '@/lib/printnode';
 import { cn } from '@/lib/utils';
 import * as XLSX from 'xlsx';
+import { Badge } from '@/components/ui/badge';
 import { FycoParcelsPanel } from '@/components/warehouse/FycoParcelsPanel';
 
 function normalizeBoxBarcode(value: unknown): string {
@@ -297,14 +298,37 @@ export default function InboundScanning() {
     queryKey: ['scanned-boxes', shipment?.id],
     queryFn: async () => {
       if (!shipment?.id) return [];
-      const { data } = await supabase
-        .from('outerboxes')
-        .select('id, barcode, scanned_in_at, hub, pallet_id, status, weight')
-        .eq('shipment_id', shipment.id)
-        .order('scanned_in_at', { ascending: false });
+
+      // Fetch outerbox scans and fyco inspection scans in parallel
+      const [boxesRes, fycoRes] = await Promise.all([
+        supabase
+          .from('outerboxes')
+          .select('id, barcode, scanned_in_at, hub, pallet_id, status, weight')
+          .eq('shipment_id', shipment.id)
+          .order('scanned_in_at', { ascending: false }),
+        supabase
+          .from('inspections')
+          .select('id, parcel_barcode, scan_time')
+          .eq('shipment_id', shipment.id)
+          .not('scan_time', 'is', null),
+      ]);
+
+      const data = boxesRes.data ?? [];
+      const fycoScans = (fycoRes.data ?? []).map((f: any) => ({
+        id: `fyco-${f.id}`,
+        barcode: f.parcel_barcode,
+        scanned_in_at: f.scan_time,
+        hub: null,
+        pallet_id: null,
+        status: 'fyco',
+        weight: null,
+        pallet_number: null,
+        isFyco: true,
+      }));
 
       // Fetch pallet numbers for boxes with pallet_id
-      if (data && data.length > 0) {
+      let enrichedBoxes = data.map(box => ({ ...box, pallet_number: null as string | null, isFyco: false }));
+      if (data.length > 0) {
         const palletIds = [...new Set(data.filter(b => b.pallet_id).map(b => b.pallet_id))];
         if (palletIds.length > 0) {
           const { data: pallets } = await supabase
@@ -312,10 +336,14 @@ export default function InboundScanning() {
             .select('id, pallet_number')
             .in('id', palletIds);
           const palletMap = new Map((pallets || []).map(p => [p.id, p.pallet_number]));
-          return data.map(box => ({ ...box, pallet_number: palletMap.get(box.pallet_id) || null }));
+          enrichedBoxes = data.map(box => ({ ...box, pallet_number: palletMap.get(box.pallet_id) || null, isFyco: false }));
         }
       }
-      return (data ?? []).map(box => ({ ...box, pallet_number: null }));
+
+      // Merge and sort by scan time descending
+      const all = [...enrichedBoxes, ...fycoScans];
+      all.sort((a, b) => new Date(b.scanned_in_at).getTime() - new Date(a.scanned_in_at).getTime());
+      return all;
     },
     enabled: !!shipment?.id,
   });
@@ -464,7 +492,9 @@ export default function InboundScanning() {
         toast({ title: 'Fyco parcel scanned', description: `${barcode.trim()} — scan time recorded` });
         setBarcode('');
         barcodeRef.current?.focus();
+        qc.invalidateQueries({ queryKey: ['scanned-boxes', shipment?.id] });
         qc.invalidateQueries({ queryKey: ['fyco-management'] });
+        qc.invalidateQueries({ queryKey: ['fyco-parcels-panel'] });
       } else if (!result.isPreAlerted) {
         setNotPreAlertedBarcode(barcode.trim());
       } else if (result.fycoBlocked) {
@@ -624,7 +654,7 @@ export default function InboundScanning() {
   }, [shipment, scanningBlocked]);
 
   const totalExpected = shipment?.colli_expected ?? 0;
-  const totalScanned = scannedBoxes.filter((b: any) => b.status !== 'deleted').length;
+  const totalScanned = scannedBoxes.filter((b: any) => b.status !== 'deleted' && !b.isFyco).length;
   const subklant = shipment?.subklant_name || shipment?.customer_short || shipment?.customer_name || '—';
 
   // Print Label logic — hub is auto-set from current session hub
@@ -911,14 +941,18 @@ export default function InboundScanning() {
                 {scannedBoxes.map((box: any, i: number) => {
                     const isDeleted = box.status === 'deleted';
                     const isNotPreAlerted = box.status === 'not_pre_alerted';
+                    const isFyco = !!box.isFyco;
                     return (
                     <TableRow key={box.id} className={cn(
                       isDeleted && 'opacity-40',
-                      isNotPreAlerted && 'bg-yellow-500/10'
+                      isNotPreAlerted && 'bg-yellow-500/10',
+                      isFyco && 'bg-orange-500/10',
+                      !isDeleted && !isNotPreAlerted && !isFyco && 'bg-emerald-500/5'
                     )}>
                       <TableCell className={isDeleted ? 'line-through' : ''}>{i + 1}</TableCell>
                       <TableCell className={`font-mono ${isDeleted ? 'line-through' : ''}`}>
                         {isNotPreAlerted && <AlertTriangle className="h-3.5 w-3.5 text-yellow-500 inline mr-1.5" />}
+                        {isFyco && <span className="text-orange-600 mr-1.5">🔍</span>}
                         {box.barcode}
                       </TableCell>
                       <TableCell className={`font-mono ${isDeleted ? 'line-through' : ''}`}>{box.hub || '—'}</TableCell>
@@ -927,14 +961,16 @@ export default function InboundScanning() {
                       <TableCell>
                         {isDeleted ? (
                           <span className="text-xs text-destructive font-medium line-through">Deleted</span>
+                        ) : isFyco ? (
+                          <Badge className="bg-orange-500/15 text-orange-600 border-orange-500/30 text-xs">🔍 FYCO</Badge>
                         ) : isNotPreAlerted ? (
                           <span className="text-xs text-yellow-600 font-medium">Not pre-alerted</span>
                         ) : (
-                          <span className="text-xs text-muted-foreground">Scanned</span>
+                          <Badge className="bg-emerald-500/15 text-emerald-600 border-emerald-500/30 text-xs">✓ Scanned</Badge>
                         )}
                       </TableCell>
                       <TableCell>
-                        {!isDeleted && (
+                        {!isDeleted && !isFyco && (
                           <Button
                             variant="ghost"
                             size="icon"
