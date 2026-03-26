@@ -112,10 +112,16 @@ function InspectionsSection({ shipmentId }: { shipmentId: string }) {
 export default function StaffShipmentDetail() {
   const { id } = useParams<{ id: string }>();
   const { data: shipment, isLoading } = useStaffShipment(id);
+  const { data: allWarehouses = [] } = useAllWarehouses();
   const { data: history = [] } = useStatusHistory(id);
   const { data: noaEntries = [] } = useNoas(id);
   const { data: outboundData = [] } = useOutbounds(id);
   const { data: outerboxes = [] } = useOuterboxes(id);
+
+  const warehouseMatch = shipment?.warehouse_id
+    ? allWarehouses.find((w: any) => w.id === shipment.warehouse_id)
+    : null;
+  const warehouseDisplay = warehouseMatch ? `${warehouseMatch.code} — ${warehouseMatch.name}` : '—';
 
   if (isLoading) {
     return <div className="flex items-center justify-center py-24"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>;
