@@ -11,6 +11,7 @@ export interface AlarmSettings {
   fyco_action_no_release_days: number;
   shipment_noa_not_unloaded_hours: number;
   shipment_no_noa_after_eta_days: number;
+  shipment_created_no_noa_days: number;
   noa_kpi_warning_hours: number;
   carrier_pickup_hours: number;
   carrier_pickup_warning_hours: number;
@@ -23,6 +24,7 @@ export const DEFAULT_ALARM_SETTINGS: AlarmSettings = {
   fyco_action_no_release_days: 5,
   shipment_noa_not_unloaded_hours: 24,
   shipment_no_noa_after_eta_days: 2,
+  shipment_created_no_noa_days: 5,
   noa_kpi_warning_hours: 12,
   carrier_pickup_hours: 16,
   carrier_pickup_warning_hours: 12,
@@ -120,7 +122,7 @@ export function getFycoAlarm(
 }
 
 export interface ShipmentAlarm {
-  type: 'noa_not_unloaded' | 'no_noa_after_eta' | 'action_required';
+  type: 'noa_not_unloaded' | 'no_noa_after_eta' | 'no_noa_after_created' | 'action_required';
   label: string;
   description: string;
 }
@@ -132,6 +134,7 @@ export function getShipmentAlarms(
     mawb: string;
     status: string;
     eta: string | null;
+    created_at: string | null;
     noa_received_at: string | null;
     unloaded_at: string | null;
     customer_name: string | null;
@@ -171,6 +174,18 @@ export function getShipmentAlarms(
         type: 'no_noa_after_eta',
         label: 'No NOA after ETA',
         description: `${shipment.mawb} — No NOA after ETA (${days} working days)`,
+      });
+    }
+  }
+
+  // No NOA after shipment created
+  if (shipment.created_at && shipment.status === 'Awaiting NOA') {
+    const days = workingDaysBetween(new Date(shipment.created_at), now);
+    if (days > settings.shipment_created_no_noa_days) {
+      alarms.push({
+        type: 'no_noa_after_created',
+        label: 'No NOA after created',
+        description: `${shipment.mawb} — No NOA received · created ${days} days ago`,
       });
     }
   }

@@ -474,6 +474,7 @@ const ALARM_FIELDS = [
   { key: 'fyco_action_no_release_days', label: 'Fyco: action required, no release', unit: 'working days', description: 'Days after action required without release' },
   { key: 'shipment_noa_not_unloaded_hours', label: 'Shipment: NOA not unloaded', unit: 'hours', description: 'Hours after NOA received without unloading' },
   { key: 'shipment_no_noa_after_eta_days', label: 'Shipment: no NOA after ETA', unit: 'working days', description: 'Working days after ETA without NOA' },
+  { key: 'shipment_created_no_noa_days', label: 'Shipment: no NOA after created', unit: 'working days', description: 'Working days after shipment created without NOA' },
   { key: 'noa_kpi_warning_hours', label: 'Palletizing KPI: warning threshold', unit: 'hours', description: 'Hours before palletizing deadline to show warning' },
   { key: 'carrier_pickup_hours', label: 'Carrier pickup: deadline', unit: 'hours', description: 'Hours after first NOA for carrier to pick up' },
   { key: 'carrier_pickup_warning_hours', label: 'Carrier pickup: warning threshold', unit: 'hours', description: 'Hours before carrier pickup deadline to show warning' },

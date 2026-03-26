@@ -83,7 +83,7 @@ function useAlarmData() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('shipments')
-        .select('id, mawb, status, eta, noa_received_at, unloaded_at, customers(name)')
+        .select('id, mawb, status, eta, created_at, noa_received_at, unloaded_at, customers(name)')
         .not('status', 'eq', 'Outbound');
       if (error) throw error;
 
@@ -94,6 +94,7 @@ function useAlarmData() {
           mawb: s.mawb,
           status: s.status,
           eta: s.eta,
+          created_at: (s as any).created_at,
           noa_received_at: (s as any).noa_received_at,
           unloaded_at: (s as any).unloaded_at,
           customer_name: (s as any).customers?.name ?? null,
