@@ -116,6 +116,10 @@ function useFycoData() {
           created_at,
           email_sent_at,
           email_sent_by,
+          manifest_parcels (
+            outerbox_barcode,
+            hub
+          ),
           shipments (
             mawb,
             warehouse_id,
