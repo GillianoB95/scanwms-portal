@@ -80,7 +80,7 @@ export default function NewShipment() {
     return `${digits.slice(0, 3)}-${digits.slice(3)}`;
   }, []);
 
-  // AWB extraction via Supabase edge function
+  // AWB extraction — client-side via pdfjs-dist
   useEffect(() => {
     if (!awbFile) { setAwbData(null); setAwbError(null); setAwbManualMode(false); return; }
     let cancelled = false;
@@ -89,17 +89,11 @@ export default function NewShipment() {
     setAwbData(null);
     setAwbManualMode(false);
 
-    const formData = new FormData();
-    formData.append('file', awbFile);
-
-    supabase.functions.invoke('extract-awb', { body: formData })
-      .then(({ data, error }) => {
+    parseAwbPdf(awbFile)
+      .then((parsed) => {
         if (cancelled) return;
-        if (error) throw error;
-        if (data?.error) throw new Error(data.error);
-        if (!data) throw new Error('No data returned');
-        setAwbData(data as AwbServerData);
-        if (data.mawb && !mawb) setMawb(data.mawb);
+        setAwbData(parsed);
+        if (parsed.mawb && !mawb) setMawb(parsed.mawb);
       })
       .catch((err) => {
         if (cancelled) return;
