@@ -254,7 +254,7 @@ export default function NewShipment() {
         mawb,
         transport_type: 'AIR',
         colli_expected: colli,
-        weight: grossWeight,
+        gross_weight: grossWeight,
         chargeable_weight: effectiveWeight,
         warehouse_id: customer.warehouse_id || null,
         status: 'Awaiting NOA',
