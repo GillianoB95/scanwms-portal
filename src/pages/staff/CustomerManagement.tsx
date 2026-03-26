@@ -204,6 +204,20 @@ function CustomerFormDialog({ open, onOpenChange, customer, parentId, isAdmin, a
           <DialogTitle>{customer ? 'Edit Customer' : parentId ? 'Add Sub-Account' : 'Add Customer'}</DialogTitle>
         </DialogHeader>
         <div className="space-y-4 py-4">
+          {isNew && !parentId && (
+            <div className="space-y-2">
+              <Label>Parent Customer (optional)</Label>
+              <Select value={selectedParentId} onValueChange={setSelectedParentId}>
+                <SelectTrigger><SelectValue placeholder="None (top-level)" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">None (top-level customer)</SelectItem>
+                  {topLevelCustomers.map((c: any) => (
+                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
           <div className="space-y-2">
             <Label>Name *</Label>
             <Input value={name} onChange={e => setName(e.target.value)} placeholder="Company name" />
