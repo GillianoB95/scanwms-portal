@@ -31,19 +31,7 @@ export function FycoParcelsPanel({ shipmentId }: Props) {
     queryFn: async () => {
       const { data } = await supabase
         .from('inspections')
-        .select('id, parcel_barcode, barcode, status, scan_time')
-        .eq('shipment_id', shipmentId);
-      return data ?? [];
-    },
-    enabled: !!shipmentId,
-  });
-
-  const { data: manifestParcels = [] } = useQuery({
-    queryKey: ['fyco-manifest-parcels', shipmentId],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from('manifest_parcels')
-        .select('parcel_barcode, outerbox_barcode, hub')
+        .select('id, parcel_barcode, barcode, status, scan_time, manifest_parcels(outerbox_barcode, hub)')
         .eq('shipment_id', shipmentId);
       return data ?? [];
     },
@@ -51,17 +39,6 @@ export function FycoParcelsPanel({ shipmentId }: Props) {
   });
 
   if (inspections.length === 0) return null;
-
-  const parcelToBox = new Map<string, { boxBarcode: string; hub: string }>();
-  for (const mp of manifestParcels) {
-    const key = mp.parcel_barcode?.toUpperCase();
-    if (key) {
-      parcelToBox.set(key, {
-        boxBarcode: mp.outerbox_barcode || '—',
-        hub: mp.hub || '—',
-      });
-    }
-  }
 
   const getStatus = (status: string) => {
     const cfg = statusConfig[status] || statusConfig.under_inspection;
@@ -94,14 +71,13 @@ export function FycoParcelsPanel({ shipmentId }: Props) {
               </TableHeader>
               <TableBody>
                 {inspections.map((insp: any) => {
-                  const key = insp.parcel_barcode?.toUpperCase();
-                  const boxInfo = parcelToBox.get(key);
+                  const mp = insp.manifest_parcels;
                   const statusCfg = getStatus(insp.status);
                   return (
                     <TableRow key={insp.id}>
                       <TableCell className="font-mono font-medium">{insp.parcel_barcode}</TableCell>
-                      <TableCell className="font-mono">{boxInfo?.boxBarcode ?? '—'}</TableCell>
-                      <TableCell>{boxInfo?.hub ?? '—'}</TableCell>
+                      <TableCell className="font-mono">{mp?.outerbox_barcode ?? '—'}</TableCell>
+                      <TableCell>{mp?.hub ?? '—'}</TableCell>
                       <TableCell className="text-sm">
                         {insp.scan_time ? (
                           format(new Date(insp.scan_time), 'dd/MM/yy HH:mm')
