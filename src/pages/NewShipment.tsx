@@ -230,7 +230,7 @@ export default function NewShipment() {
     mawb.replace(/\D/g, '').length === 11 &&
     awbFile &&
     manifestFile &&
-    !!subklantId &&
+    (!!subklantId || (!isStaffUser && subklanten.length === 0)) &&
     manualColli !== '' && manualGrossWeight !== '' && manualChargeableWeight !== '' &&
     manifestReady &&
     !duplicateMawb &&
@@ -416,7 +416,7 @@ export default function NewShipment() {
           {!canProceed && (awbFile || manifestFile || mawb) && (
             <div className="text-xs text-muted-foreground space-y-0.5">
               {mawb.replace(/\D/g, '').length !== 11 && <div className="text-destructive">• MAWB number incomplete</div>}
-              {!subklantId && !isSubAccount && <div className="text-destructive">• Sub Client not selected</div>}
+              {!subklantId && isStaffUser && <div className="text-destructive">• Sub Client not selected</div>}
               {!awbFile && <div className="text-destructive">• Air Waybill not uploaded</div>}
               {!manifestFile && <div className="text-destructive">• Manifest not uploaded</div>}
               {(manualColli === '' || manualGrossWeight === '' || manualChargeableWeight === '') && awbFile && <div className="text-destructive">• Weight/colli fields incomplete</div>}
