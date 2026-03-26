@@ -576,6 +576,7 @@ export default function CustomerManagement() {
         customer={editCustomer}
         parentId={addSubParentId}
         isAdmin={isAdmin}
+        allCustomers={customers}
       />
 
       {notifCustomer && (
