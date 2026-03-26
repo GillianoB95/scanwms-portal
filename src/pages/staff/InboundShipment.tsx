@@ -195,8 +195,11 @@ export default function InboundShipment() {
   }, [shipments]);
 
   const warehouses = useMemo(() => {
-    const set = new Set(shipments.map((s: any) => s.warehouse_id).filter(Boolean));
-    return Array.from(set).sort() as string[];
+    const map = new Map<string, string>();
+    shipments.forEach((s: any) => {
+      if (s.warehouses?.code) map.set(s.warehouse_id, `${s.warehouses.code} — ${s.warehouses.name}`);
+    });
+    return Array.from(map.entries()).sort((a, b) => a[1].localeCompare(b[1]));
   }, [shipments]);
 
   const filtered = useMemo(() => {
