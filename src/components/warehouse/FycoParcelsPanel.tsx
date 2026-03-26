@@ -43,41 +43,22 @@ export function FycoParcelsPanel({ shipmentId }: Props) {
     queryFn: async () => {
       const { data } = await supabase
         .from('manifest_parcels')
-        .select('parcel_barcode, outerbox_barcode')
+        .select('parcel_barcode, outerbox_barcode, waybill')
         .eq('shipment_id', shipmentId);
       return data ?? [];
     },
     enabled: !!shipmentId,
   });
 
-  const outerboxBarcodes = [...new Set(manifestParcels.map((p: any) => p.outerbox_barcode).filter(Boolean))];
-  const { data: outerboxData = [] } = useQuery({
-    queryKey: ['fyco-outerbox-lookup', shipmentId, outerboxBarcodes],
-    queryFn: async () => {
-      if (outerboxBarcodes.length === 0) return [];
-      const { data } = await supabase
-        .from('outerboxes')
-        .select('barcode, hub')
-        .eq('shipment_id', shipmentId)
-        .in('barcode', outerboxBarcodes);
-      return data ?? [];
-    },
-    enabled: !!shipmentId && outerboxBarcodes.length > 0,
-  });
-
   if (inspections.length === 0) return null;
 
-  const hubByOuterbox = new Map(
-    outerboxData.map((box: any) => [box.barcode?.toUpperCase(), box.hub || '—'])
-  );
   const parcelToBox = new Map<string, { boxBarcode: string; hub: string }>();
-  for (const manifestParcel of manifestParcels) {
-    const parcelKey = manifestParcel.parcel_barcode?.toUpperCase();
-    const boxBarcode = manifestParcel.outerbox_barcode || '—';
-    if (parcelKey) {
-      parcelToBox.set(parcelKey, {
-        boxBarcode,
-        hub: hubByOuterbox.get(boxBarcode.toUpperCase()) || '—',
+  for (const mp of manifestParcels) {
+    const key = mp.parcel_barcode?.toUpperCase();
+    if (key) {
+      parcelToBox.set(key, {
+        boxBarcode: mp.outerbox_barcode || '—',
+        hub: mp.waybill || '—',
       });
     }
   }
