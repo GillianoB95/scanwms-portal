@@ -3,6 +3,7 @@ import { ArrowLeft, Download, CheckCircle2, Circle, Truck, Loader2, Shield, Aler
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useStatusHistory, useNoas, useOutbounds, useOuterboxes, useClearances, useInspections } from '@/hooks/use-shipment-data';
+import { useAllWarehouses } from '@/hooks/use-staff-data';
 import { StatusBadge } from '@/components/StatusBadge';
 import { getStatusClass } from '@/lib/mock-data';
 
@@ -13,7 +14,7 @@ function useStaffShipment(id: string | undefined) {
       if (!id) return null;
       const { data, error } = await supabase
         .from('shipments')
-        .select('*, subklanten(name), customers(name), warehouses(name, code)')
+        .select('*, subklanten(name), customers(name)')
         .eq('id', id)
         .maybeSingle();
       if (error) throw error;
@@ -111,10 +112,16 @@ function InspectionsSection({ shipmentId }: { shipmentId: string }) {
 export default function StaffShipmentDetail() {
   const { id } = useParams<{ id: string }>();
   const { data: shipment, isLoading } = useStaffShipment(id);
+  const { data: allWarehouses = [] } = useAllWarehouses();
   const { data: history = [] } = useStatusHistory(id);
   const { data: noaEntries = [] } = useNoas(id);
   const { data: outboundData = [] } = useOutbounds(id);
   const { data: outerboxes = [] } = useOuterboxes(id);
+
+  const warehouseMatch = shipment?.warehouse_id
+    ? allWarehouses.find((w: any) => w.id === shipment.warehouse_id)
+    : null;
+  const warehouseDisplay = warehouseMatch ? `${warehouseMatch.code} — ${warehouseMatch.name}` : '—';
 
   if (isLoading) {
     return <div className="flex items-center justify-center py-24"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>;
@@ -166,7 +173,7 @@ export default function StaffShipmentDetail() {
           <div><span className="text-muted-foreground block text-xs mb-0.5">MAWB</span><span className="font-mono font-medium">{shipment.mawb}</span></div>
           <div><span className="text-muted-foreground block text-xs mb-0.5">Customer</span>{(shipment as any).customers?.name || '—'}</div>
           <div><span className="text-muted-foreground block text-xs mb-0.5">Transport</span>{shipment.transport_type}</div>
-          <div><span className="text-muted-foreground block text-xs mb-0.5">Warehouse</span>{(shipment as any).warehouses?.name || (shipment as any).warehouses?.code || '—'}</div>
+          <div><span className="text-muted-foreground block text-xs mb-0.5">Warehouse</span>{warehouseDisplay}</div>
           <div><span className="text-muted-foreground block text-xs mb-0.5">Created</span>{new Date(shipment.created_at).toLocaleDateString('en-GB')}</div>
           <div><span className="text-muted-foreground block text-xs mb-0.5">Weight</span>{Number(shipment.chargeable_weight || 0).toLocaleString()} kg</div>
           <div><span className="text-muted-foreground block text-xs mb-0.5">Gross Weight</span>{Number(shipment.gross_weight || 0).toLocaleString()} kg</div>
