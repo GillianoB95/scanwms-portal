@@ -238,6 +238,8 @@ export default function WarehouseDashboard() {
   const departedColli = typeof departedData === 'object' ? departedData?.colli ?? 0 : 0;
   const departedWeight = typeof departedData === 'object' ? departedData?.weight ?? 0 : 0;
 
+  const periodLabel = timePeriod === 'today' ? 'Today' : timePeriod === 'week' ? 'This Week' : 'This Month';
+
   const stats = [
     {
       label: 'Expected Today',
@@ -247,14 +249,14 @@ export default function WarehouseDashboard() {
       color: 'text-[hsl(var(--status-noa-complete))]',
     },
     {
-      label: 'Shipments Unloaded',
+      label: `Unloaded ${periodLabel}`,
       value: `${unloadedData?.shipments ?? 0} shipments`,
       sub: `${unloadedData?.boxes ?? 0} colli · ${(unloadedData?.weight ?? 0).toFixed(0)} kg`,
       icon: PackageCheck,
       color: 'text-[hsl(var(--status-intransit))]',
     },
     {
-      label: 'Scanned In Today',
+      label: `Scanned ${periodLabel}`,
       value: `${scannedData?.count ?? 0} boxes`,
       sub: `${scannedData?.shipments ?? 0} shipments · ${(scannedData?.totalKg ?? 0).toFixed(2)} kg`,
       icon: ScanBarcode,
@@ -268,7 +270,7 @@ export default function WarehouseDashboard() {
       color: 'text-[hsl(var(--status-prepared))]',
     },
     {
-      label: 'Outbound Departed',
+      label: `Departed ${periodLabel}`,
       value: `${departedTrucks} ${departedTrucks === 1 ? 'truck' : 'trucks'}`,
       sub: `${departedColli} colli · ${departedWeight.toFixed(0)} kg`,
       icon: Truck,
@@ -279,7 +281,24 @@ export default function WarehouseDashboard() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Warehouse Dashboard</h1>
+        <div className="flex items-center gap-4">
+          <h1 className="text-2xl font-bold">Warehouse Dashboard</h1>
+          <div className="flex items-center gap-1 bg-muted rounded-lg p-1">
+            {(['today', 'week', 'month'] as const).map(p => (
+              <button
+                key={p}
+                onClick={() => setTimePeriod(p)}
+                className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                  timePeriod === p
+                    ? 'bg-background text-foreground shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                {p === 'today' ? 'Today' : p === 'week' ? 'This Week' : 'This Month'}
+              </button>
+            ))}
+          </div>
+        </div>
         <div className="flex gap-2">
           <Button asChild>
             <Link to="/warehouse/inbound"><ScanBarcode className="mr-2 h-4 w-4" />Start Scanning</Link>
