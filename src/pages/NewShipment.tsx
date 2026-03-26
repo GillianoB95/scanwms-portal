@@ -226,6 +226,7 @@ export default function NewShipment() {
     mawb.replace(/\D/g, '').length === 11 &&
     awbFile &&
     manifestFile &&
+    !!subklantId &&
     manualColli !== '' && manualGrossWeight !== '' && manualChargeableWeight !== '' &&
     manifestReady &&
     !duplicateMawb &&
@@ -249,8 +250,9 @@ export default function NewShipment() {
         mawb,
         transport_type: 'AIR',
         colli_expected: colli,
+        weight: grossWeight,
         chargeable_weight: effectiveWeight,
-        warehouse_id: customer.warehouse_id || 'DSC',
+        warehouse_id: customer.warehouse_id || null,
         status: 'Awaiting NOA',
         parcels: manifestResult?.totalParcels || 0,
       }).select('id').single();
