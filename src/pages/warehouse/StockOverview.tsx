@@ -66,17 +66,8 @@ export default function StockOverview() {
     return map;
   }, [outerboxes]);
 
-  // Filter shipments: exclude those where no boxes remain as scanned_in or palletized
-  const filteredShipments = useMemo(() => {
-    return shipments.filter((s: any) => {
-      const hubMap = shipmentHubData.get(s.id);
-      if (!hubMap) return false;
-      // Check if any box is still in stock
-      let hasStock = false;
-      hubMap.forEach((v) => { if (v.scanned > 0) hasStock = true; });
-      return hasStock;
-    });
-  }, [shipments, shipmentHubData]);
+  // Show all shipments with status In Stock — no outerbox filtering
+  const filteredShipments = shipments;
 
   // Collect all hub codes for filter dropdown
   const allHubs = useMemo(() => {
