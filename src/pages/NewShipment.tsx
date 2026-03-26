@@ -17,7 +17,19 @@ interface ManifestResult {
   totalWeight: number;
   errors: string[];
   warnings: string[];
-  cleanedBlob: Blob | null;
+  parsedRows: ManifestParsedRow[];
+}
+
+interface ManifestParsedRow {
+  parcel_barcode: string;
+  outerbox_barcode: string | null;
+  order_number: string | null;
+  waybill: string | null;
+  receiver_name: string | null;
+  total_weight: number | null;
+  product_weight: number | null;
+  quantity: number | null;
+  destination_country: string | null;
 }
 
 async function fetchWithTimeout(url: string, options: RequestInit, timeoutMs: number): Promise<Response> {
