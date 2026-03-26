@@ -8,7 +8,7 @@ import { Switch } from '@/components/ui/switch';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { StatusBadge } from '@/components/StatusBadge';
-import { useAllShipments, useUpdateShipment, useDeleteShipment, useShipmentBlocks, useCreateBlock, useRemoveBlock, useShipmentInspections, useCreateInspections } from '@/hooks/use-staff-data';
+import { useAllShipments, useUpdateShipment, useDeleteShipment, useShipmentBlocks, useCreateBlock, useRemoveBlock, useShipmentInspections, useCreateInspections, useAllWarehouses } from '@/hooks/use-staff-data';
 import { supabase } from '@/lib/supabase';
 import { findInvalidParcels } from '@/lib/manifest-parcels';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -220,6 +220,7 @@ function UnblockDialog({ block, open, onOpenChange }: { block: any; open: boolea
 /* ─── Main Page ─── */
 export default function MawbOverview() {
   const { data: shipments = [], isLoading } = useAllShipments();
+  const { data: allWarehouses = [] } = useAllWarehouses();
   const { data: blocks = [] } = useShipmentBlocks();
   const { data: inspections = [] } = useShipmentInspections();
 
@@ -230,6 +231,18 @@ export default function MawbOverview() {
   const [dateFrom, setDateFrom] = useState<Date | undefined>();
   const [dateTo, setDateTo] = useState<Date | undefined>();
 
+  const warehouseMap = useMemo(() => {
+    const map = new Map<string, string>();
+    allWarehouses.forEach((w: any) => map.set(w.id, `${w.code} — ${w.name}`));
+    return map;
+  }, [allWarehouses]);
+
+  const getWarehouseName = (s: any) => {
+    if (s.warehouses?.code) return `${s.warehouses.code} — ${s.warehouses.name}`;
+    if (s.warehouse_id) return warehouseMap.get(s.warehouse_id) || s.warehouse_id;
+    return '—';
+  };
+
   const customers = useMemo(() => {
     const set = new Set(shipments.map((s: any) => s.customers?.name).filter(Boolean));
     return Array.from(set).sort() as string[];
@@ -238,10 +251,10 @@ export default function MawbOverview() {
   const warehouses = useMemo(() => {
     const map = new Map<string, string>();
     shipments.forEach((s: any) => {
-      if (s.warehouses?.code) map.set(s.warehouse_id, `${s.warehouses.code} — ${s.warehouses.name}`);
+      if (s.warehouse_id) map.set(s.warehouse_id, getWarehouseName(s));
     });
     return Array.from(map.entries()).sort((a, b) => a[1].localeCompare(b[1]));
-  }, [shipments]);
+  }, [shipments, warehouseMap]);
 
   const filtered = useMemo(() => {
     return shipments.filter((s: any) => {
@@ -374,6 +387,7 @@ export default function MawbOverview() {
                   shipment={s}
                   blocks={blocksByShipment.get(s.id) ?? []}
                   inspectionCount={inspectionsByShipment.get(s.id) ?? 0}
+                  warehouseMap={warehouseMap}
                 />
               ))
             )}
@@ -384,7 +398,7 @@ export default function MawbOverview() {
   );
 }
 
-function ShipmentRow({ shipment, blocks, inspectionCount }: { shipment: any; blocks: any[]; inspectionCount: number }) {
+function ShipmentRow({ shipment, blocks, inspectionCount, warehouseMap }: { shipment: any; blocks: any[]; inspectionCount: number; warehouseMap: Map<string, string> }) {
   const navigate = useNavigate();
   const updateShipment = useUpdateShipment();
   const deleteShipment = useDeleteShipment();
@@ -424,7 +438,7 @@ function ShipmentRow({ shipment, blocks, inspectionCount }: { shipment: any; blo
       <TableRow>
         <TableCell className="font-medium">{shipment.customers?.name || '—'}</TableCell>
         <TableCell className="font-mono text-sm">{shipment.mawb}</TableCell>
-        <TableCell>{shipment.warehouses?.code ? `${shipment.warehouses.code} — ${shipment.warehouses.name}` : '—'}</TableCell>
+        <TableCell>{shipment.warehouses?.code ? `${shipment.warehouses.code} — ${shipment.warehouses.name}` : (warehouseMap.get(shipment.warehouse_id) || '—')}</TableCell>
         <TableCell className="text-right">{shipment.colli_expected ?? 0}</TableCell>
         <TableCell>
           <div className="flex items-center gap-1 flex-wrap">
