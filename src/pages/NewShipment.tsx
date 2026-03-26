@@ -408,6 +408,20 @@ export default function NewShipment() {
             </div>
           )}
 
+          {/* Show which required fields are still missing */}
+          {!canProceed && (awbFile || manifestFile || mawb) && (
+            <div className="text-xs text-muted-foreground space-y-0.5">
+              {mawb.replace(/\D/g, '').length !== 11 && <div className="text-destructive">• MAWB number incomplete</div>}
+              {!subklantId && !isSubAccount && <div className="text-destructive">• Sub Client not selected</div>}
+              {!awbFile && <div className="text-destructive">• Air Waybill not uploaded</div>}
+              {!manifestFile && <div className="text-destructive">• Manifest not uploaded</div>}
+              {(manualColli === '' || manualGrossWeight === '' || manualChargeableWeight === '') && awbFile && <div className="text-destructive">• Weight/colli fields incomplete</div>}
+              {manifestFile && !manifestReady && !manifestProcessing && <div className="text-destructive">• Manifest not ready</div>}
+              {!!duplicateMawb && <div className="text-destructive">• Duplicate MAWB</div>}
+              {hasBlockingErrors && <div className="text-destructive">• Manifest has validation errors</div>}
+            </div>
+          )}
+
           <div className="flex justify-end pt-2">
             <button disabled={!canProceed} onClick={() => setStep(2)}
               className="inline-flex items-center gap-2 px-5 h-10 rounded-lg bg-accent text-accent-foreground text-sm font-semibold disabled:opacity-40 disabled:cursor-not-allowed hover:opacity-90 active:scale-[0.98] transition-all">
