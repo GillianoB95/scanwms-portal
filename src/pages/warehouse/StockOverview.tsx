@@ -1,140 +1,181 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
+import { format } from 'date-fns';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useWarehouseAuth } from '@/hooks/use-warehouse-auth';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Card, CardContent } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Progress } from '@/components/ui/progress';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { CheckCircle2, PackageSearch } from 'lucide-react';
 
 export default function StockOverview() {
   const { data: auth } = useWarehouseAuth();
   const warehouseId = auth?.warehouseId;
-  const [selectedShipment, setSelectedShipment] = useState<string | null>(null);
+  const [hubFilter, setHubFilter] = useState<string>('all');
 
+  // Fetch In Stock shipments that still have boxes in warehouse
   const { data: shipments = [] } = useQuery({
-    queryKey: ['stock-shipments', warehouseId],
+    queryKey: ['stock-overview-shipments', warehouseId],
     queryFn: async () => {
       if (!warehouseId) return [];
       const { data } = await supabase
         .from('shipments')
-        .select('id, mawb, colli_expected, status, customers(name, short_name)')
+        .select('id, mawb, unloaded_at')
         .eq('warehouse_id', warehouseId)
         .eq('status', 'In Stock')
-        .order('unloaded_at', { ascending: false });
+        .order('mawb', { ascending: true });
       return data ?? [];
     },
     enabled: !!warehouseId,
   });
 
-  const { data: boxCounts = {} } = useQuery({
-    queryKey: ['stock-box-counts', shipments.map((s: any) => s.id)],
-    queryFn: async () => {
-      const ids = shipments.map((s: any) => s.id);
-      if (ids.length === 0) return {};
-      const { data } = await supabase
-        .from('outerboxes')
-        .select('shipment_id, status')
-        .in('shipment_id', ids);
-      const counts: Record<string, { scanned: number; outbound: number }> = {};
-      (data ?? []).forEach((b: any) => {
-        if (!counts[b.shipment_id]) counts[b.shipment_id] = { scanned: 0, outbound: 0 };
-        counts[b.shipment_id].scanned++;
-        if (b.status === 'scanned_out') counts[b.shipment_id].outbound++;
-      });
-      return counts;
-    },
-    enabled: shipments.length > 0,
-  });
+  const shipmentIds = shipments.map((s: any) => s.id);
 
-  const { data: boxes = [] } = useQuery({
-    queryKey: ['stock-boxes-detail', selectedShipment],
+  // Fetch all non-deleted outerboxes for these shipments
+  const { data: outerboxes = [] } = useQuery({
+    queryKey: ['stock-overview-boxes', shipmentIds],
     queryFn: async () => {
-      if (!selectedShipment) return [];
+      if (shipmentIds.length === 0) return [];
       const { data } = await supabase
         .from('outerboxes')
-        .select('id, barcode, status, scanned_in_at')
-        .eq('shipment_id', selectedShipment)
-        .order('scanned_in_at', { ascending: false });
+        .select('id, shipment_id, hub, status')
+        .in('shipment_id', shipmentIds)
+        .neq('status', 'deleted');
       return data ?? [];
     },
-    enabled: !!selectedShipment,
+    enabled: shipmentIds.length > 0,
   });
+
+  // Build hub groups per shipment
+  const shipmentHubData = useMemo(() => {
+    const map = new Map<string, Map<string, { total: number; scanned: number }>>();
+
+    for (const box of outerboxes) {
+      const hub = (box as any).hub || 'Unknown';
+      if (!map.has(box.shipment_id)) map.set(box.shipment_id, new Map());
+      const hubMap = map.get(box.shipment_id)!;
+      if (!hubMap.has(hub)) hubMap.set(hub, { total: 0, scanned: 0 });
+      const entry = hubMap.get(hub)!;
+      entry.total++;
+      if (box.status === 'scanned_in' || box.status === 'palletized') {
+        entry.scanned++;
+      }
+    }
+
+    return map;
+  }, [outerboxes]);
+
+  // Filter shipments: exclude those where no boxes remain as scanned_in or palletized
+  const filteredShipments = useMemo(() => {
+    return shipments.filter((s: any) => {
+      const hubMap = shipmentHubData.get(s.id);
+      if (!hubMap) return false;
+      // Check if any box is still in stock
+      let hasStock = false;
+      hubMap.forEach((v) => { if (v.scanned > 0) hasStock = true; });
+      return hasStock;
+    });
+  }, [shipments, shipmentHubData]);
+
+  // Collect all hub codes for filter dropdown
+  const allHubs = useMemo(() => {
+    const hubs = new Set<string>();
+    shipmentHubData.forEach((hubMap) => {
+      hubMap.forEach((_, hub) => hubs.add(hub));
+    });
+    return Array.from(hubs).sort();
+  }, [shipmentHubData]);
+
+  // Apply hub filter
+  const displayShipments = useMemo(() => {
+    if (hubFilter === 'all') return filteredShipments;
+    return filteredShipments.filter((s: any) => {
+      const hubMap = shipmentHubData.get(s.id);
+      return hubMap?.has(hubFilter);
+    });
+  }, [filteredShipments, hubFilter, shipmentHubData]);
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold">Stock Overview</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold">Stock Overview</h1>
+        <Select value={hubFilter} onValueChange={setHubFilter}>
+          <SelectTrigger className="w-48">
+            <SelectValue placeholder="Filter by hub" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All hubs</SelectItem>
+            {allHubs.map((hub) => (
+              <SelectItem key={hub} value={hub}>{hub}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
 
-      <Card>
-        <CardContent className="pt-6">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>MAWB</TableHead>
-                <TableHead>Customer</TableHead>
-                <TableHead>Subklant</TableHead>
-                <TableHead className="text-right">Colli Total</TableHead>
-                <TableHead className="text-right">Scanned In</TableHead>
-                <TableHead className="text-right">Not Scanned</TableHead>
-                <TableHead className="text-right">In Stock</TableHead>
-                <TableHead className="text-right">Outbound</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {shipments.length === 0 ? (
-                <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground py-8">No shipments in stock</TableCell></TableRow>
-              ) : shipments.map((s: any) => {
-                const c = boxCounts[s.id] ?? { scanned: 0, outbound: 0 };
-                const notScanned = Math.max((s.colli_expected ?? 0) - c.scanned, 0);
-                const inStock = c.scanned - c.outbound;
-                return (
-                  <TableRow
-                    key={s.id}
-                    className="cursor-pointer"
-                    onClick={() => setSelectedShipment(s.id)}
-                  >
-                    <TableCell className="font-mono font-medium">{s.mawb}</TableCell>
-                    <TableCell>{(s.customers as any)?.name ?? '—'}</TableCell>
-                    <TableCell>{(s.customers as any)?.short_name ?? '—'}</TableCell>
-                    <TableCell className="text-right">{s.colli_expected ?? 0}</TableCell>
-                    <TableCell className="text-right">{c.scanned}</TableCell>
-                    <TableCell className="text-right">{notScanned}</TableCell>
-                    <TableCell className="text-right font-medium">{inStock}</TableCell>
-                    <TableCell className="text-right">{c.outbound}</TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+      {displayShipments.length === 0 ? (
+        <Card>
+          <CardContent className="py-12 text-center text-muted-foreground">
+            <PackageSearch className="h-10 w-10 mx-auto mb-3 opacity-40" />
+            <p>No shipments currently in stock</p>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="space-y-4">
+          {displayShipments.map((s: any) => {
+            const hubMap = shipmentHubData.get(s.id);
+            const hubs = hubMap
+              ? Array.from(hubMap.entries())
+                  .filter(([hub]) => hubFilter === 'all' || hub === hubFilter)
+                  .sort(([a], [b]) => a.localeCompare(b))
+              : [];
 
-      <Dialog open={!!selectedShipment} onOpenChange={(open) => !open && setSelectedShipment(null)}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Boxes — {shipments.find((s: any) => s.id === selectedShipment)?.mawb}</DialogTitle>
-          </DialogHeader>
-          <div className="max-h-96 overflow-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Barcode</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Scanned At</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {boxes.map((b: any) => (
-                  <TableRow key={b.id}>
-                    <TableCell className="font-mono">{b.barcode}</TableCell>
-                    <TableCell className="capitalize">{b.status?.replace('_', ' ')}</TableCell>
-                    <TableCell>{b.scanned_in_at ? new Date(b.scanned_in_at).toLocaleString() : '—'}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-        </DialogContent>
-      </Dialog>
+            return (
+              <Card key={s.id}>
+                <CardContent className="pt-5 pb-4 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <span className="font-mono font-bold text-lg">{s.mawb}</span>
+                    </div>
+                    <span className="text-sm text-muted-foreground">
+                      Unloaded: {s.unloaded_at ? format(new Date(s.unloaded_at), 'dd/MM/yyyy') : '—'}
+                    </span>
+                  </div>
+
+                  <div className="border-t pt-3 space-y-3">
+                    {hubs.map(([hub, counts]) => {
+                      const pct = counts.total > 0 ? Math.round((counts.scanned / counts.total) * 100) : 0;
+                      const complete = counts.scanned === counts.total && counts.total > 0;
+
+                      return (
+                        <div key={hub} className="flex items-center gap-4">
+                          <span className="w-24 text-sm font-medium truncate" title={hub}>{hub}</span>
+                          <span className="w-24 text-sm text-muted-foreground">{counts.total} boxes</span>
+                          <div className="flex-1">
+                            <Progress
+                              value={pct}
+                              className="h-3"
+                            />
+                          </div>
+                          <span className="w-16 text-sm text-right font-mono">
+                            {counts.scanned}/{counts.total}
+                          </span>
+                          {complete && (
+                            <Badge variant="outline" className="border-emerald-500/30 bg-emerald-500/10 text-emerald-600 gap-1">
+                              <CheckCircle2 className="h-3 w-3" />
+                              Done
+                            </Badge>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
