@@ -378,7 +378,6 @@ export default function StockOverview() {
                             </div>
                           )}
                         </div>
-                        </div>
                       );
                     })}
                   </div>
