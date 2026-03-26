@@ -16,36 +16,42 @@ function getMilestoneStatus(shipment: any, history: any[], noaEntries: any[], ou
   // Created
   results.push({ key: 'created', label: 'Shipment Created', reached: true, date: shipment.created_at });
 
-  // NOA entries — show each NOA part
-  if (noaEntries.length > 1) {
-    // Multiple NOAs: first one as "NOA Received", then partial steps
-    const firstNoa = noaEntries[0];
-    results.push({
-      key: 'noa',
-      label: 'NOA Received',
-      reached: true,
-      date: firstNoa?.received_at || firstNoa?.created_at,
-      sub: noaEntries.map((n: any) => ({
-        label: `NOA #${n.noa_number} (${n.colli} colli)`,
-        date: n.received_at || n.created_at,
-      })),
-    });
-  } else if (noaEntries.length === 1) {
+  // NOA entries
+  const totalNoaColli = noaEntries.reduce((sum: number, n: any) => sum + (n.colli || 0), 0);
+  const noaComplete = noaEntries.length > 0 && totalNoaColli >= (shipment.colli_expected || 0);
+
+  if (noaEntries.length === 0) {
+    results.push({ key: 'noa', label: 'NOA Received', reached: false });
+  } else if (noaEntries.length === 1 && noaComplete) {
+    // Single NOA that covers all expected colli → NOA Complete
     const noa = noaEntries[0];
     results.push({
-      key: 'noa',
-      label: 'NOA Received',
+      key: 'noa_complete',
+      label: 'NOA Complete',
       reached: true,
       date: noa?.received_at || noa?.created_at,
     });
   } else {
-    results.push({ key: 'noa', label: 'NOA Received', reached: false });
+    // Multiple NOAs (or single partial)
+    let runningTotal = 0;
+    for (let i = 0; i < noaEntries.length; i++) {
+      const n = noaEntries[i];
+      runningTotal += n.colli || 0;
+      const isLast = runningTotal >= (shipment.colli_expected || 0);
+      results.push({
+        key: `noa_${i}`,
+        label: isLast ? 'NOA Complete' : `Partial NOA #${i + 1}`,
+        reached: true,
+        date: n.received_at || n.created_at,
+        sub: [{ label: `${n.colli} colli`, date: n.received_at || n.created_at }],
+      });
+    }
   }
 
-  // NOA Complete (all colli announced)
-  const totalNoaColli = noaEntries.reduce((sum: number, n: any) => sum + (n.colli || 0), 0);
-  const noaComplete = noaEntries.length > 0 && totalNoaColli >= (shipment.colli_expected || 0);
-  results.push({ key: 'noa_complete', label: 'NOA Complete', reached: noaComplete });
+  // If not complete yet, add a pending "NOA Complete" step
+  if (!noaComplete && noaEntries.length > 0) {
+    results.push({ key: 'noa_complete', label: 'NOA Complete', reached: false });
+  }
 
   // Unloaded
   const isUnloaded = !!shipment.unloaded_at;
