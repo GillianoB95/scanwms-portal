@@ -49,10 +49,7 @@ export function WarehouseFycoDetailModal({ shipment, open, onOpenChange }: { shi
     enabled: !!shipment?.id && open,
   });
 
-  const boxMap = new Map<string, string>();
-  for (const mp of manifestParcels) {
-    if (mp.parcel_barcode) boxMap.set(mp.parcel_barcode.toUpperCase(), mp.outerbox_barcode ?? '—');
-  }
+  const getBoxBarcode = (insp: any) => insp.manifest_parcels?.outerbox_barcode ?? '—';
 
   const updateLocation = useMutation({
     mutationFn: async ({ id, location }: { id: string; location: string }) => {
