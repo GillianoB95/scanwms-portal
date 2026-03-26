@@ -14,20 +14,34 @@ export default function StockOverview() {
   const warehouseId = auth?.warehouseId;
   const [hubFilter, setHubFilter] = useState<string>('all');
 
-  // Fetch In Stock shipments that still have boxes in warehouse
-  const { data: shipments = [] } = useQuery({
-    queryKey: ['stock-overview-shipments', warehouseId],
+  // Resolve warehouse UUID to code for shipment queries
+  const { data: warehouseCode } = useQuery({
+    queryKey: ['warehouse-code', warehouseId],
     queryFn: async () => {
-      if (!warehouseId) return [];
+      const { data } = await supabase
+        .from('warehouses')
+        .select('code')
+        .eq('id', warehouseId!)
+        .single();
+      return data?.code ?? null;
+    },
+    enabled: !!warehouseId,
+  });
+
+  // Fetch In Stock shipments
+  const { data: shipments = [] } = useQuery({
+    queryKey: ['stock-overview-shipments', warehouseCode],
+    queryFn: async () => {
+      if (!warehouseCode) return [];
       const { data } = await supabase
         .from('shipments')
         .select('id, mawb, unloaded_at')
-        .eq('warehouse_id', warehouseId)
+        .eq('warehouse_id', warehouseCode)
         .eq('status', 'In Stock')
         .order('mawb', { ascending: true });
       return data ?? [];
     },
-    enabled: !!warehouseId,
+    enabled: !!warehouseCode,
   });
 
   const shipmentIds = shipments.map((s: any) => s.id);
