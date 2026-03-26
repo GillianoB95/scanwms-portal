@@ -253,7 +253,7 @@ export default function InboundShipment() {
             <SelectTrigger className="w-[160px]"><SelectValue placeholder="Warehouse" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Warehouses</SelectItem>
-              {warehouses.map(w => <SelectItem key={w} value={w}>{w}</SelectItem>)}
+              {warehouses.map(([id, label]) => <SelectItem key={id} value={id}>{label}</SelectItem>)}
             </SelectContent>
           </Select>
           <Select value={statusFilter} onValueChange={setStatusFilter}>
@@ -330,7 +330,7 @@ export default function InboundShipment() {
                   <TableRow key={s.id}>
                     <TableCell className="font-mono text-sm">{s.mawb}</TableCell>
                     <TableCell className="font-medium">{s.customers?.name || '—'}</TableCell>
-                    <TableCell>{s.warehouse_id || '—'}</TableCell>
+                    <TableCell>{s.warehouses?.code ? `${s.warehouses.code} — ${s.warehouses.name}` : '—'}</TableCell>
                     <TableCell className="text-right">{colliExpected}</TableCell>
                     <TableCell className="text-right">
                       <span className={cn(
