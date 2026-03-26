@@ -208,7 +208,6 @@ export default function StaffShipmentDetail() {
     : null;
   const warehouseDisplay = warehouseMatch ? `${warehouseMatch.code} — ${warehouseMatch.name}` : '—';
 
-  // Pallet data
   const palletIds = useMemo(() => {
     const ids = new Set<string>();
     outerboxes.forEach((b: any) => { if (b.pallet_id) ids.add(b.pallet_id); });
@@ -388,23 +387,21 @@ export default function StaffShipmentDetail() {
       <InspectionsSection shipmentId={shipment.id} />
 
       {/* Warehouse Tracking */}
-      {outerboxes.length > 0 && (
-        <div className="bg-card rounded-xl border p-5 animate-fade-in" style={{ animationDelay: '400ms' }}>
-          <h2 className="font-semibold mb-4">Warehouse Tracking</h2>
-          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 text-sm mb-4">
-            <div className="bg-muted rounded-lg px-3 py-2"><span className="text-muted-foreground text-xs block">Expected</span><span className="font-bold tabular-nums">{shipment.colli_expected ?? outerboxes.length}</span></div>
-            <div className="bg-muted rounded-lg px-3 py-2"><span className="text-muted-foreground text-xs block">Scanned In ✅</span><span className="font-bold tabular-nums">{scannedIn}</span></div>
-            <div className="bg-muted rounded-lg px-3 py-2"><span className="text-muted-foreground text-xs block">Not Scanned ❌</span><span className="font-bold tabular-nums">{notScanned}</span></div>
-            <div className="bg-muted rounded-lg px-3 py-2"><span className="text-muted-foreground text-xs block">In Stock 📦</span><span className="font-bold tabular-nums">{inStock}</span></div>
-            <div className="bg-muted rounded-lg px-3 py-2"><span className="text-muted-foreground text-xs block">Scanned Out 🚚</span><span className="font-bold tabular-nums">{scannedOut}</span></div>
-          </div>
-          <div className="w-full h-2.5 bg-muted rounded-full overflow-hidden flex">
-            {scannedOut > 0 && <div className="bg-[hsl(var(--status-delivered))] h-full" style={{ width: `${(scannedOut / (shipment.colli_expected || outerboxes.length)) * 100}%` }} />}
-            {inStock > 0 && <div className="bg-[hsl(var(--status-instock))] h-full" style={{ width: `${(inStock / (shipment.colli_expected || outerboxes.length)) * 100}%` }} />}
-            {(scannedIn - inStock - scannedOut) > 0 && <div className="bg-[hsl(var(--status-noa-complete))] h-full" style={{ width: `${((scannedIn - inStock - scannedOut) / (shipment.colli_expected || outerboxes.length)) * 100}%` }} />}
-          </div>
+      <div className="bg-card rounded-xl border p-5 animate-fade-in" style={{ animationDelay: '400ms' }}>
+        <h2 className="font-semibold mb-4">Warehouse Tracking</h2>
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 text-sm mb-4">
+          <div className="bg-muted rounded-lg px-3 py-2"><span className="text-muted-foreground text-xs block">Expected</span><span className="font-bold tabular-nums">{shipment.colli_expected ?? 0}</span></div>
+          <div className="bg-muted rounded-lg px-3 py-2"><span className="text-muted-foreground text-xs block">Scanned In ✅</span><span className="font-bold tabular-nums">{scannedIn}</span></div>
+          <div className="bg-muted rounded-lg px-3 py-2"><span className="text-muted-foreground text-xs block">Not Scanned ❌</span><span className="font-bold tabular-nums">{notScanned}</span></div>
+          <div className="bg-muted rounded-lg px-3 py-2"><span className="text-muted-foreground text-xs block">In Stock 📦</span><span className="font-bold tabular-nums">{inStock}</span></div>
+          <div className="bg-muted rounded-lg px-3 py-2"><span className="text-muted-foreground text-xs block">Scanned Out 🚚</span><span className="font-bold tabular-nums">{scannedOut}</span></div>
         </div>
-      )}
+        <div className="w-full h-2.5 bg-muted rounded-full overflow-hidden flex">
+          {scannedOut > 0 && <div className="bg-[hsl(var(--status-delivered))] h-full" style={{ width: `${(scannedOut / (shipment.colli_expected || 1)) * 100}%` }} />}
+          {inStock > 0 && <div className="bg-[hsl(var(--status-instock))] h-full" style={{ width: `${(inStock / (shipment.colli_expected || 1)) * 100}%` }} />}
+          {(scannedIn - inStock - scannedOut) > 0 && <div className="bg-[hsl(var(--status-noa-complete))] h-full" style={{ width: `${((scannedIn - inStock - scannedOut) / (shipment.colli_expected || 1)) * 100}%` }} />}
+        </div>
+      </div>
 
       {/* Hub Scan Progress */}
       <HubScanProgress shipmentId={shipment.id} outerboxes={outerboxes} />
@@ -469,228 +466,11 @@ export default function StaffShipmentDetail() {
                   <div className="space-y-3">
                     {group.pickups.map((pickup: any, pi: number) => (
                       <div key={pi} className="bg-muted/40 rounded-lg p-3">
-                        <div className="flex items-center gap-2 mb-2 text-sm">
+                        <div className="flex items-center gap-2 text-sm">
                           <Truck className="h-3.5 w-3.5 text-muted-foreground" />
                           <span className="font-medium">{pickup.date ? new Date(pickup.date).toLocaleDateString('en-GB') : 'No date'}</span>
                           {pickup.truckReference && <span className="text-muted-foreground text-xs">· Truck: {pickup.truckReference}</span>}
                           {pickup.status && <StatusBadge status={pickup.status} />}
-                          <span className="text-muted-foreground text-xs ml-auto">{pickup.totalPieces} pcs</span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-  const currentIdx = statusOrder.indexOf(shipment.status);
-  const subklantName = (shipment as any).subklanten?.name || '—';
-
-  const scannedIn = outerboxes.filter((b: any) => ['scanned_in', 'in_stock', 'scanned_out'].includes(b.status)).length;
-  const inStock = outerboxes.filter((b: any) => b.status === 'in_stock').length;
-  const scannedOut = outerboxes.filter((b: any) => b.status === 'scanned_out').length;
-  const notScanned = outerboxes.filter((b: any) => b.status === 'expected').length;
-
-  const hubGroups = outboundData.reduce((acc: any, ob: any) => {
-    const hubCode = ob.hubs?.code || 'Unknown';
-    const hubName = ob.hubs?.name || hubCode;
-    if (!acc[hubCode]) acc[hubCode] = { hubCode, hubName, pickups: [], totalPieces: 0 };
-    const pallets = ob.pallets || [];
-    const pieces = pallets.reduce((s: number, p: any) => s + (p.pieces || 0), 0);
-    acc[hubCode].totalPieces += pieces;
-    acc[hubCode].pickups.push({ date: ob.pickup_date, truckReference: ob.truck_reference, pallets, totalPieces: pieces });
-    return acc;
-  }, {});
-
-  return (
-    <div className="space-y-6 max-w-4xl">
-      <Link to="/staff" className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors">
-        <ArrowLeft className="h-4 w-4" /> Back to MAWB Overview
-      </Link>
-
-      <div className="flex items-center gap-3 animate-fade-in">
-        <h1 className="text-2xl font-bold font-mono">{shipment.mawb}</h1>
-        <StatusBadge status={shipment.status} />
-      </div>
-
-      {/* Shipment Info */}
-      <div className="bg-card rounded-xl border p-5 animate-fade-in" style={{ animationDelay: '80ms' }}>
-        <h2 className="font-semibold mb-4">Shipment Info</h2>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
-          <div><span className="text-muted-foreground block text-xs mb-0.5">MAWB</span><span className="font-mono font-medium">{shipment.mawb}</span></div>
-          <div><span className="text-muted-foreground block text-xs mb-0.5">Customer</span>{(shipment as any).customers?.name || '—'}</div>
-          <div><span className="text-muted-foreground block text-xs mb-0.5">Transport</span>{shipment.transport_type}</div>
-          <div><span className="text-muted-foreground block text-xs mb-0.5">Warehouse</span>{warehouseDisplay}</div>
-          <div><span className="text-muted-foreground block text-xs mb-0.5">Created</span>{new Date(shipment.created_at).toLocaleDateString('en-GB')}</div>
-          <div><span className="text-muted-foreground block text-xs mb-0.5">Weight</span>{Number(shipment.chargeable_weight || 0).toLocaleString()} kg</div>
-          <div><span className="text-muted-foreground block text-xs mb-0.5">Gross Weight</span>{Number(shipment.gross_weight || 0).toLocaleString()} kg</div>
-          <div><span className="text-muted-foreground block text-xs mb-0.5">Sub Client</span>{subklantName}</div>
-          <div><span className="text-muted-foreground block text-xs mb-0.5">ETA</span>{shipment.eta ? new Date(shipment.eta).toLocaleDateString('en-GB') : '—'}</div>
-        </div>
-        {shipment.notes && (
-          <div className="mt-4 pt-4 border-t">
-            <span className="text-muted-foreground text-xs block mb-1">Notes</span>
-            <p className="text-sm">{shipment.notes}</p>
-          </div>
-        )}
-        <div className="flex gap-2 mt-4 pt-4 border-t">
-          {['Air Waybill', 'Original Manifest'].map(f => (
-            <button key={f} className="inline-flex items-center gap-1.5 text-xs font-medium text-accent hover:underline">
-              <Download className="h-3.5 w-3.5" /> {f}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Status Timeline */}
-      <div className="bg-card rounded-xl border p-5 animate-fade-in" style={{ animationDelay: '160ms' }}>
-        <h2 className="font-semibold mb-4">Status Timeline</h2>
-        <div className="space-y-0">
-          {statusOrder.map((status, i) => {
-            const reached = i <= currentIdx;
-            const historyEntry = history.find((h: any) => h.status === status);
-            return (
-              <div key={status} className="flex gap-3">
-                <div className="flex flex-col items-center">
-                  {reached
-                    ? <CheckCircle2 className="h-5 w-5 text-[hsl(var(--status-delivered))] shrink-0" />
-                    : <Circle className="h-5 w-5 text-border shrink-0" />}
-                  {i < statusOrder.length - 1 && <div className={`w-px flex-1 min-h-[24px] ${reached && i < currentIdx ? 'bg-[hsl(var(--status-delivered))]' : 'bg-border'}`} />}
-                </div>
-                <div className="pb-4">
-                  <p className={`text-sm font-medium ${reached ? 'text-foreground' : 'text-muted-foreground'}`}>{status}</p>
-                  {historyEntry && (
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      {new Date(historyEntry.changed_at).toLocaleString('en-GB')} · {historyEntry.changed_by}
-                      {historyEntry.notes && <span className="block mt-0.5 italic">{historyEntry.notes}</span>}
-                    </p>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* NOA History */}
-      <div className="bg-card rounded-xl border animate-fade-in" style={{ animationDelay: '240ms' }}>
-        <div className="px-5 py-4 border-b"><h2 className="font-semibold">NOA History</h2></div>
-        {noaEntries.length === 0 ? (
-          <div className="px-5 py-8 text-center"><span className="text-muted-foreground text-sm">No NOA received yet</span></div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b text-muted-foreground">
-                  <th className="text-left px-5 py-3 font-medium">NOA #</th>
-                  <th className="text-left px-5 py-3 font-medium">Date Received</th>
-                  <th className="text-left px-5 py-3 font-medium">Received At</th>
-                  <th className="text-right px-5 py-3 font-medium">Colli</th>
-                  <th className="text-right px-5 py-3 font-medium">Weight (kg)</th>
-                  <th className="text-left px-5 py-3 font-medium">Source</th>
-                  <th className="text-right px-5 py-3 font-medium">Download</th>
-                </tr>
-              </thead>
-              <tbody>
-                {noaEntries.map((n: any) => (
-                  <tr key={n.id} className="border-b last:border-0">
-                    <td className="px-5 py-3 font-medium">NOA {n.noa_number}</td>
-                    <td className="px-5 py-3 text-muted-foreground">{new Date(n.created_at).toLocaleString('en-GB')}</td>
-                    <td className="px-5 py-3 text-muted-foreground">{n.received_at ? new Date(n.received_at).toLocaleString('en-GB') : '—'}</td>
-                    <td className="px-5 py-3 text-right tabular-nums">{n.colli}</td>
-                    <td className="px-5 py-3 text-right tabular-nums">{Number(n.weight).toLocaleString()}</td>
-                    <td className="px-5 py-3 text-muted-foreground">{n.source || 'Manual'}</td>
-                    <td className="px-5 py-3 text-right">
-                      {n.file_path ? (
-                        <button className="inline-flex items-center gap-1 text-xs text-accent hover:underline"><Download className="h-3.5 w-3.5" /> Download</button>
-                      ) : (
-                        <span className="text-xs text-muted-foreground">—</span>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-              <tfoot>
-                <tr className="bg-muted/30 font-medium border-t">
-                  <td className="px-5 py-3">Total</td>
-                  <td className="px-5 py-3" colSpan={2}></td>
-                  <td className="px-5 py-3 text-right tabular-nums">
-                    {noaEntries.reduce((sum: number, n: any) => sum + n.colli, 0)} / {shipment.colli_expected ?? '?'}
-                  </td>
-                  <td className="px-5 py-3 text-right tabular-nums">
-                    {noaEntries.reduce((sum: number, n: any) => sum + Number(n.weight), 0).toLocaleString()} kg
-                  </td>
-                  <td className="px-5 py-3" colSpan={2}>
-                    {(() => {
-                      const totalColli = noaEntries.reduce((sum: number, n: any) => sum + n.colli, 0);
-                      const expected = shipment.colli_expected || 0;
-                      if (totalColli >= expected && expected > 0) {
-                        return <span className="inline-flex items-center gap-1 text-xs font-medium text-[hsl(var(--status-delivered))]">✅ Complete</span>;
-                      }
-                      return <span className="inline-flex items-center gap-1 text-xs font-medium text-[hsl(var(--status-partial-noa))]">⚠️ Partial ({expected - totalColli} missing)</span>;
-                    })()}
-                  </td>
-                </tr>
-              </tfoot>
-            </table>
-          </div>
-        )}
-      </div>
-
-      <ClearanceSection shipmentId={shipment.id} colliExpected={shipment.colli_expected || 0} />
-      <InspectionsSection shipmentId={shipment.id} />
-
-      {outerboxes.length > 0 && (
-        <div className="bg-card rounded-xl border p-5 animate-fade-in" style={{ animationDelay: '400ms' }}>
-          <h2 className="font-semibold mb-4">Warehouse Tracking</h2>
-          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 text-sm mb-4">
-            <div className="bg-muted rounded-lg px-3 py-2"><span className="text-muted-foreground text-xs block">Expected</span><span className="font-bold tabular-nums">{outerboxes.length}</span></div>
-            <div className="bg-muted rounded-lg px-3 py-2"><span className="text-muted-foreground text-xs block">Scanned In ✅</span><span className="font-bold tabular-nums">{scannedIn}</span></div>
-            <div className="bg-muted rounded-lg px-3 py-2"><span className="text-muted-foreground text-xs block">Not Scanned ❌</span><span className="font-bold tabular-nums">{notScanned}</span></div>
-            <div className="bg-muted rounded-lg px-3 py-2"><span className="text-muted-foreground text-xs block">In Stock 📦</span><span className="font-bold tabular-nums">{inStock}</span></div>
-            <div className="bg-muted rounded-lg px-3 py-2"><span className="text-muted-foreground text-xs block">Scanned Out 🚚</span><span className="font-bold tabular-nums">{scannedOut}</span></div>
-          </div>
-          <div className="w-full h-2.5 bg-muted rounded-full overflow-hidden flex">
-            {scannedOut > 0 && <div className="bg-[hsl(var(--status-delivered))] h-full" style={{ width: `${(scannedOut / outerboxes.length) * 100}%` }} />}
-            {inStock > 0 && <div className="bg-[hsl(var(--status-instock))] h-full" style={{ width: `${(inStock / outerboxes.length) * 100}%` }} />}
-            {(scannedIn - inStock - scannedOut) > 0 && <div className="bg-[hsl(var(--status-noa-complete))] h-full" style={{ width: `${((scannedIn - inStock - scannedOut) / outerboxes.length) * 100}%` }} />}
-          </div>
-        </div>
-      )}
-
-      {Object.keys(hubGroups).length > 0 && (
-        <div className="bg-card rounded-xl border animate-fade-in" style={{ animationDelay: '480ms' }}>
-          <div className="px-5 py-4 border-b"><h2 className="font-semibold">Outbound</h2></div>
-          <div className="divide-y">
-            {Object.values(hubGroups).map((group: any) => {
-              const pickedUp = group.pickups.reduce((s: number, p: any) => s + p.totalPieces, 0);
-              const expected = group.totalExpected || pickedUp;
-              const stillInStock = expected - pickedUp;
-              return (
-                <div key={group.hubCode} className="px-5 py-4">
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center gap-2">
-                      <span className="font-semibold text-sm">{group.hubName}</span>
-                      <span className="text-muted-foreground text-xs">({group.hubCode})</span>
-                    </div>
-                    <div className="flex gap-3 text-xs text-muted-foreground">
-                      <span>Expected: <strong className="text-foreground tabular-nums">{expected}</strong></span>
-                      <span>Picked up: <strong className="text-foreground tabular-nums">{pickedUp}</strong></span>
-                      <span>In stock: <strong className="text-foreground tabular-nums">{Math.max(0, stillInStock)}</strong></span>
-                    </div>
-                  </div>
-                  <div className="space-y-3">
-                    {group.pickups.map((pickup: any, pi: number) => (
-                      <div key={pi} className="bg-muted/40 rounded-lg p-3">
-                        <div className="flex items-center gap-2 mb-2 text-sm">
-                          <Truck className="h-3.5 w-3.5 text-muted-foreground" />
-                          <span className="font-medium">{pickup.date ? new Date(pickup.date).toLocaleDateString('en-GB') : 'No date'}</span>
-                          {pickup.truckReference && <span className="text-muted-foreground text-xs">· Truck: {pickup.truckReference}</span>}
                           <span className="text-muted-foreground text-xs ml-auto">{pickup.totalPieces} pcs</span>
                         </div>
                       </div>
