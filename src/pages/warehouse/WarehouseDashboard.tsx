@@ -68,18 +68,16 @@ export default function WarehouseDashboard() {
 
   // Shipments Unloaded Today: shipments with unloaded_at today
   const { data: unloadedData } = useQuery({
-    queryKey: ['warehouse-unloaded-today', warehouseCode, today],
+    queryKey: ['warehouse-unloaded', warehouseCode, rangeFrom, rangeTo],
     queryFn: async () => {
       const query = supabase
         .from('shipments')
         .select('id, colli_expected, chargeable_weight')
-        .gte('unloaded_at', `${today}T00:00:00`)
-        .lte('unloaded_at', `${today}T23:59:59`);
+        .gte('unloaded_at', rangeFrom)
+        .lte('unloaded_at', rangeTo);
       if (warehouseCode) query.eq('warehouse_id', warehouseCode);
       const { data } = await query;
       const items = data ?? [];
-
-      // Also get NOA colli for these shipments
       let totalNoaColli = 0;
       if (items.length > 0) {
         const shipmentIds = items.map((s: any) => s.id);
@@ -89,7 +87,6 @@ export default function WarehouseDashboard() {
           .in('shipment_id', shipmentIds);
         totalNoaColli = (noas ?? []).reduce((s: number, n: any) => s + (n.colli ?? 0), 0);
       }
-
       return {
         shipments: items.length,
         boxes: totalNoaColli,
@@ -99,19 +96,18 @@ export default function WarehouseDashboard() {
     enabled: !!auth,
   });
 
-  // Scanned In Today
+  // Scanned In (time-filtered)
   const { data: scannedData } = useQuery({
-    queryKey: ['warehouse-scanned-today', warehouseId, today],
+    queryKey: ['warehouse-scanned', warehouseId, rangeFrom, rangeTo],
     queryFn: async () => {
       const { data } = await supabase
         .from('outerboxes')
         .select('id, shipment_id, weight')
-        .gte('scanned_in_at', `${today}T00:00:00`)
-        .lte('scanned_in_at', `${today}T23:59:59`);
+        .gte('scanned_in_at', rangeFrom)
+        .lte('scanned_in_at', rangeTo);
       const items = data ?? [];
       const uniqueShipmentIds = new Set(items.map((b: any) => b.shipment_id));
       const totalKg = items.reduce((s: number, b: any) => s + (parseFloat(b.weight) || 0), 0);
-
       return { count: items.length, shipments: uniqueShipmentIds.size, totalKg };
     },
     enabled: !!auth,
