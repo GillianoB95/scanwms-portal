@@ -44,7 +44,7 @@ export default function StockOverview() {
         .from('shipments')
         .select('id, mawb, unloaded_at, unloaded_colli, colli_expected, subklant_id, subklanten(name)')
         .eq('warehouse_id', warehouseCode)
-        .eq('status', 'In Stock')
+        .in('status', ['In Stock', 'Partially Unloaded'])
         .order('mawb', { ascending: true });
       return data ?? [];
     },

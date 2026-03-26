@@ -270,7 +270,7 @@ export default function InboundScanning() {
     setMawbResults([]);
     setMawbInput(s.mawb);
 
-    const allowedStatuses = ['In Stock', 'In Transit'];
+    const allowedStatuses = ['In Stock', 'In Transit', 'Partially Unloaded'];
     if (!allowedStatuses.includes(s.status)) {
       setShipment(s);
       setScanningBlocked('This shipment must be marked as Unloaded first, before scanning can begin.');
