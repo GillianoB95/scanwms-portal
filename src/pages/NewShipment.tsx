@@ -15,6 +15,10 @@ interface AwbServerData {
   pieces: number | null;
   gross_weight: number | null;
   chargeable_weight: number | null;
+  origin: string | null;
+  destination: string | null;
+  shipper: string | null;
+  consignee: string | null;
 }
 
 interface ManifestResult {
