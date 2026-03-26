@@ -96,7 +96,7 @@ export function WarehouseAlarmPanel() {
       }
       return result;
     },
-    enabled: !!warehouseCode,
+    enabled: !!warehouseId,
     refetchInterval: 60_000,
   });
 
