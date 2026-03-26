@@ -325,3 +325,31 @@ export default function WarehouseDashboard() {
     </div>
   );
 }
+
+function WarehouseShipmentRow({ shipment, fycoCount }: { shipment: any; fycoCount: number }) {
+  const [fycoOpen, setFycoOpen] = useState(false);
+
+  return (
+    <>
+      <TableRow>
+        <TableCell className="font-mono font-medium">
+          {shipment.mawb}
+          {fycoCount > 0 && (
+            <Badge
+              className="ml-2 cursor-pointer text-[10px] px-1.5 py-0 bg-red-600 hover:bg-red-700 text-white border-transparent"
+              onClick={(e) => { e.stopPropagation(); setFycoOpen(true); }}
+            >
+              <SearchIcon className="h-3 w-3 mr-1" />
+              FYCO ({fycoCount})
+            </Badge>
+          )}
+        </TableCell>
+        <TableCell>{(shipment.customers as any)?.name ?? '—'}</TableCell>
+        <TableCell>{shipment.colli_expected ?? '—'}</TableCell>
+        <TableCell><StatusBadge status={shipment.status} /></TableCell>
+        <TableCell>{shipment.eta ?? '—'}</TableCell>
+      </TableRow>
+      {fycoOpen && <WarehouseFycoDetailModal shipment={shipment} open={fycoOpen} onOpenChange={v => { if (!v) setFycoOpen(false); }} />}
+    </>
+  );
+}
