@@ -558,7 +558,9 @@ export default function InboundScanning() {
     },
     onSuccess: () => {
       toast({ title: 'Shipment marked as unloaded and In Stock' });
+      setScanningBlocked(null);
       setShipment((prev: any) => prev ? { ...prev, status: 'In Stock' } : null);
+      loadManifestHubs(shipment.id);
       qc.invalidateQueries({ queryKey: ['scanned-boxes', shipment?.id] });
     },
     onError: (err: any) => {
