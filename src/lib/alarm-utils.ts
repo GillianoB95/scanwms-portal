@@ -141,7 +141,6 @@ export function getShipmentAlarms(
   },
   settings: AlarmSettings,
 ): ShipmentAlarm[] {
-): ShipmentAlarm[] {
   const alarms: ShipmentAlarm[] = [];
   const now = new Date();
 
