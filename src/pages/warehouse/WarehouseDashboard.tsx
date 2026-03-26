@@ -9,14 +9,25 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { StatusBadge } from '@/components/StatusBadge';
 import { Badge } from '@/components/ui/badge';
 import { Link, useNavigate } from 'react-router-dom';
-import { Package, ScanBarcode, ArrowUpFromLine, Truck, PackageCheck, Search as SearchIcon } from 'lucide-react';
+import { Package, ScanBarcode, ArrowUpFromLine, Truck, PackageCheck, Search as SearchIcon, Calendar } from 'lucide-react';
 import { WarehouseFycoDetailModal } from '@/components/warehouse/FycoDetailModal';
+import { startOfDay, startOfWeek, startOfMonth, endOfDay, format } from 'date-fns';
+
+function getDateRange(period: string): { from: string; to: string } {
+  const now = new Date();
+  const end = endOfDay(now).toISOString();
+  if (period === 'week') return { from: startOfWeek(now, { weekStartsOn: 1 }).toISOString(), to: end };
+  if (period === 'month') return { from: startOfMonth(now).toISOString(), to: end };
+  return { from: startOfDay(now).toISOString(), to: end };
+}
 
 export default function WarehouseDashboard() {
   const { data: auth } = useWarehouseAuth();
   const navigate = useNavigate();
-  const warehouseId = auth?.warehouseId; // UUID
-  const today = new Date().toISOString().split('T')[0];
+  const warehouseId = auth?.warehouseId;
+  const [timePeriod, setTimePeriod] = useState('today');
+  const { from: rangeFrom, to: rangeTo } = getDateRange(timePeriod);
+  const today = format(new Date(), 'yyyy-MM-dd');
 
   // Resolve warehouse UUID to code for shipment queries
   const { data: warehouseCode } = useQuery({
@@ -32,15 +43,17 @@ export default function WarehouseDashboard() {
     enabled: !!warehouseId,
   });
 
-  // Expected Today: NOA Complete or Partial NOA, not yet unloaded
+  // Expected Today: NOA Complete or Partial NOA with eta = today, not yet unloaded
   const { data: expectedData } = useQuery({
-    queryKey: ['warehouse-expected-today', warehouseCode],
+    queryKey: ['warehouse-expected-today', warehouseCode, today],
     queryFn: async () => {
       const query = supabase
         .from('shipments')
         .select('id, colli_expected, chargeable_weight')
         .in('status', ['NOA Complete', 'Partial NOA'])
-        .is('unloaded_at', null);
+        .is('unloaded_at', null)
+        .gte('eta', `${today}T00:00:00`)
+        .lte('eta', `${today}T23:59:59`);
       if (warehouseCode) query.eq('warehouse_id', warehouseCode);
       const { data } = await query;
       const items = data ?? [];
@@ -55,18 +68,16 @@ export default function WarehouseDashboard() {
 
   // Shipments Unloaded Today: shipments with unloaded_at today
   const { data: unloadedData } = useQuery({
-    queryKey: ['warehouse-unloaded-today', warehouseCode, today],
+    queryKey: ['warehouse-unloaded', warehouseCode, rangeFrom, rangeTo],
     queryFn: async () => {
       const query = supabase
         .from('shipments')
         .select('id, colli_expected, chargeable_weight')
-        .gte('unloaded_at', `${today}T00:00:00`)
-        .lte('unloaded_at', `${today}T23:59:59`);
+        .gte('unloaded_at', rangeFrom)
+        .lte('unloaded_at', rangeTo);
       if (warehouseCode) query.eq('warehouse_id', warehouseCode);
       const { data } = await query;
       const items = data ?? [];
-
-      // Also get NOA colli for these shipments
       let totalNoaColli = 0;
       if (items.length > 0) {
         const shipmentIds = items.map((s: any) => s.id);
@@ -76,7 +87,6 @@ export default function WarehouseDashboard() {
           .in('shipment_id', shipmentIds);
         totalNoaColli = (noas ?? []).reduce((s: number, n: any) => s + (n.colli ?? 0), 0);
       }
-
       return {
         shipments: items.length,
         boxes: totalNoaColli,
@@ -86,33 +96,28 @@ export default function WarehouseDashboard() {
     enabled: !!auth,
   });
 
-  // Scanned In Today
+  // Scanned In (time-filtered)
   const { data: scannedData } = useQuery({
-    queryKey: ['warehouse-scanned-today', warehouseId, today],
+    queryKey: ['warehouse-scanned', warehouseId, rangeFrom, rangeTo],
     queryFn: async () => {
       const { data } = await supabase
         .from('outerboxes')
         .select('id, shipment_id, weight')
-        .gte('scanned_in_at', `${today}T00:00:00`)
-        .lte('scanned_in_at', `${today}T23:59:59`);
+        .gte('scanned_in_at', rangeFrom)
+        .lte('scanned_in_at', rangeTo);
       const items = data ?? [];
       const uniqueShipmentIds = new Set(items.map((b: any) => b.shipment_id));
       const totalKg = items.reduce((s: number, b: any) => s + (parseFloat(b.weight) || 0), 0);
-
       return { count: items.length, shipments: uniqueShipmentIds.size, totalKg };
     },
     enabled: !!auth,
   });
 
-  // Outbound Prepared Today
+  // Outbound Prepared (real-time, no time filter)
   const { data: preparedData } = useQuery({
-    queryKey: ['warehouse-prepared-today', warehouseId, today],
+    queryKey: ['warehouse-prepared', warehouseId],
     queryFn: async () => {
-      const query = supabase
-        .from('outbounds')
-        .select('id')
-        .eq('status', 'prepared')
-        .eq('pickup_date', today);
+      const query = supabase.from('outbounds').select('id').eq('status', 'prepared');
       if (warehouseId) query.eq('warehouse_id', warehouseId);
       const { data } = await query;
       const ids = (data ?? []).map((o: any) => o.id);
@@ -126,15 +131,13 @@ export default function WarehouseDashboard() {
     enabled: !!auth,
   });
 
-  // Outbound Departed Today
+  // Outbound Departed (time-filtered)
   const { data: departedData } = useQuery({
-    queryKey: ['warehouse-departed-today', warehouseId, today],
+    queryKey: ['warehouse-departed', warehouseId, rangeFrom, rangeTo],
     queryFn: async () => {
-      const query = supabase
-        .from('outbounds')
-        .select('id')
-        .eq('status', 'departed')
-        .eq('pickup_date', today);
+      const query = supabase.from('outbounds').select('id, pickup_date').eq('status', 'departed')
+        .gte('pickup_date', rangeFrom.split('T')[0])
+        .lte('pickup_date', rangeTo.split('T')[0]);
       if (warehouseId) query.eq('warehouse_id', warehouseId);
       const { data } = await query;
       const ids = (data ?? []).map((o: any) => o.id);
@@ -235,6 +238,8 @@ export default function WarehouseDashboard() {
   const departedColli = typeof departedData === 'object' ? departedData?.colli ?? 0 : 0;
   const departedWeight = typeof departedData === 'object' ? departedData?.weight ?? 0 : 0;
 
+  const periodLabel = timePeriod === 'today' ? 'Today' : timePeriod === 'week' ? 'This Week' : 'This Month';
+
   const stats = [
     {
       label: 'Expected Today',
@@ -244,14 +249,14 @@ export default function WarehouseDashboard() {
       color: 'text-[hsl(var(--status-noa-complete))]',
     },
     {
-      label: 'Shipments Unloaded',
+      label: `Unloaded ${periodLabel}`,
       value: `${unloadedData?.shipments ?? 0} shipments`,
       sub: `${unloadedData?.boxes ?? 0} colli · ${(unloadedData?.weight ?? 0).toFixed(0)} kg`,
       icon: PackageCheck,
       color: 'text-[hsl(var(--status-intransit))]',
     },
     {
-      label: 'Scanned In Today',
+      label: `Scanned ${periodLabel}`,
       value: `${scannedData?.count ?? 0} boxes`,
       sub: `${scannedData?.shipments ?? 0} shipments · ${(scannedData?.totalKg ?? 0).toFixed(2)} kg`,
       icon: ScanBarcode,
@@ -265,7 +270,7 @@ export default function WarehouseDashboard() {
       color: 'text-[hsl(var(--status-prepared))]',
     },
     {
-      label: 'Outbound Departed',
+      label: `Departed ${periodLabel}`,
       value: `${departedTrucks} ${departedTrucks === 1 ? 'truck' : 'trucks'}`,
       sub: `${departedColli} colli · ${departedWeight.toFixed(0)} kg`,
       icon: Truck,
@@ -276,7 +281,24 @@ export default function WarehouseDashboard() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Warehouse Dashboard</h1>
+        <div className="flex items-center gap-4">
+          <h1 className="text-2xl font-bold">Warehouse Dashboard</h1>
+          <div className="flex items-center gap-1 bg-muted rounded-lg p-1">
+            {(['today', 'week', 'month'] as const).map(p => (
+              <button
+                key={p}
+                onClick={() => setTimePeriod(p)}
+                className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                  timePeriod === p
+                    ? 'bg-background text-foreground shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                {p === 'today' ? 'Today' : p === 'week' ? 'This Week' : 'This Month'}
+              </button>
+            ))}
+          </div>
+        </div>
         <div className="flex gap-2">
           <Button asChild>
             <Link to="/warehouse/inbound"><ScanBarcode className="mr-2 h-4 w-4" />Start Scanning</Link>
