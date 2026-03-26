@@ -12,7 +12,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Calendar } from '@/components/ui/calendar';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
-import { useAllShipments, useUpdateShipment } from '@/hooks/use-staff-data';
+import { useAllShipments, useUpdateShipment, useAllWarehouses } from '@/hooks/use-staff-data';
 import { EditShipmentModal } from '@/components/staff/EditShipmentModal';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';

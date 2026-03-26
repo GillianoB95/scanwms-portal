@@ -8,7 +8,7 @@ import { Switch } from '@/components/ui/switch';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { StatusBadge } from '@/components/StatusBadge';
-import { useAllShipments, useUpdateShipment, useDeleteShipment, useShipmentBlocks, useCreateBlock, useRemoveBlock, useShipmentInspections, useCreateInspections } from '@/hooks/use-staff-data';
+import { useAllShipments, useUpdateShipment, useDeleteShipment, useShipmentBlocks, useCreateBlock, useRemoveBlock, useShipmentInspections, useCreateInspections, useAllWarehouses } from '@/hooks/use-staff-data';
 import { supabase } from '@/lib/supabase';
 import { findInvalidParcels } from '@/lib/manifest-parcels';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
