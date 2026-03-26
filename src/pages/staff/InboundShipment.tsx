@@ -343,7 +343,7 @@ export default function InboundShipment() {
                   <TableRow key={s.id}>
                     <TableCell className="font-mono text-sm">{s.mawb}</TableCell>
                     <TableCell className="font-medium">{s.customers?.name || '—'}</TableCell>
-                    <TableCell>{s.warehouses?.code ? `${s.warehouses.code} — ${s.warehouses.name}` : '—'}</TableCell>
+                    <TableCell>{getWarehouseName(s)}</TableCell>
                     <TableCell className="text-right">{colliExpected}</TableCell>
                     <TableCell className="text-right">
                       <span className={cn(
