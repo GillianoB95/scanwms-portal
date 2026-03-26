@@ -2,25 +2,75 @@ import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
+
+/** Try regex extraction first as primary method, fall back to LLM only if needed */
+function regexExtract(text: string) {
+  const result: Record<string, unknown> = {
+    mawb: null, pieces: null, gross_weight: null, chargeable_weight: null,
+    origin: null, destination: null, shipper: null, consignee: null,
+  };
+
+  // MAWB: 3 digits dash 8 digits
+  const mawbMatch = text.match(/(\d{3})-(\d{8})/);
+  if (mawbMatch) {
+    result.mawb = mawbMatch[0];
+  } else {
+    // Try space-separated: 3 digits, some text, 8 digits
+    const mawbAlt = text.match(/(\d{3})\s+\w+\s+(\d{8})/);
+    if (mawbAlt) result.mawb = `${mawbAlt[1]}-${mawbAlt[2]}`;
+  }
+
+  // Data row pattern: pieces weight K rate_class chargeable_weight
+  // e.g. "83        1140  K    Q                       1140"
+  const dataRowMatch = text.match(/(\d+)\s+(\d+)\s+K\s+[A-Z]\s+(\d+)/);
+  if (dataRowMatch) {
+    result.pieces = parseInt(dataRowMatch[1]);
+    result.gross_weight = parseFloat(dataRowMatch[2]);
+    result.chargeable_weight = parseFloat(dataRowMatch[3]);
+  } else {
+    // Fallback: pieces before weight K
+    const piecesWeightMatch = text.match(/(\d+)\s+(\d+)\s+K/);
+    if (piecesWeightMatch) {
+      result.pieces = parseInt(piecesWeightMatch[1]);
+      result.gross_weight = parseFloat(piecesWeightMatch[2]);
+    }
+    // Chargeable weight after K + rate class
+    const cwMatch = text.match(/K\s+[A-Z]\s+(\d+)/);
+    if (cwMatch) {
+      result.chargeable_weight = parseFloat(cwMatch[1]);
+    }
+  }
+
+  // Origin/Destination: look for 3-letter airport codes in routing
+  const routeMatch = text.match(/([A-Z]{3})\s*\/\s*([A-Z]{3})/);
+  if (routeMatch) {
+    result.origin = routeMatch[1];
+    result.destination = routeMatch[2];
+  } else {
+    // Try "from XXX to XXX" or "XXX - XXX" patterns
+    const routeAlt = text.match(/([A-Z]{3})\s+(?:to|TO|-)\s+([A-Z]{3})/);
+    if (routeAlt) {
+      result.origin = routeAlt[1];
+      result.destination = routeAlt[2];
+    }
+  }
+
+  return result;
+}
 
 serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
+    return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const OPENAI_API_KEY = Deno.env.get("openai_api_key");
-    if (!OPENAI_API_KEY) {
-      return new Response(
-        JSON.stringify({ error: "openai_api_key secret not configured" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
     const formData = await req.formData();
     const file = formData.get("file") as File | null;
+
+    console.log("[extract-awb] FormData keys:", [...formData.keys()]);
+    console.log("[extract-awb] File received:", file ? `name=${file.name}, size=${file.size}, type=${file.type}` : "NO FILE");
 
     if (!file) {
       return new Response(
@@ -29,13 +79,22 @@ serve(async (req: Request) => {
       );
     }
 
+    if (file.size === 0) {
+      return new Response(
+        JSON.stringify({ error: "Empty file received" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     // Read PDF bytes and extract readable text
     const arrayBuffer = await file.arrayBuffer();
     const bytes = new Uint8Array(arrayBuffer);
 
+    console.log("[extract-awb] File bytes length:", bytes.length);
+
     // Simple PDF text extraction - read printable ASCII chars
     let pdfText = "";
-    for (let i = 0; i < Math.min(bytes.length, 50000); i++) {
+    for (let i = 0; i < Math.min(bytes.length, 80000); i++) {
       const b = bytes[i];
       if (b >= 32 && b <= 126) {
         pdfText += String.fromCharCode(b);
@@ -45,30 +104,65 @@ serve(async (req: Request) => {
     }
 
     // Compress whitespace
-    pdfText = pdfText.replace(/\s+/g, " ").trim().slice(0, 8000);
+    pdfText = pdfText.replace(/\s+/g, " ").trim();
 
-    const prompt = `You are an air waybill data extraction expert. Extract data ONLY from the text provided below. Do NOT invent, guess, or use default values. If you cannot find a field with confidence, use null.
+    console.log("[extract-awb] Extracted text length:", pdfText.length);
+    console.log("[extract-awb] First 500 chars:", pdfText.slice(0, 500));
+    console.log("[extract-awb] Last 500 chars:", pdfText.slice(-500));
 
-Extract these fields from the air waybill text:
-1. MAWB number - format XXX-XXXXXXXX (3 digits, dash, 8 digits). Look for patterns like "080-38801545" or "080 38801545".
-2. Number of pieces/colli - integer. Look for number before CTN, PCS, PIECES, or in "No. of Pieces" field.
-3. Gross weight in kg - numeric. Look for a number followed by K or KG in the weight section.
-4. Chargeable weight in kg - numeric. Look for "Chargeable Weight" or "CHWT" value.
-5. Origin airport - 3-letter IATA code from the routing/origin section (e.g. TAS, PEK, IST).
-6. Destination airport - 3-letter IATA code from the routing/destination section (e.g. AMS, FRA, LHR).
-7. Shipper name - the company or person shipping the goods (look for "Shipper", "Sender", "Afzender").
-8. Consignee name - the company or person receiving the goods (look for "Consignee", "Ontvanger").
+    if (pdfText.length < 20) {
+      return new Response(
+        JSON.stringify({ error: "Could not extract readable text from PDF. The file may be scanned/image-based." }),
+        { status: 422, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
-CRITICAL RULES:
-- Only extract values you can actually see in the text below.
-- If a value is not clearly present, use null. Never fabricate data.
-- Return ONLY valid JSON with no explanation or markdown.
+    // Step 1: Try regex extraction first (fast, reliable, no API needed)
+    const regexResult = regexExtract(pdfText);
+    console.log("[extract-awb] Regex extraction result:", JSON.stringify(regexResult));
 
-Return format:
-{"mawb":"080-38801545","pieces":83,"gross_weight":1140.0,"chargeable_weight":1140.0,"origin":"TAS","destination":"AMS","shipper":"Company Name","consignee":"Company Name"}
+    // Check if regex got the key numeric fields
+    const regexGotNumbers = regexResult.pieces != null && regexResult.gross_weight != null;
 
-Air waybill text:
-${pdfText}`;
+    if (regexGotNumbers && regexResult.mawb) {
+      // Regex got everything important, return directly
+      console.log("[extract-awb] Using regex results (all key fields found)");
+      return new Response(
+        JSON.stringify(regexResult),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Step 2: Fall back to OpenAI for fields regex missed
+    const OPENAI_API_KEY = Deno.env.get("openai_api_key");
+    if (!OPENAI_API_KEY) {
+      // No API key — return whatever regex found
+      console.log("[extract-awb] No OpenAI key, returning regex-only results");
+      return new Response(
+        JSON.stringify(regexResult),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const truncatedText = pdfText.slice(0, 8000);
+
+    const prompt = `You are an air waybill data extraction expert. Extract data ONLY from the text provided below. If you cannot find a field, use null. NEVER invent values.
+
+Extract:
+1. mawb - format XXX-XXXXXXXX (3 digits dash 8 digits)
+2. pieces - integer, number of pieces/colli (look for number before CTN/PCS/PIECES or before weight)
+3. gross_weight - number in kg
+4. chargeable_weight - number in kg
+5. origin - 3-letter IATA airport code of origin
+6. destination - 3-letter IATA airport code of destination
+7. shipper - shipper/sender name
+8. consignee - consignee/receiver name
+
+Return ONLY a JSON object. No explanation. No markdown. Example format:
+{"mawb":"123-45678901","pieces":10,"gross_weight":500.0,"chargeable_weight":500.0,"origin":"XXX","destination":"YYY","shipper":"Name","consignee":"Name"}
+
+Text from the uploaded air waybill:
+${truncatedText}`;
 
     const openaiRes = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
@@ -78,9 +172,7 @@ ${pdfText}`;
       },
       body: JSON.stringify({
         model: "gpt-4o",
-        messages: [
-          { role: "user", content: prompt }
-        ],
+        messages: [{ role: "user", content: prompt }],
         max_tokens: 300,
         temperature: 0,
       }),
@@ -88,41 +180,48 @@ ${pdfText}`;
 
     if (!openaiRes.ok) {
       const errText = await openaiRes.text();
-      console.error("OpenAI error:", openaiRes.status, errText);
+      console.error("[extract-awb] OpenAI error:", openaiRes.status, errText);
+      // Return regex results as fallback
       return new Response(
-        JSON.stringify({ error: "OpenAI API error", details: errText.slice(0, 200) }),
-        { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        JSON.stringify(regexResult),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
     const result = await openaiRes.json();
     const content = (result.choices?.[0]?.message?.content || "").trim();
+    console.log("[extract-awb] OpenAI response:", content);
 
     let extracted: Record<string, unknown> = {};
     try {
       const match = content.match(/\{[\s\S]*\}/);
       if (match) extracted = JSON.parse(match[0]);
     } catch {
-      console.error("Parse error:", content);
+      console.error("[extract-awb] JSON parse error from OpenAI:", content);
     }
 
+    // Merge: prefer regex results for numeric fields (more reliable), use LLM for text fields
+    const final = {
+      mawb: (regexResult.mawb as string) || (typeof extracted.mawb === "string" ? extracted.mawb : null),
+      pieces: (regexResult.pieces as number) ?? (typeof extracted.pieces === "number" ? extracted.pieces : null),
+      gross_weight: (regexResult.gross_weight as number) ?? (typeof extracted.gross_weight === "number" ? extracted.gross_weight : null),
+      chargeable_weight: (regexResult.chargeable_weight as number) ?? (typeof extracted.chargeable_weight === "number" ? extracted.chargeable_weight : null),
+      origin: (regexResult.origin as string) || (typeof extracted.origin === "string" ? extracted.origin : null),
+      destination: (regexResult.destination as string) || (typeof extracted.destination === "string" ? extracted.destination : null),
+      shipper: typeof extracted.shipper === "string" ? extracted.shipper : null,
+      consignee: typeof extracted.consignee === "string" ? extracted.consignee : null,
+    };
+
+    console.log("[extract-awb] Final merged result:", JSON.stringify(final));
+
     return new Response(
-      JSON.stringify({
-        mawb: typeof extracted.mawb === "string" ? extracted.mawb : null,
-        pieces: typeof extracted.pieces === "number" ? extracted.pieces : null,
-        gross_weight: typeof extracted.gross_weight === "number" ? extracted.gross_weight : null,
-        chargeable_weight: typeof extracted.chargeable_weight === "number" ? extracted.chargeable_weight : null,
-        origin: typeof extracted.origin === "string" ? extracted.origin : null,
-        destination: typeof extracted.destination === "string" ? extracted.destination : null,
-        shipper: typeof extracted.shipper === "string" ? extracted.shipper : null,
-        consignee: typeof extracted.consignee === "string" ? extracted.consignee : null,
-      }),
+      JSON.stringify(final),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
 
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Unknown error";
-    console.error("extract-awb error:", msg);
+    console.error("[extract-awb] error:", msg);
     return new Response(
       JSON.stringify({ error: msg }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
