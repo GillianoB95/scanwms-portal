@@ -5,6 +5,7 @@ import {
   LayoutDashboard, ScanBarcode, ArrowUpFromLine,
   PackageSearch, LogOut, Menu, X, Warehouse, ShieldCheck
 } from 'lucide-react';
+import { WarehouseAlarmPanel } from '@/components/warehouse/WarehouseAlarmPanel';
 
 const navItems = [
   { to: '/warehouse', label: 'Dashboard', icon: LayoutDashboard, exact: true },
@@ -100,6 +101,8 @@ export function WarehouseLayout({ children }: { children: ReactNode }) {
           {children}
         </main>
       </div>
+
+      <WarehouseAlarmPanel />
     </div>
   );
 }

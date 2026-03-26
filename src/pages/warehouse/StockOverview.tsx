@@ -3,11 +3,14 @@ import { format, differenceInDays } from 'date-fns';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useWarehouseAuth } from '@/hooks/use-warehouse-auth';
+import { useAlarmSettings } from '@/hooks/use-alarm-settings';
+import { DEFAULT_ALARM_SETTINGS } from '@/lib/alarm-utils';
+import { computeNoaKpis, computeCarrierPickupKpi, kpiStatusEmoji, kpiStatusColor, formatHoursRemaining, formatHoursOverdue } from '@/lib/kpi-utils';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { CheckCircle2, PackageSearch, AlertTriangle, Clock } from 'lucide-react';
+import { CheckCircle2, PackageSearch, AlertTriangle, Clock, Truck } from 'lucide-react';
 
 function getDaysAgoLabel(date: string) {
   const days = differenceInDays(new Date(), new Date(date));
@@ -21,6 +24,7 @@ export default function StockOverview() {
   const { data: auth } = useWarehouseAuth();
   const warehouseId = auth?.warehouseId;
   const [hubFilter, setHubFilter] = useState<string>('all');
+  const { data: alarmSettings = DEFAULT_ALARM_SETTINGS } = useAlarmSettings();
 
   const { data: warehouseCode } = useQuery({
     queryKey: ['warehouse-code', warehouseId],
@@ -35,14 +39,13 @@ export default function StockOverview() {
     enabled: !!warehouseId,
   });
 
-  // Fetch In Stock shipments with subklant name, colli, and noa info
   const { data: shipments = [] } = useQuery({
     queryKey: ['stock-overview-shipments', warehouseCode],
     queryFn: async () => {
       if (!warehouseCode) return [];
       const { data } = await supabase
         .from('shipments')
-        .select('id, mawb, unloaded_at, unloaded_colli, colli_expected, subklant_id, subklanten(name)')
+        .select('id, mawb, unloaded_at, unloaded_colli, colli_expected, subklant_id, customer_id, subklanten(name)')
         .eq('warehouse_id', warehouseCode)
         .in('status', ['In Stock', 'Partially Unloaded'])
         .order('mawb', { ascending: true });
@@ -52,8 +55,44 @@ export default function StockOverview() {
   });
 
   const shipmentIds = shipments.map((s: any) => s.id);
+  const customerIds = useMemo(() => [...new Set(shipments.map((s: any) => s.customer_id).filter(Boolean))], [shipments]);
 
-  // Fetch status history to check for Partial NOA
+  // Fetch customer KPI hours
+  const { data: customerKpis = [] } = useQuery({
+    queryKey: ['stock-customer-kpis', customerIds],
+    queryFn: async () => {
+      if (customerIds.length === 0) return [];
+      const { data } = await supabase
+        .from('customers')
+        .select('id, kpi_palletized_hours')
+        .in('id', customerIds);
+      return data ?? [];
+    },
+    enabled: customerIds.length > 0,
+  });
+
+  const customerKpiMap = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const c of customerKpis) map.set((c as any).id, (c as any).kpi_palletized_hours ?? 48);
+    return map;
+  }, [customerKpis]);
+
+  // Fetch NOAs for KPI
+  const { data: noaData = [] } = useQuery({
+    queryKey: ['stock-overview-noas', shipmentIds],
+    queryFn: async () => {
+      if (shipmentIds.length === 0) return [];
+      const { data } = await supabase
+        .from('noas')
+        .select('shipment_id, noa_number, colli, received_at')
+        .in('shipment_id', shipmentIds)
+        .order('noa_number', { ascending: true });
+      return data ?? [];
+    },
+    enabled: shipmentIds.length > 0,
+  });
+
+  // Fetch status history for partial NOA
   const { data: statusHistory = [] } = useQuery({
     queryKey: ['stock-overview-history', shipmentIds],
     queryFn: async () => {
@@ -68,25 +107,11 @@ export default function StockOverview() {
     enabled: shipmentIds.length > 0,
   });
 
-  // Fetch NOA colli for partial-NOA shipments
   const partialNoaIds = useMemo(() => {
     const set = new Set<string>();
     for (const h of statusHistory) set.add((h as any).shipment_id);
     return set;
   }, [statusHistory]);
-
-  const { data: noaData = [] } = useQuery({
-    queryKey: ['stock-overview-noas', shipmentIds],
-    queryFn: async () => {
-      if (shipmentIds.length === 0) return [];
-      const { data } = await supabase
-        .from('noas')
-        .select('shipment_id, colli')
-        .in('shipment_id', shipmentIds);
-      return data ?? [];
-    },
-    enabled: shipmentIds.length > 0,
-  });
 
   const noaColliMap = useMemo(() => {
     const map = new Map<string, number>();
@@ -97,7 +122,18 @@ export default function StockOverview() {
     return map;
   }, [noaData]);
 
-  // Fetch outerboxes (scanned counts + pallet linkage)
+  // Group NOAs by shipment
+  const noasByShipment = useMemo(() => {
+    const map = new Map<string, typeof noaData>();
+    for (const n of noaData) {
+      const sid = (n as any).shipment_id;
+      if (!map.has(sid)) map.set(sid, []);
+      map.get(sid)!.push(n);
+    }
+    return map;
+  }, [noaData]);
+
+  // Fetch outerboxes
   const { data: outerboxes = [] } = useQuery({
     queryKey: ['stock-overview-boxes', shipmentIds],
     queryFn: async () => {
@@ -112,7 +148,18 @@ export default function StockOverview() {
     enabled: shipmentIds.length > 0,
   });
 
-  // Collect pallet IDs from outerboxes
+  // Palletized count per shipment (for KPI)
+  const palletizedCountMap = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const box of outerboxes) {
+      if (box.status === 'palletized' || box.status === 'scanned_out') {
+        map.set(box.shipment_id, (map.get(box.shipment_id) ?? 0) + 1);
+      }
+    }
+    return map;
+  }, [outerboxes]);
+
+  // Pallets
   const palletIds = useMemo(() => {
     const ids = new Set<string>();
     for (const box of outerboxes) {
@@ -121,7 +168,6 @@ export default function StockOverview() {
     return Array.from(ids);
   }, [outerboxes]);
 
-  // Fetch pallets with their outbound status
   const { data: pallets = [] } = useQuery({
     queryKey: ['stock-overview-pallets', palletIds],
     queryFn: async () => {
@@ -135,9 +181,7 @@ export default function StockOverview() {
     enabled: palletIds.length > 0,
   });
 
-  // Build pallet number map per shipment+hub (exclude departed outbounds)
   const hubPalletMap = useMemo(() => {
-    // Filter pallets: keep those NOT in a departed outbound
     const activePalletIds = new Set<string>();
     const palletNumberMap = new Map<string, string>();
     for (const p of pallets) {
@@ -147,8 +191,6 @@ export default function StockOverview() {
         palletNumberMap.set((p as any).id, (p as any).pallet_number ?? (p as any).id);
       }
     }
-
-    // Map shipment+hub → set of pallet numbers
     const map = new Map<string, Set<string>>();
     for (const box of outerboxes) {
       const palletId = (box as any).pallet_id;
@@ -158,9 +200,10 @@ export default function StockOverview() {
       if (!map.has(key)) map.set(key, new Set());
       map.get(key)!.add(palletNumberMap.get(palletId)!);
     }
-
     return map;
   }, [outerboxes, pallets]);
+
+  // Manifest parcels for totals
   const { data: manifestParcels = [] } = useQuery({
     queryKey: ['stock-overview-manifest', shipmentIds],
     queryFn: async () => {
@@ -176,11 +219,9 @@ export default function StockOverview() {
     enabled: shipmentIds.length > 0,
   });
 
-  // Build hub groups per shipment
+  // Build hub groups
   const shipmentHubData = useMemo(() => {
     const map = new Map<string, Map<string, { total: number; scanned: number }>>();
-
-    // Totals from manifest_parcels (distinct outerbox_barcode per hub)
     const distinctKeys = new Set<string>();
     for (const mp of manifestParcels) {
       const hub = (mp as any).hub || 'Unknown';
@@ -195,8 +236,6 @@ export default function StockOverview() {
         hubMap.get(hub)!.total++;
       }
     }
-
-    // Scanned counts from outerboxes
     for (const box of outerboxes) {
       const hub = (box as any).hub || 'Unknown';
       if (!map.has(box.shipment_id)) map.set(box.shipment_id, new Map());
@@ -206,11 +245,8 @@ export default function StockOverview() {
         hubMap.get(hub)!.scanned++;
       }
     }
-
     return map;
   }, [outerboxes, manifestParcels]);
-
-  const filteredShipments = shipments;
 
   const allHubs = useMemo(() => {
     const hubs = new Set<string>();
@@ -221,12 +257,12 @@ export default function StockOverview() {
   }, [shipmentHubData]);
 
   const displayShipments = useMemo(() => {
-    if (hubFilter === 'all') return filteredShipments;
-    return filteredShipments.filter((s: any) => {
+    if (hubFilter === 'all') return shipments;
+    return shipments.filter((s: any) => {
       const hubMap = shipmentHubData.get(s.id);
       return hubMap?.has(hubFilter);
     });
-  }, [filteredShipments, hubFilter, shipmentHubData]);
+  }, [shipments, hubFilter, shipmentHubData]);
 
   return (
     <div className="space-y-6">
@@ -273,6 +309,23 @@ export default function StockOverview() {
             const daysInfo = s.unloaded_at ? getDaysAgoLabel(s.unloaded_at) : null;
             const isPartialNoa = partialNoaIds.has(s.id);
             const noaColli = noaColliMap.get(s.id) ?? 0;
+
+            // KPI data
+            const shipmentNoas = (noasByShipment.get(s.id) ?? []).map((n: any) => ({
+              noa_number: n.noa_number,
+              colli: n.colli ?? 0,
+              received_at: n.received_at,
+            }));
+            const kpiHours = customerKpiMap.get(s.customer_id) ?? 48;
+            const palletizedCount = palletizedCountMap.get(s.id) ?? 0;
+            const noaKpis = computeNoaKpis(shipmentNoas, palletizedCount, kpiHours, alarmSettings.noa_kpi_warning_hours);
+            const carrierKpi = computeCarrierPickupKpi(
+              shipmentNoas,
+              s.unloaded_at,
+              alarmSettings.carrier_pickup_hours,
+              alarmSettings.carrier_pickup_warning_hours,
+            );
+            const allKpisMet = noaKpis.length > 0 && noaKpis.every(k => k.status === 'met') && carrierKpi.status === 'met';
 
             return (
               <Card key={s.id}>
@@ -321,6 +374,56 @@ export default function StockOverview() {
                     </div>
                   </div>
 
+                  {/* KPI Section */}
+                  <div className="border-t pt-3 space-y-1.5">
+                    {allKpisMet ? (
+                      <div className="flex items-center gap-2 text-emerald-600 text-sm font-medium">
+                        <CheckCircle2 className="h-4 w-4" />
+                        All KPIs met
+                      </div>
+                    ) : (
+                      <>
+                        {noaKpis.map((kpi) => (
+                          <div key={kpi.noa_number} className="flex items-center gap-2 text-sm">
+                            <span>{kpiStatusEmoji(kpi.status)}</span>
+                            <span className="font-medium">NOA #{kpi.noa_number}</span>
+                            <span className="text-muted-foreground">· {kpi.colli} colli</span>
+                            {kpi.received_at && (
+                              <span className="text-muted-foreground">
+                                · received {format(new Date(kpi.received_at), 'dd/MM HH:mm')}
+                              </span>
+                            )}
+                            <span className={`ml-auto font-medium ${kpiStatusColor(kpi.status)}`}>
+                              {kpi.status === 'met' && 'Met'}
+                              {kpi.status === 'overdue' && kpi.deadline && formatHoursOverdue(kpi.deadline)}
+                              {kpi.status === 'warning' && formatHoursRemaining(kpi.hours_remaining)}
+                              {kpi.status === 'on_track' && formatHoursRemaining(kpi.hours_remaining)}
+                              {kpi.status === 'waiting' && 'Waiting'}
+                            </span>
+                          </div>
+                        ))}
+                        {carrierKpi.status !== 'waiting' && (
+                          <div className="flex items-center gap-2 text-sm">
+                            <span>{kpiStatusEmoji(carrierKpi.status)}</span>
+                            <Truck className="h-3.5 w-3.5" />
+                            <span className="font-medium">Carrier pickup</span>
+                            {carrierKpi.first_noa_received_at && (
+                              <span className="text-muted-foreground">
+                                · received {format(new Date(carrierKpi.first_noa_received_at), 'dd/MM HH:mm')}
+                              </span>
+                            )}
+                            <span className={`ml-auto font-medium ${kpiStatusColor(carrierKpi.status)}`}>
+                              {carrierKpi.status === 'met' && 'Unloaded'}
+                              {carrierKpi.status === 'overdue' && carrierKpi.deadline && formatHoursOverdue(carrierKpi.deadline)}
+                              {carrierKpi.status === 'warning' && formatHoursRemaining(carrierKpi.hours_remaining)}
+                              {carrierKpi.status === 'on_track' && formatHoursRemaining(carrierKpi.hours_remaining)}
+                            </span>
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </div>
+
                   {/* Hub rows */}
                   <div className="border-t pt-3 space-y-2">
                     {hubs.map(([hub, counts]) => {
@@ -328,15 +431,11 @@ export default function StockOverview() {
                       const complete = pct === 100 && counts.total > 0;
                       const notStarted = counts.scanned === 0;
 
-                      // Color coding
                       let rowBg = '';
-                      let textColor = 'text-muted-foreground';
                       if (complete) {
                         rowBg = 'bg-emerald-500/10';
-                        textColor = 'text-emerald-700';
                       } else if (!notStarted) {
                         rowBg = 'bg-amber-500/10';
-                        textColor = 'text-amber-700';
                       }
 
                       const palletKey = `${s.id}|${hub}`;
@@ -349,7 +448,7 @@ export default function StockOverview() {
                             <span className={`w-20 text-sm font-medium truncate ${complete ? 'text-emerald-700' : notStarted ? 'text-muted-foreground' : 'text-amber-700'}`} title={hub}>
                               {hub}
                             </span>
-                            <span className={`w-20 text-sm ${textColor}`}>{counts.total} boxes</span>
+                            <span className={`w-20 text-sm ${complete ? 'text-emerald-700' : notStarted ? 'text-muted-foreground' : 'text-amber-700'}`}>{counts.total} boxes</span>
                             <div className="flex-1">
                               <Progress
                                 value={pct}

@@ -128,6 +128,7 @@ function CustomerFormDialog({ open, onOpenChange, customer, parentId, isAdmin }:
   const [email, setEmail] = useState(customer?.email ?? '');
   const [warehouseId, setWarehouseId] = useState(customer?.warehouse_id || '__none__');
   const [customsEmailGrouping, setCustomsEmailGrouping] = useState(customer?.customs_email_grouping || 'per_shipment');
+  const [kpiPalletizedHours, setKpiPalletizedHours] = useState(customer?.kpi_palletized_hours ?? 48);
   const [userEmail, setUserEmail] = useState('');
   const [userPassword, setUserPassword] = useState('');
   const [saving, setSaving] = useState(false);
@@ -139,7 +140,7 @@ function CustomerFormDialog({ open, onOpenChange, customer, parentId, isAdmin }:
     if (!name) return;
     setSaving(true);
     try {
-      const payload: any = { name, short_name: shortName || null, email: email || null, warehouse_id: warehouseId === '__none__' ? null : warehouseId || null, customs_email_grouping: customsEmailGrouping };
+      const payload: any = { name, short_name: shortName || null, email: email || null, warehouse_id: warehouseId === '__none__' ? null : warehouseId || null, customs_email_grouping: customsEmailGrouping, kpi_palletized_hours: kpiPalletizedHours };
       if (parentId) payload.parent_customer_id = parentId;
 
       if (customer?.id) {
@@ -234,6 +235,17 @@ function CustomerFormDialog({ open, onOpenChange, customer, parentId, isAdmin }:
                 <SelectItem value="per_parcel">Per Parcel (one email per parcel)</SelectItem>
               </SelectContent>
             </Select>
+          </div>
+          <div className="space-y-2">
+            <Label>Palletizing KPI (hours)</Label>
+            <Input
+              type="number"
+              min={1}
+              value={kpiPalletizedHours}
+              onChange={e => setKpiPalletizedHours(parseInt(e.target.value) || 48)}
+              placeholder="48"
+            />
+            <p className="text-xs text-muted-foreground">Hours after NOA receipt to palletize all colli</p>
           </div>
 
           {isNew && (
