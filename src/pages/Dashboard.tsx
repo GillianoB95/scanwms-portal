@@ -100,7 +100,6 @@ export default function Dashboard() {
             <thead>
               <tr className="border-b text-muted-foreground">
                 <th className="text-left px-5 py-3 font-medium">MAWB</th>
-                <th className="text-left px-5 py-3 font-medium hidden sm:table-cell">Sub Client</th>
                 <th className="text-right px-5 py-3 font-medium hidden md:table-cell">Pieces</th>
                 <th className="text-right px-5 py-3 font-medium hidden md:table-cell">Parcels</th>
                 <th className="text-right px-5 py-3 font-medium hidden md:table-cell">Weight</th>
@@ -111,7 +110,6 @@ export default function Dashboard() {
             <tbody>
               {tableShipments.map((s: any) => {
                 const isNeedsAction = s.status === 'Needs Action';
-                const subklantName = s.subklanten?.name || '—';
                 return (
                   <tr key={s.id} className="border-b last:border-0 hover:bg-muted/50 transition-colors">
                     <td className="px-5 py-3">
@@ -122,7 +120,6 @@ export default function Dashboard() {
                         </span>
                       )}
                     </td>
-                    <td className="px-5 py-3 hidden sm:table-cell">{subklantName}</td>
                     <td className="px-5 py-3 text-right tabular-nums hidden md:table-cell">{s.colli_expected}</td>
                     <td className="px-5 py-3 text-right tabular-nums hidden md:table-cell">{s.parcels}</td>
                     <td className="px-5 py-3 text-right tabular-nums hidden md:table-cell">{Number(s.chargeable_weight).toLocaleString()} kg</td>
@@ -132,7 +129,7 @@ export default function Dashboard() {
                 );
               })}
               {tableShipments.length === 0 && (
-                <tr><td colSpan={7} className="px-5 py-12 text-center text-muted-foreground">No shipments in this category</td></tr>
+                <tr><td colSpan={6} className="px-5 py-12 text-center text-muted-foreground">No shipments in this category</td></tr>
               )}
             </tbody>
           </table>
