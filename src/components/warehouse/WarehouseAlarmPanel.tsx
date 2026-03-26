@@ -28,24 +28,17 @@ export function WarehouseAlarmPanel() {
   const { data: auth } = useWarehouseAuth();
   const { data: settings = DEFAULT_ALARM_SETTINGS } = useAlarmSettings();
 
-  const { data: warehouseCode } = useQuery({
-    queryKey: ['warehouse-code', auth?.warehouseId],
-    queryFn: async () => {
-      const { data } = await supabase.from('warehouses').select('code').eq('id', auth!.warehouseId!).single();
-      return data?.code ?? null;
-    },
-    enabled: !!auth?.warehouseId,
-  });
+  const warehouseId = auth?.warehouseId;
 
   const { data: alarms = [] } = useQuery({
-    queryKey: ['warehouse-kpi-alarms', warehouseCode, settings],
+    queryKey: ['warehouse-kpi-alarms', warehouseId, settings],
     queryFn: async () => {
-      if (!warehouseCode) return [];
+      if (!warehouseId) return [];
 
       const { data: shipments } = await supabase
         .from('shipments')
         .select('id, mawb, customer_id')
-        .eq('warehouse_id', warehouseCode)
+        .eq('warehouse_id', warehouseId)
         .in('status', ['In Stock', 'Partially Unloaded']);
       if (!shipments?.length) return [];
 

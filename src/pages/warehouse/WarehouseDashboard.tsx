@@ -29,23 +29,9 @@ export default function WarehouseDashboard() {
   const { from: rangeFrom, to: rangeTo } = getDateRange(timePeriod);
   const today = format(new Date(), 'yyyy-MM-dd');
 
-  // Resolve warehouse UUID to code for shipment queries
-  const { data: warehouseCode } = useQuery({
-    queryKey: ['warehouse-code', warehouseId],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from('warehouses')
-        .select('code')
-        .eq('id', warehouseId!)
-        .single();
-      return data?.code ?? null;
-    },
-    enabled: !!warehouseId,
-  });
-
   // Expected Today: NOA Complete or Partial NOA with eta = today, not yet unloaded
   const { data: expectedData } = useQuery({
-    queryKey: ['warehouse-expected-today', warehouseCode, today],
+    queryKey: ['warehouse-expected-today', warehouseId, today],
     queryFn: async () => {
       const query = supabase
         .from('shipments')
@@ -54,7 +40,7 @@ export default function WarehouseDashboard() {
         .is('unloaded_at', null)
         .gte('eta', `${today}T00:00:00`)
         .lte('eta', `${today}T23:59:59`);
-      if (warehouseCode) query.eq('warehouse_id', warehouseCode);
+      if (warehouseId) query.eq('warehouse_id', warehouseId);
       const { data } = await query;
       const items = data ?? [];
       return {
@@ -68,14 +54,14 @@ export default function WarehouseDashboard() {
 
   // Shipments Unloaded Today: shipments with unloaded_at today
   const { data: unloadedData } = useQuery({
-    queryKey: ['warehouse-unloaded', warehouseCode, rangeFrom, rangeTo],
+    queryKey: ['warehouse-unloaded', warehouseId, rangeFrom, rangeTo],
     queryFn: async () => {
       const query = supabase
         .from('shipments')
         .select('id, colli_expected, chargeable_weight')
         .gte('unloaded_at', rangeFrom)
         .lte('unloaded_at', rangeTo);
-      if (warehouseCode) query.eq('warehouse_id', warehouseCode);
+      if (warehouseId) query.eq('warehouse_id', warehouseId);
       const { data } = await query;
       const items = data ?? [];
       let totalNoaColli = 0;
@@ -159,14 +145,14 @@ export default function WarehouseDashboard() {
   const allStatuses = ['Awaiting NOA', 'Partial NOA', 'NOA Complete', 'In Transit', 'In Stock', 'Outbound'];
 
   const { data: shipments = [] } = useQuery({
-    queryKey: ['warehouse-shipments', warehouseCode],
+    queryKey: ['warehouse-shipments', warehouseId],
     queryFn: async () => {
       const query = supabase
         .from('shipments')
         .select('*')
         .in('status', allDbStatuses)
         .order('created_at', { ascending: false });
-      if (warehouseCode) query.eq('warehouse_id', warehouseCode);
+      if (warehouseId) query.eq('warehouse_id', warehouseId);
       const { data } = await query;
       const items = (data ?? []).map((s: any) => ({
         ...s,
