@@ -367,7 +367,149 @@ function NotificationSettingsDialog({ customer, open, onOpenChange }: {
   );
 }
 
-/* ─── Main Page ─── */
+/* ─── Login Management Dialog ─── */
+function LoginManagementDialog({ customer, open, onOpenChange }: {
+  customer: any; open: boolean; onOpenChange: (v: boolean) => void;
+}) {
+  const qc = useQueryClient();
+  const [newEmail, setNewEmail] = useState('');
+  const [adding, setAdding] = useState(false);
+  const [removingId, setRemovingId] = useState<string | null>(null);
+
+  const { data: logins = [], isLoading } = useQuery({
+    queryKey: ['customer-logins', customer?.id],
+    queryFn: async () => {
+      if (!customer?.id) return [];
+      const { data, error } = await supabase
+        .from('customer_users')
+        .select('id, email, role, created_at')
+        .eq('customer_id', customer.id)
+        .eq('role', 'user')
+        .order('created_at');
+      if (error) throw error;
+      return data ?? [];
+    },
+    enabled: !!customer?.id && open,
+  });
+
+  const handleAdd = async () => {
+    if (!newEmail || !customer?.id) return;
+    setAdding(true);
+    try {
+      // Create auth user with a random password — they'll reset via email
+      const tempPassword = crypto.randomUUID();
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: newEmail,
+        password: tempPassword,
+      });
+      if (authError) throw authError;
+
+      // Link to customer
+      const { error: linkError } = await supabase.from('customer_users').insert({
+        email: newEmail,
+        customer_id: customer.id,
+        role: 'user',
+      });
+      if (linkError) throw linkError;
+
+      // Send password reset so user can set their own password
+      const { error: resetError } = await supabase.auth.resetPasswordForEmail(newEmail, {
+        redirectTo: `${window.location.origin}/reset-password`,
+      });
+      if (resetError) {
+        console.error('Password reset email failed:', resetError);
+        toast.warning('Login created but password reset email failed to send');
+      } else {
+        toast.success('Login created — password reset email sent');
+      }
+
+      setNewEmail('');
+      qc.invalidateQueries({ queryKey: ['customer-logins', customer.id] });
+      qc.invalidateQueries({ queryKey: ['staff-customers-full'] });
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to create login');
+    } finally {
+      setAdding(false);
+    }
+  };
+
+  const handleRemove = async (login: any) => {
+    if (!confirm(`Remove login ${login.email}?`)) return;
+    setRemovingId(login.id);
+    try {
+      const { error } = await supabase.from('customer_users').delete().eq('id', login.id);
+      if (error) throw error;
+      toast.success('Login removed');
+      qc.invalidateQueries({ queryKey: ['customer-logins', customer.id] });
+      qc.invalidateQueries({ queryKey: ['staff-customers-full'] });
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to remove login');
+    } finally {
+      setRemovingId(null);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Manage Logins — {customer?.name}</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4 py-4">
+          <div>
+            <p className="text-sm font-medium mb-2">Existing Logins</p>
+            {isLoading ? (
+              <div className="flex items-center gap-2 py-4 text-sm text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" /> Loading...
+              </div>
+            ) : logins.length === 0 ? (
+              <p className="text-sm text-muted-foreground py-2">No logins configured</p>
+            ) : (
+              <div className="space-y-2">
+                {logins.map((login: any) => (
+                  <div key={login.id} className="flex items-center justify-between bg-muted/50 rounded-lg px-3 py-2">
+                    <div>
+                      <p className="text-sm font-medium">{login.email}</p>
+                      <p className="text-xs text-muted-foreground">
+                        Added {new Date(login.created_at).toLocaleDateString()}
+                      </p>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 text-destructive hover:text-destructive"
+                      onClick={() => handleRemove(login)}
+                      disabled={removingId === login.id}
+                    >
+                      {removingId === login.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <X className="h-3.5 w-3.5" />}
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="border-t pt-4">
+            <p className="text-sm font-medium mb-2">Add New Login</p>
+            <div className="flex gap-2">
+              <Input
+                type="email"
+                placeholder="user@company.com"
+                value={newEmail}
+                onChange={e => setNewEmail(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && handleAdd()}
+              />
+              <Button onClick={handleAdd} disabled={!newEmail || adding} size="sm" className="shrink-0">
+                {adding ? <Loader2 className="h-4 w-4 animate-spin" /> : <><Plus className="h-4 w-4 mr-1" /> Add</>}
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">A password reset email will be sent automatically</p>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
 export default function CustomerManagement() {
   const { role } = useAuth();
   const isAdmin = role === 'admin';
