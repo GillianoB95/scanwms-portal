@@ -940,14 +940,18 @@ export default function InboundScanning() {
                 {scannedBoxes.map((box: any, i: number) => {
                     const isDeleted = box.status === 'deleted';
                     const isNotPreAlerted = box.status === 'not_pre_alerted';
+                    const isFyco = !!box.isFyco;
                     return (
                     <TableRow key={box.id} className={cn(
                       isDeleted && 'opacity-40',
-                      isNotPreAlerted && 'bg-yellow-500/10'
+                      isNotPreAlerted && 'bg-yellow-500/10',
+                      isFyco && 'bg-orange-500/10',
+                      !isDeleted && !isNotPreAlerted && !isFyco && 'bg-emerald-500/5'
                     )}>
                       <TableCell className={isDeleted ? 'line-through' : ''}>{i + 1}</TableCell>
                       <TableCell className={`font-mono ${isDeleted ? 'line-through' : ''}`}>
                         {isNotPreAlerted && <AlertTriangle className="h-3.5 w-3.5 text-yellow-500 inline mr-1.5" />}
+                        {isFyco && <span className="text-orange-600 mr-1.5">🔍</span>}
                         {box.barcode}
                       </TableCell>
                       <TableCell className={`font-mono ${isDeleted ? 'line-through' : ''}`}>{box.hub || '—'}</TableCell>
@@ -956,14 +960,16 @@ export default function InboundScanning() {
                       <TableCell>
                         {isDeleted ? (
                           <span className="text-xs text-destructive font-medium line-through">Deleted</span>
+                        ) : isFyco ? (
+                          <Badge className="bg-orange-500/15 text-orange-600 border-orange-500/30 text-xs">🔍 FYCO</Badge>
                         ) : isNotPreAlerted ? (
                           <span className="text-xs text-yellow-600 font-medium">Not pre-alerted</span>
                         ) : (
-                          <span className="text-xs text-muted-foreground">Scanned</span>
+                          <Badge className="bg-emerald-500/15 text-emerald-600 border-emerald-500/30 text-xs">✓ Scanned</Badge>
                         )}
                       </TableCell>
                       <TableCell>
-                        {!isDeleted && (
+                        {!isDeleted && !isFyco && (
                           <Button
                             variant="ghost"
                             size="icon"
