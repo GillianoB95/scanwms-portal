@@ -178,5 +178,17 @@ export function getShipmentAlarms(
     }
   }
 
+  // No NOA after shipment created
+  if (shipment.created_at && shipment.status === 'Awaiting NOA') {
+    const days = workingDaysBetween(new Date(shipment.created_at), now);
+    if (days > settings.shipment_created_no_noa_days) {
+      alarms.push({
+        type: 'no_noa_after_created',
+        label: 'No NOA after created',
+        description: `${shipment.mawb} — No NOA received · created ${days} days ago`,
+      });
+    }
+  }
+
   return alarms;
 }
