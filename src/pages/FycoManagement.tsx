@@ -116,7 +116,7 @@ function useFycoData() {
           created_at,
           email_sent_at,
           email_sent_by,
-          shipments!inner (
+          shipments (
             mawb,
             warehouse_id,
             customer_id,
