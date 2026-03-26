@@ -417,6 +417,34 @@ export default function NewShipment() {
                     className="w-full h-9 px-2.5 rounded-md border bg-background text-sm tabular-nums font-mono text-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
                 </div>
               </div>
+              {awbData && (awbData.origin || awbData.destination || awbData.shipper || awbData.consignee) && (
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-1">
+                  {awbData.origin && (
+                    <div>
+                      <label className="text-xs text-muted-foreground block mb-1">Origin</label>
+                      <div className="h-9 px-2.5 rounded-md border bg-muted/50 text-sm font-mono flex items-center text-foreground">{awbData.origin}</div>
+                    </div>
+                  )}
+                  {awbData.destination && (
+                    <div>
+                      <label className="text-xs text-muted-foreground block mb-1">Destination</label>
+                      <div className="h-9 px-2.5 rounded-md border bg-muted/50 text-sm font-mono flex items-center text-foreground">{awbData.destination}</div>
+                    </div>
+                  )}
+                  {awbData.shipper && (
+                    <div>
+                      <label className="text-xs text-muted-foreground block mb-1">Shipper</label>
+                      <div className="h-9 px-2.5 rounded-md border bg-muted/50 text-sm flex items-center text-foreground truncate">{awbData.shipper}</div>
+                    </div>
+                  )}
+                  {awbData.consignee && (
+                    <div>
+                      <label className="text-xs text-muted-foreground block mb-1">Consignee</label>
+                      <div className="h-9 px-2.5 rounded-md border bg-muted/50 text-sm flex items-center text-foreground truncate">{awbData.consignee}</div>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           )}
 
