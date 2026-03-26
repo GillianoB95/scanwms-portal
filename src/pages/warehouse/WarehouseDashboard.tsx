@@ -10,6 +10,7 @@ import { StatusBadge } from '@/components/StatusBadge';
 import { Badge } from '@/components/ui/badge';
 import { Link, useNavigate } from 'react-router-dom';
 import { Package, ScanBarcode, ArrowUpFromLine, Truck, PackageCheck, Search as SearchIcon } from 'lucide-react';
+import { WarehouseFycoDetailModal } from '@/components/warehouse/FycoDetailModal';
 
 export default function WarehouseDashboard() {
   const { data: auth } = useWarehouseAuth();
