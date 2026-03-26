@@ -43,15 +43,17 @@ export default function WarehouseDashboard() {
     enabled: !!warehouseId,
   });
 
-  // Expected Today: NOA Complete or Partial NOA, not yet unloaded
+  // Expected Today: NOA Complete or Partial NOA with eta = today, not yet unloaded
   const { data: expectedData } = useQuery({
-    queryKey: ['warehouse-expected-today', warehouseCode],
+    queryKey: ['warehouse-expected-today', warehouseCode, today],
     queryFn: async () => {
       const query = supabase
         .from('shipments')
         .select('id, colli_expected, chargeable_weight')
         .in('status', ['NOA Complete', 'Partial NOA'])
-        .is('unloaded_at', null);
+        .is('unloaded_at', null)
+        .gte('eta', `${today}T00:00:00`)
+        .lte('eta', `${today}T23:59:59`);
       if (warehouseCode) query.eq('warehouse_id', warehouseCode);
       const { data } = await query;
       const items = data ?? [];
