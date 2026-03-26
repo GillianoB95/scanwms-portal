@@ -43,7 +43,7 @@ export default function NewShipment() {
   const [manifestFile, setManifestFile] = useState<File | null>(null);
 
   const [awbExtracting, setAwbExtracting] = useState(false);
-  const [awbData, setAwbData] = useState<AwbServerData | null>(null);
+  const [awbData, setAwbData] = useState<AwbParsedData | null>(null);
   const [awbError, setAwbError] = useState<string | null>(null);
   const [awbManualMode, setAwbManualMode] = useState(false);
   const [manualColli, setManualColli] = useState('');
