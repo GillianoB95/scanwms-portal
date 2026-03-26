@@ -38,45 +38,47 @@ export function FycoParcelsPanel({ shipmentId }: Props) {
     enabled: !!shipmentId,
   });
 
-  const parcelBarcodes = inspections.map((i: any) => i.parcel_barcode).filter(Boolean);
-  const { data: outerboxData = [] } = useQuery({
-    queryKey: ['fyco-outerbox-lookup', shipmentId, parcelBarcodes],
+  const { data: manifestParcels = [] } = useQuery({
+    queryKey: ['fyco-manifest-parcels', shipmentId],
     queryFn: async () => {
-      if (parcelBarcodes.length === 0) return [];
-      const { data: boxes } = await supabase
-        .from('outerboxes')
-        .select('id, barcode, hub, manifest_data')
+      const { data } = await supabase
+        .from('manifest_parcels')
+        .select('parcel_barcode, outerbox_barcode')
         .eq('shipment_id', shipmentId);
-      return boxes ?? [];
+      return data ?? [];
     },
-    enabled: parcelBarcodes.length > 0,
+    enabled: !!shipmentId,
+  });
+
+  const outerboxBarcodes = [...new Set(manifestParcels.map((p: any) => p.outerbox_barcode).filter(Boolean))];
+  const { data: outerboxData = [] } = useQuery({
+    queryKey: ['fyco-outerbox-lookup', shipmentId, outerboxBarcodes],
+    queryFn: async () => {
+      if (outerboxBarcodes.length === 0) return [];
+      const { data } = await supabase
+        .from('outerboxes')
+        .select('barcode, hub')
+        .eq('shipment_id', shipmentId)
+        .in('barcode', outerboxBarcodes);
+      return data ?? [];
+    },
+    enabled: !!shipmentId && outerboxBarcodes.length > 0,
   });
 
   if (inspections.length === 0) return null;
 
+  const hubByOuterbox = new Map(
+    outerboxData.map((box: any) => [box.barcode?.toUpperCase(), box.hub || '—'])
+  );
   const parcelToBox = new Map<string, { boxBarcode: string; hub: string }>();
-  for (const box of outerboxData) {
-    if (box.barcode) {
-      for (const insp of inspections) {
-        if (insp.barcode && insp.barcode.toUpperCase() === box.barcode.toUpperCase()) {
-          parcelToBox.set(insp.parcel_barcode?.toUpperCase(), {
-            boxBarcode: box.barcode,
-            hub: box.hub || '—',
-          });
-        }
-      }
-    }
-  }
-
-  for (const insp of inspections) {
-    const key = insp.parcel_barcode?.toUpperCase();
-    if (key && !parcelToBox.has(key)) {
-      const matchedBox = outerboxData.find(
-        (b: any) => b.barcode?.toUpperCase() === insp.barcode?.toUpperCase()
-      );
-      if (matchedBox) {
-        parcelToBox.set(key, { boxBarcode: matchedBox.barcode, hub: matchedBox.hub || '—' });
-      }
+  for (const manifestParcel of manifestParcels) {
+    const parcelKey = manifestParcel.parcel_barcode?.toUpperCase();
+    const boxBarcode = manifestParcel.outerbox_barcode || '—';
+    if (parcelKey) {
+      parcelToBox.set(parcelKey, {
+        boxBarcode,
+        hub: hubByOuterbox.get(boxBarcode.toUpperCase()) || '—',
+      });
     }
   }
 

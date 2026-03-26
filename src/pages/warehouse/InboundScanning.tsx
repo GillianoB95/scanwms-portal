@@ -573,22 +573,33 @@ export default function InboundScanning() {
   const unloadMutation = useMutation({
     mutationFn: async () => {
       const scannedCount = scannedBoxes.filter((b: any) => b.status !== 'deleted').length;
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('shipments')
         .update({
           status: 'In Stock',
           unloaded_at: new Date().toISOString(),
           unloaded_colli: scannedCount,
         })
-        .eq('id', shipment.id);
+        .eq('id', shipment.id)
+        .select('id, status, unloaded_at, unloaded_colli')
+        .maybeSingle();
+
       if (error) throw error;
+      if (!data || !data.unloaded_at || data.status !== 'In Stock') {
+        throw new Error('Shipment update was not persisted. Check warehouse update permissions for status, unloaded_at and unloaded_colli.');
+      }
+
+      return data;
     },
-    onSuccess: () => {
+    onSuccess: (updatedShipment) => {
       toast({ title: 'Shipment marked as unloaded and In Stock' });
       setScanningBlocked(null);
-      setShipment((prev: any) => prev ? { ...prev, status: 'In Stock' } : null);
+      setShipment((prev: any) => prev ? { ...prev, ...updatedShipment } : prev);
       loadManifestHubs(shipment.id);
       qc.invalidateQueries({ queryKey: ['scanned-boxes', shipment?.id] });
+      qc.invalidateQueries({ queryKey: ['warehouse-expected-today'] });
+      qc.invalidateQueries({ queryKey: ['warehouse-unloaded-today'] });
+      qc.invalidateQueries({ queryKey: ['warehouse-shipments'] });
     },
     onError: (err: any) => {
       toast({ title: 'Failed to mark as unloaded', description: err.message, variant: 'destructive' });
