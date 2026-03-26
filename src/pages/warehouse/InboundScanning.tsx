@@ -18,6 +18,7 @@ import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { printPalletLabel, type PalletLabelData } from '@/lib/printnode';
 import { cn } from '@/lib/utils';
 import * as XLSX from 'xlsx';
+import { Badge } from '@/components/ui/badge';
 import { FycoParcelsPanel } from '@/components/warehouse/FycoParcelsPanel';
 
 function normalizeBoxBarcode(value: unknown): string {
