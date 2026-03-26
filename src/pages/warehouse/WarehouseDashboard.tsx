@@ -10,6 +10,7 @@ import { StatusBadge } from '@/components/StatusBadge';
 import { Badge } from '@/components/ui/badge';
 import { Link, useNavigate } from 'react-router-dom';
 import { Package, ScanBarcode, ArrowUpFromLine, Truck, PackageCheck, Search as SearchIcon } from 'lucide-react';
+import { WarehouseFycoDetailModal } from '@/components/warehouse/FycoDetailModal';
 
 export default function WarehouseDashboard() {
   const { data: auth } = useWarehouseAuth();
@@ -314,33 +315,41 @@ export default function WarehouseDashboard() {
             <TableBody>
               {filteredShipments.length === 0 ? (
                 <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-8">No shipments found</TableCell></TableRow>
-              ) : filteredShipments.map((s: any) => {
-                const fycoCount = (fycoCounts as Record<string, number>)[s.id] || 0;
-                return (
-                <TableRow key={s.id}>
-                  <TableCell className="font-mono font-medium">
-                    {s.mawb}
-                    {fycoCount > 0 && (
-                      <Badge
-                        className="ml-2 cursor-pointer bg-amber-500/15 text-amber-600 border-amber-500/30 hover:bg-amber-500/25"
-                        onClick={(e) => { e.stopPropagation(); navigate(`/warehouse/inbound?mawb=${s.mawb}`); }}
-                      >
-                        <SearchIcon className="h-3 w-3 mr-1" />
-                        FYCO ({fycoCount})
-                      </Badge>
-                    )}
-                  </TableCell>
-                  <TableCell>{(s.customers as any)?.name ?? '—'}</TableCell>
-                  <TableCell>{s.colli_expected ?? '—'}</TableCell>
-                  <TableCell><StatusBadge status={s.status} /></TableCell>
-                  <TableCell>{s.eta ?? '—'}</TableCell>
-                </TableRow>
-                );
-              })}
+              ) : filteredShipments.map((s: any) => (
+                <WarehouseShipmentRow key={s.id} shipment={s} fycoCount={(fycoCounts as Record<string, number>)[s.id] || 0} />
+              ))}
             </TableBody>
           </Table>
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+function WarehouseShipmentRow({ shipment, fycoCount }: { shipment: any; fycoCount: number }) {
+  const [fycoOpen, setFycoOpen] = useState(false);
+
+  return (
+    <>
+      <TableRow>
+        <TableCell className="font-mono font-medium">
+          {shipment.mawb}
+          {fycoCount > 0 && (
+            <Badge
+              className="ml-2 cursor-pointer text-[10px] px-1.5 py-0 bg-red-600 hover:bg-red-700 text-white border-transparent"
+              onClick={(e) => { e.stopPropagation(); setFycoOpen(true); }}
+            >
+              <SearchIcon className="h-3 w-3 mr-1" />
+              FYCO ({fycoCount})
+            </Badge>
+          )}
+        </TableCell>
+        <TableCell>{(shipment.customers as any)?.name ?? '—'}</TableCell>
+        <TableCell>{shipment.colli_expected ?? '—'}</TableCell>
+        <TableCell><StatusBadge status={shipment.status} /></TableCell>
+        <TableCell>{shipment.eta ?? '—'}</TableCell>
+      </TableRow>
+      {fycoOpen && <WarehouseFycoDetailModal shipment={shipment} open={fycoOpen} onOpenChange={v => { if (!v) setFycoOpen(false); }} />}
+    </>
   );
 }
