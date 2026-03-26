@@ -45,20 +45,27 @@ serve(async (req: Request) => {
     }
 
     // Compress whitespace
-    pdfText = pdfText.replace(/\s+/g, " ").trim().slice(0, 6000);
+    pdfText = pdfText.replace(/\s+/g, " ").trim().slice(0, 8000);
 
-    const prompt = `You are an air waybill data extraction expert.
+    const prompt = `You are an air waybill data extraction expert. Extract data ONLY from the text provided below. Do NOT invent, guess, or use default values. If you cannot find a field with confidence, use null.
 
-Extract these 4 fields from the air waybill text below:
-1. MAWB number - format XXX-XXXXXXXX (e.g. 607-50842772). Look for patterns like "123-45678901" or "123 45678901".
-2. Number of pieces/colli - total pieces count (look for "No. of Pieces", "PCS", "PIECES", "colli")
-3. Gross weight in kg (look for "Gross Weight", "GWT", "KG" near a number)
-4. Chargeable weight in kg (look for "Chargeable Weight", "CHWT", "Chargeable")
+Extract these fields from the air waybill text:
+1. MAWB number - format XXX-XXXXXXXX (3 digits, dash, 8 digits). Look for patterns like "080-38801545" or "080 38801545".
+2. Number of pieces/colli - integer. Look for number before CTN, PCS, PIECES, or in "No. of Pieces" field.
+3. Gross weight in kg - numeric. Look for a number followed by K or KG in the weight section.
+4. Chargeable weight in kg - numeric. Look for "Chargeable Weight" or "CHWT" value.
+5. Origin airport - 3-letter IATA code from the routing/origin section (e.g. TAS, PEK, IST).
+6. Destination airport - 3-letter IATA code from the routing/destination section (e.g. AMS, FRA, LHR).
+7. Shipper name - the company or person shipping the goods (look for "Shipper", "Sender", "Afzender").
+8. Consignee name - the company or person receiving the goods (look for "Consignee", "Ontvanger").
 
-Return ONLY valid JSON with no explanation:
-{"mawb":"607-50842772","pieces":221,"gross_weight":3412.0,"chargeable_weight":3412.0}
+CRITICAL RULES:
+- Only extract values you can actually see in the text below.
+- If a value is not clearly present, use null. Never fabricate data.
+- Return ONLY valid JSON with no explanation or markdown.
 
-Use null for any field you cannot find with confidence.
+Return format:
+{"mawb":"080-38801545","pieces":83,"gross_weight":1140.0,"chargeable_weight":1140.0,"origin":"TAS","destination":"AMS","shipper":"Company Name","consignee":"Company Name"}
 
 Air waybill text:
 ${pdfText}`;
@@ -74,7 +81,7 @@ ${pdfText}`;
         messages: [
           { role: "user", content: prompt }
         ],
-        max_tokens: 150,
+        max_tokens: 300,
         temperature: 0,
       }),
     });
@@ -105,6 +112,10 @@ ${pdfText}`;
         pieces: typeof extracted.pieces === "number" ? extracted.pieces : null,
         gross_weight: typeof extracted.gross_weight === "number" ? extracted.gross_weight : null,
         chargeable_weight: typeof extracted.chargeable_weight === "number" ? extracted.chargeable_weight : null,
+        origin: typeof extracted.origin === "string" ? extracted.origin : null,
+        destination: typeof extracted.destination === "string" ? extracted.destination : null,
+        shipper: typeof extracted.shipper === "string" ? extracted.shipper : null,
+        consignee: typeof extracted.consignee === "string" ? extracted.consignee : null,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
