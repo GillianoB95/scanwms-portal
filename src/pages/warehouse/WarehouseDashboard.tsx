@@ -9,14 +9,25 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { StatusBadge } from '@/components/StatusBadge';
 import { Badge } from '@/components/ui/badge';
 import { Link, useNavigate } from 'react-router-dom';
-import { Package, ScanBarcode, ArrowUpFromLine, Truck, PackageCheck, Search as SearchIcon } from 'lucide-react';
+import { Package, ScanBarcode, ArrowUpFromLine, Truck, PackageCheck, Search as SearchIcon, Calendar } from 'lucide-react';
 import { WarehouseFycoDetailModal } from '@/components/warehouse/FycoDetailModal';
+import { startOfDay, startOfWeek, startOfMonth, endOfDay, format } from 'date-fns';
+
+function getDateRange(period: string): { from: string; to: string } {
+  const now = new Date();
+  const end = endOfDay(now).toISOString();
+  if (period === 'week') return { from: startOfWeek(now, { weekStartsOn: 1 }).toISOString(), to: end };
+  if (period === 'month') return { from: startOfMonth(now).toISOString(), to: end };
+  return { from: startOfDay(now).toISOString(), to: end };
+}
 
 export default function WarehouseDashboard() {
   const { data: auth } = useWarehouseAuth();
   const navigate = useNavigate();
-  const warehouseId = auth?.warehouseId; // UUID
-  const today = new Date().toISOString().split('T')[0];
+  const warehouseId = auth?.warehouseId;
+  const [timePeriod, setTimePeriod] = useState('today');
+  const { from: rangeFrom, to: rangeTo } = getDateRange(timePeriod);
+  const today = format(new Date(), 'yyyy-MM-dd');
 
   // Resolve warehouse UUID to code for shipment queries
   const { data: warehouseCode } = useQuery({
