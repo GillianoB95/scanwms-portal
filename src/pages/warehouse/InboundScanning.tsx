@@ -226,10 +226,31 @@ export default function InboundScanning() {
         setShipmentError('No shipments found matching this MAWB');
         return;
       }
-      if (data.length === 1) {
-        selectShipment(data[0]);
+
+      // Batch-fetch customer and subklant names
+      const customerIds = [...new Set(data.map(s => s.customer_id).filter(Boolean))];
+      const subklantIds = [...new Set(data.map(s => s.subklant_id).filter(Boolean))];
+      const [custRes, subRes] = await Promise.all([
+        customerIds.length > 0
+          ? supabase.from('customers').select('id, name, short_name').in('id', customerIds)
+          : Promise.resolve({ data: [] }),
+        subklantIds.length > 0
+          ? supabase.from('subklanten').select('id, name').in('id', subklantIds)
+          : Promise.resolve({ data: [] }),
+      ]);
+      const custMap = new Map((custRes.data ?? []).map((c: any) => [c.id, c]));
+      const subMap = new Map((subRes.data ?? []).map((s: any) => [s.id, s.name]));
+      const enriched = data.map(s => ({
+        ...s,
+        customer_name: custMap.get(s.customer_id)?.name ?? null,
+        customer_short: custMap.get(s.customer_id)?.short_name ?? null,
+        subklant_name: subMap.get(s.subklant_id) ?? null,
+      }));
+
+      if (enriched.length === 1) {
+        selectShipment(enriched[0]);
       } else {
-        setMawbResults(data);
+        setMawbResults(enriched);
       }
     } catch (err: any) {
       setShipmentError(err.message);
