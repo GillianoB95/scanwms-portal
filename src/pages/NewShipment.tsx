@@ -196,6 +196,12 @@ export default function NewShipment() {
       if (awbData.gross_weight != null && manualGrossWeight === '') setManualGrossWeight(String(awbData.gross_weight));
       if (awbData.chargeable_weight != null && manualChargeableWeight === '') setManualChargeableWeight(String(awbData.chargeable_weight));
     }
+    // Clear fields when awbData is reset (new file upload)
+    if (!awbData) {
+      setManualColli('');
+      setManualGrossWeight('');
+      setManualChargeableWeight('');
+    }
   }, [awbData]);
 
   const colli = manualColli !== '' ? (parseInt(manualColli) || 0) : 0;
