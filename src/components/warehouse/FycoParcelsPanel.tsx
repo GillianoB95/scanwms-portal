@@ -43,7 +43,7 @@ export function FycoParcelsPanel({ shipmentId }: Props) {
     queryFn: async () => {
       const { data } = await supabase
         .from('manifest_parcels')
-        .select('parcel_barcode, outerbox_barcode, waybill')
+        .select('parcel_barcode, outerbox_barcode, hub')
         .eq('shipment_id', shipmentId);
       return data ?? [];
     },
@@ -58,7 +58,7 @@ export function FycoParcelsPanel({ shipmentId }: Props) {
     if (key) {
       parcelToBox.set(key, {
         boxBarcode: mp.outerbox_barcode || '—',
-        hub: mp.waybill || '—',
+        hub: mp.hub || '—',
       });
     }
   }
