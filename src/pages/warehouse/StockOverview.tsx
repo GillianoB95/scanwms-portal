@@ -46,7 +46,7 @@ export default function StockOverview() {
 
   const shipmentIds = shipments.map((s: any) => s.id);
 
-  // Fetch all non-deleted outerboxes for these shipments
+  // Fetch all non-deleted outerboxes for these shipments (scanned counts)
   const { data: outerboxes = [] } = useQuery({
     queryKey: ['stock-overview-boxes', shipmentIds],
     queryFn: async () => {
@@ -61,24 +61,60 @@ export default function StockOverview() {
     enabled: shipmentIds.length > 0,
   });
 
-  // Build hub groups per shipment
+  // Fetch manifest_parcels for totals per hub (distinct outerbox_barcode)
+  const { data: manifestParcels = [] } = useQuery({
+    queryKey: ['stock-overview-manifest', shipmentIds],
+    queryFn: async () => {
+      if (shipmentIds.length === 0) return [];
+      const { data } = await supabase
+        .from('manifest_parcels')
+        .select('shipment_id, hub, outerbox_barcode')
+        .in('shipment_id', shipmentIds)
+        .not('outerbox_barcode', 'is', null)
+        .neq('outerbox_barcode', '');
+      return data ?? [];
+    },
+    enabled: shipmentIds.length > 0,
+  });
+
+  // Build hub groups per shipment: totals from manifest_parcels, scanned from outerboxes
   const shipmentHubData = useMemo(() => {
     const map = new Map<string, Map<string, { total: number; scanned: number }>>();
 
+    // Totals: count distinct outerbox_barcode per shipment+hub from manifest_parcels
+    for (const mp of manifestParcels) {
+      const hub = (mp as any).hub || 'Unknown';
+      const sid = (mp as any).shipment_id;
+      if (!map.has(sid)) map.set(sid, new Map());
+      const hubMap = map.get(sid)!;
+      if (!hubMap.has(hub)) hubMap.set(hub, { total: 0, scanned: 0 });
+    }
+    // Count distinct outerbox_barcode per shipment+hub
+    const distinctKeys = new Set<string>();
+    for (const mp of manifestParcels) {
+      const hub = (mp as any).hub || 'Unknown';
+      const sid = (mp as any).shipment_id;
+      const barcode = (mp as any).outerbox_barcode;
+      const key = `${sid}|${hub}|${barcode}`;
+      if (!distinctKeys.has(key)) {
+        distinctKeys.add(key);
+        map.get(sid)!.get(hub)!.total++;
+      }
+    }
+
+    // Scanned counts from outerboxes
     for (const box of outerboxes) {
       const hub = (box as any).hub || 'Unknown';
       if (!map.has(box.shipment_id)) map.set(box.shipment_id, new Map());
       const hubMap = map.get(box.shipment_id)!;
       if (!hubMap.has(hub)) hubMap.set(hub, { total: 0, scanned: 0 });
-      const entry = hubMap.get(hub)!;
-      entry.total++;
       if (box.status === 'scanned_in' || box.status === 'palletized') {
-        entry.scanned++;
+        hubMap.get(hub)!.scanned++;
       }
     }
 
     return map;
-  }, [outerboxes]);
+  }, [outerboxes, manifestParcels]);
 
   // Show all shipments with status In Stock — no outerbox filtering
   const filteredShipments = shipments;
