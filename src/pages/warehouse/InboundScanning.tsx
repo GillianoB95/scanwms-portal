@@ -545,17 +545,24 @@ export default function InboundScanning() {
 
   const unloadMutation = useMutation({
     mutationFn: async () => {
+      const scannedCount = scannedBoxes.filter((b: any) => b.status !== 'deleted').length;
       const { error } = await supabase
         .from('shipments')
-        .update({ status: 'In Stock', unloaded_at: new Date().toISOString() })
+        .update({
+          status: 'In Stock',
+          unloaded_at: new Date().toISOString(),
+          unloaded_colli: scannedCount,
+        })
         .eq('id', shipment.id);
       if (error) throw error;
     },
     onSuccess: () => {
       toast({ title: 'Shipment marked as unloaded and In Stock' });
-      setShipment(null);
-      setMawbInput('');
-      setCurrentHub(null);
+      setShipment((prev: any) => prev ? { ...prev, status: 'In Stock' } : null);
+      qc.invalidateQueries({ queryKey: ['scanned-boxes', shipment?.id] });
+    },
+    onError: (err: any) => {
+      toast({ title: 'Failed to mark as unloaded', description: err.message, variant: 'destructive' });
     },
   });
 
