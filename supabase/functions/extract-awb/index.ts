@@ -1,55 +1,55 @@
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 
+const DEPLOY_VERSION = "2026-03-26T20:40Z";
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-/** Try regex extraction first as primary method, fall back to LLM only if needed */
 function regexExtract(text: string) {
   const result: Record<string, unknown> = {
-    mawb: null, pieces: null, gross_weight: null, chargeable_weight: null,
-    origin: null, destination: null, shipper: null, consignee: null,
+    mawb: null,
+    pieces: null,
+    gross_weight: null,
+    chargeable_weight: null,
+    origin: null,
+    destination: null,
+    shipper: null,
+    consignee: null,
   };
 
-  // MAWB: 3 digits dash 8 digits
   const mawbMatch = text.match(/(\d{3})-(\d{8})/);
   if (mawbMatch) {
     result.mawb = mawbMatch[0];
   } else {
-    // Try space-separated: 3 digits, some text, 8 digits
     const mawbAlt = text.match(/(\d{3})\s+\w+\s+(\d{8})/);
     if (mawbAlt) result.mawb = `${mawbAlt[1]}-${mawbAlt[2]}`;
   }
 
-  // Data row pattern: pieces weight K rate_class chargeable_weight
-  // e.g. "83        1140  K    Q                       1140"
   const dataRowMatch = text.match(/(\d+)\s+(\d+)\s+K\s+[A-Z]\s+(\d+)/);
   if (dataRowMatch) {
-    result.pieces = parseInt(dataRowMatch[1]);
+    result.pieces = parseInt(dataRowMatch[1], 10);
     result.gross_weight = parseFloat(dataRowMatch[2]);
     result.chargeable_weight = parseFloat(dataRowMatch[3]);
   } else {
-    // Fallback: pieces before weight K
     const piecesWeightMatch = text.match(/(\d+)\s+(\d+)\s+K/);
     if (piecesWeightMatch) {
-      result.pieces = parseInt(piecesWeightMatch[1]);
+      result.pieces = parseInt(piecesWeightMatch[1], 10);
       result.gross_weight = parseFloat(piecesWeightMatch[2]);
     }
-    // Chargeable weight after K + rate class
+
     const cwMatch = text.match(/K\s+[A-Z]\s+(\d+)/);
     if (cwMatch) {
       result.chargeable_weight = parseFloat(cwMatch[1]);
     }
   }
 
-  // Origin/Destination: look for 3-letter airport codes in routing
   const routeMatch = text.match(/([A-Z]{3})\s*\/\s*([A-Z]{3})/);
   if (routeMatch) {
     result.origin = routeMatch[1];
     result.destination = routeMatch[2];
   } else {
-    // Try "from XXX to XXX" or "XXX - XXX" patterns
     const routeAlt = text.match(/([A-Z]{3})\s+(?:to|TO|-)\s+([A-Z]{3})/);
     if (routeAlt) {
       result.origin = routeAlt[1];
@@ -66,6 +66,8 @@ serve(async (req: Request) => {
   }
 
   try {
+    console.log(`[extract-awb] deploy version ${DEPLOY_VERSION}`);
+
     const formData = await req.formData();
     const file = formData.get("file") as File | null;
 
@@ -74,25 +76,23 @@ serve(async (req: Request) => {
 
     if (!file) {
       return new Response(
-        JSON.stringify({ error: "No file provided" }),
+        JSON.stringify({ error: "No file provided", debug_version: DEPLOY_VERSION }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
     if (file.size === 0) {
       return new Response(
-        JSON.stringify({ error: "Empty file received" }),
+        JSON.stringify({ error: "Empty file received", debug_version: DEPLOY_VERSION }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // Read PDF bytes and extract readable text
     const arrayBuffer = await file.arrayBuffer();
     const bytes = new Uint8Array(arrayBuffer);
 
     console.log("[extract-awb] File bytes length:", bytes.length);
 
-    // Simple PDF text extraction - read printable ASCII chars
     let pdfText = "";
     for (let i = 0; i < Math.min(bytes.length, 80000); i++) {
       const b = bytes[i];
@@ -103,7 +103,6 @@ serve(async (req: Request) => {
       }
     }
 
-    // Compress whitespace
     pdfText = pdfText.replace(/\s+/g, " ").trim();
 
     console.log("[extract-awb] Extracted text length:", pdfText.length);
@@ -112,34 +111,29 @@ serve(async (req: Request) => {
 
     if (pdfText.length < 20) {
       return new Response(
-        JSON.stringify({ error: "Could not extract readable text from PDF. The file may be scanned/image-based." }),
+        JSON.stringify({ error: "Could not extract readable text from PDF. The file may be scanned/image-based.", debug_version: DEPLOY_VERSION }),
         { status: 422, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // Step 1: Try regex extraction first (fast, reliable, no API needed)
     const regexResult = regexExtract(pdfText);
     console.log("[extract-awb] Regex extraction result:", JSON.stringify(regexResult));
 
-    // Check if regex got the key numeric fields
     const regexGotNumbers = regexResult.pieces != null && regexResult.gross_weight != null;
 
     if (regexGotNumbers && regexResult.mawb) {
-      // Regex got everything important, return directly
       console.log("[extract-awb] Using regex results (all key fields found)");
       return new Response(
-        JSON.stringify(regexResult),
+        JSON.stringify({ ...regexResult, debug_version: DEPLOY_VERSION }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // Step 2: Fall back to OpenAI for fields regex missed
     const OPENAI_API_KEY = Deno.env.get("openai_api_key");
     if (!OPENAI_API_KEY) {
-      // No API key — return whatever regex found
       console.log("[extract-awb] No OpenAI key, returning regex-only results");
       return new Response(
-        JSON.stringify(regexResult),
+        JSON.stringify({ ...regexResult, debug_version: DEPLOY_VERSION }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -181,9 +175,8 @@ ${truncatedText}`;
     if (!openaiRes.ok) {
       const errText = await openaiRes.text();
       console.error("[extract-awb] OpenAI error:", openaiRes.status, errText);
-      // Return regex results as fallback
       return new Response(
-        JSON.stringify(regexResult),
+        JSON.stringify({ ...regexResult, debug_version: DEPLOY_VERSION }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -200,7 +193,6 @@ ${truncatedText}`;
       console.error("[extract-awb] JSON parse error from OpenAI:", content);
     }
 
-    // Merge: prefer regex results for numeric fields (more reliable), use LLM for text fields
     const final = {
       mawb: (regexResult.mawb as string) || (typeof extracted.mawb === "string" ? extracted.mawb : null),
       pieces: (regexResult.pieces as number) ?? (typeof extracted.pieces === "number" ? extracted.pieces : null),
@@ -210,6 +202,7 @@ ${truncatedText}`;
       destination: (regexResult.destination as string) || (typeof extracted.destination === "string" ? extracted.destination : null),
       shipper: typeof extracted.shipper === "string" ? extracted.shipper : null,
       consignee: typeof extracted.consignee === "string" ? extracted.consignee : null,
+      debug_version: DEPLOY_VERSION,
     };
 
     console.log("[extract-awb] Final merged result:", JSON.stringify(final));
@@ -218,12 +211,11 @@ ${truncatedText}`;
       JSON.stringify(final),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
-
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Unknown error";
     console.error("[extract-awb] error:", msg);
     return new Response(
-      JSON.stringify({ error: msg }),
+      JSON.stringify({ error: msg, debug_version: DEPLOY_VERSION }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
