@@ -32,10 +32,6 @@ interface ManifestParsedRow {
   destination_country: string | null;
 }
 
-
-  }
-}
-
 export default function NewShipment() {
   const navigate = useNavigate();
   const { user, customer } = useAuth();
