@@ -173,7 +173,7 @@ export default function StaffShipmentDetail() {
           <div><span className="text-muted-foreground block text-xs mb-0.5">MAWB</span><span className="font-mono font-medium">{shipment.mawb}</span></div>
           <div><span className="text-muted-foreground block text-xs mb-0.5">Customer</span>{(shipment as any).customers?.name || '—'}</div>
           <div><span className="text-muted-foreground block text-xs mb-0.5">Transport</span>{shipment.transport_type}</div>
-          <div><span className="text-muted-foreground block text-xs mb-0.5">Warehouse</span>{(shipment as any).warehouses?.name || (shipment as any).warehouses?.code || '—'}</div>
+          <div><span className="text-muted-foreground block text-xs mb-0.5">Warehouse</span>{warehouseDisplay}</div>
           <div><span className="text-muted-foreground block text-xs mb-0.5">Created</span>{new Date(shipment.created_at).toLocaleDateString('en-GB')}</div>
           <div><span className="text-muted-foreground block text-xs mb-0.5">Weight</span>{Number(shipment.chargeable_weight || 0).toLocaleString()} kg</div>
           <div><span className="text-muted-foreground block text-xs mb-0.5">Gross Weight</span>{Number(shipment.gross_weight || 0).toLocaleString()} kg</div>
