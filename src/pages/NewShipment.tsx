@@ -224,7 +224,6 @@ export default function NewShipment() {
 
   const canProceed =
     mawb.replace(/\D/g, '').length === 11 &&
-    subklantId &&
     awbFile &&
     manifestFile &&
     manualColli !== '' && manualGrossWeight !== '' && manualChargeableWeight !== '' &&
@@ -397,7 +396,7 @@ export default function NewShipment() {
           )}
           {manifestResult && !manifestProcessing && manifestResult.parsedRows.length > 0 && (
             <div className="bg-emerald-500/10 rounded-lg p-3 animate-fade-in flex items-center gap-2 text-sm text-emerald-700">
-              <CheckCircle2 className="h-4 w-4" /> Manifest ready — {manifestResult.totalParcels} parcels found
+              <CheckCircle2 className="h-4 w-4" /> Manifest ready
             </div>
           )}
           {manifestProgress && (
