@@ -1,5 +1,5 @@
 import { useParams, Link } from 'react-router-dom';
-import { ArrowLeft, Download, CheckCircle2, Circle, Truck, Loader2, Shield, AlertTriangle, Search as SearchIcon } from 'lucide-react';
+import { ArrowLeft, Download, CheckCircle2, Circle, Truck, Loader2, Shield, AlertTriangle, Search as SearchIcon, ChevronDown, ChevronRight, Package } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { useShipment, useStatusHistory, useNoas, useOutbounds, useOuterboxes, useClearances, useInspections } from '@/hooks/use-shipment-data';
 import { useAuth } from '@/lib/auth-context';
@@ -10,43 +10,59 @@ import { useState } from 'react';
 
 const statusOrder = ['Created', 'Awaiting NOA', 'Partial NOA', 'NOA Complete', 'In Transit', 'In Stock', 'Outbound'];
 
-// Customer-friendly milestone timeline
-const milestones = [
-  { key: 'created', label: 'Shipment Created', matchStatuses: ['Created', 'Awaiting NOA'] },
-  { key: 'noa', label: 'NOA Received', matchStatuses: ['Partial NOA', 'NOA Complete'] },
-  { key: 'unloaded', label: 'Unloaded at Warehouse', matchStatuses: ['In Stock', 'Partially Unloaded'] },
-  { key: 'scanning', label: 'Scanning in Progress', matchStatuses: ['In Stock', 'Partially Unloaded'] },
-  { key: 'outbound', label: 'Outbound Prepared', matchStatuses: ['Outbound'] },
-  { key: 'departed', label: 'Departed', matchStatuses: [] },
-];
-
 function getMilestoneStatus(shipment: any, history: any[], noaEntries: any[], outerboxes: any[], outboundData: any[]) {
-  const results: { key: string; label: string; reached: boolean; date?: string }[] = [];
-  
+  const results: { key: string; label: string; reached: boolean; date?: string; sub?: { label: string; date?: string }[] }[] = [];
+
   // Created
   results.push({ key: 'created', label: 'Shipment Created', reached: true, date: shipment.created_at });
-  
-  // NOA Received
-  const hasNoa = noaEntries.length > 0;
-  const noaDate = hasNoa ? noaEntries[0]?.received_at || noaEntries[0]?.created_at : undefined;
-  results.push({ key: 'noa', label: 'NOA Received', reached: hasNoa, date: noaDate });
-  
+
+  // NOA entries — show each NOA part
+  if (noaEntries.length > 1) {
+    // Multiple NOAs: first one as "NOA Received", then partial steps
+    const firstNoa = noaEntries[0];
+    results.push({
+      key: 'noa',
+      label: 'NOA Received',
+      reached: true,
+      date: firstNoa?.received_at || firstNoa?.created_at,
+      sub: noaEntries.map((n: any) => ({
+        label: `NOA #${n.noa_number} (${n.colli} colli)`,
+        date: n.received_at || n.created_at,
+      })),
+    });
+  } else if (noaEntries.length === 1) {
+    const noa = noaEntries[0];
+    results.push({
+      key: 'noa',
+      label: 'NOA Received',
+      reached: true,
+      date: noa?.received_at || noa?.created_at,
+    });
+  } else {
+    results.push({ key: 'noa', label: 'NOA Received', reached: false });
+  }
+
+  // NOA Complete (all colli announced)
+  const totalNoaColli = noaEntries.reduce((sum: number, n: any) => sum + (n.colli || 0), 0);
+  const noaComplete = noaEntries.length > 0 && totalNoaColli >= (shipment.colli_expected || 0);
+  results.push({ key: 'noa_complete', label: 'NOA Complete', reached: noaComplete });
+
   // Unloaded
   const isUnloaded = !!shipment.unloaded_at;
   results.push({ key: 'unloaded', label: 'Unloaded at Warehouse', reached: isUnloaded, date: shipment.unloaded_at });
-  
+
   // Scanning in progress
   const hasScanned = outerboxes.some((b: any) => ['scanned_in', 'palletized', 'scanned_out'].includes(b.status));
   results.push({ key: 'scanning', label: 'Scanning in Progress', reached: hasScanned });
-  
+
   // Outbound prepared
   const hasOutbound = outboundData.length > 0;
   results.push({ key: 'outbound', label: 'Outbound Prepared', reached: hasOutbound });
-  
+
   // Departed
   const hasDeparted = shipment.status === 'Outbound';
   results.push({ key: 'departed', label: 'Departed', reached: hasDeparted });
-  
+
   return results;
 }
 
@@ -84,6 +100,83 @@ function ClearanceSection({ shipmentId, colliExpected }: { shipmentId: string; c
               {c.cleared_at && <span className="text-muted-foreground text-xs">{new Date(c.cleared_at).toLocaleString('en-GB')}</span>}
             </div>
           ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ScanDetailsSection({ shipmentId, outerboxes, colliExpected }: { shipmentId: string; outerboxes: any[]; colliExpected: number }) {
+  const [expanded, setExpanded] = useState(false);
+
+  // Fetch all unique outerbox barcodes from manifest_parcels
+  const { data: manifestBarcodes = [] } = useQuery({
+    queryKey: ['manifest-outerbox-barcodes', shipmentId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('manifest_parcels')
+        .select('outerbox_barcode')
+        .eq('shipment_id', shipmentId)
+        .not('outerbox_barcode', 'is', null)
+        .neq('outerbox_barcode', '');
+      const unique = [...new Set((data || []).map((r: any) => r.outerbox_barcode))].sort();
+      return unique as string[];
+    },
+    enabled: !!shipmentId,
+  });
+
+  const scannedBarcodes = outerboxes
+    .filter((b: any) => ['scanned_in', 'palletized', 'scanned_out'].includes(b.status))
+    .map((b: any) => b.barcode)
+    .sort();
+
+  const scannedSet = new Set(scannedBarcodes);
+  const notScannedBarcodes = manifestBarcodes.filter(b => !scannedSet.has(b)).sort();
+  const scannedCount = scannedBarcodes.length;
+  const totalCount = colliExpected || manifestBarcodes.length;
+
+  return (
+    <div className="bg-card rounded-xl border animate-fade-in" style={{ animationDelay: '320ms' }}>
+      <button
+        onClick={() => setExpanded(!expanded)}
+        className="w-full px-5 py-4 flex items-center gap-2 text-sm font-medium hover:bg-muted/30 transition-colors"
+      >
+        {expanded ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
+        <Package className="h-4 w-4 text-muted-foreground" />
+        <span>Scan details ({scannedCount}/{totalCount} scanned)</span>
+      </button>
+
+      {expanded && (
+        <div className="px-5 pb-5 border-t">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
+            {/* Scanned */}
+            <div>
+              <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">✅ Scanned ({scannedBarcodes.length})</h3>
+              <div className="space-y-1 max-h-[300px] overflow-y-auto">
+                {scannedBarcodes.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">No boxes scanned yet</p>
+                ) : (
+                  scannedBarcodes.map((barcode: string) => (
+                    <div key={barcode} className="text-xs font-mono py-1 px-2 bg-accent/10 text-accent rounded">{barcode}</div>
+                  ))
+                )}
+              </div>
+            </div>
+
+            {/* Not scanned */}
+            <div>
+              <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">⬜ Not yet scanned ({notScannedBarcodes.length})</h3>
+              <div className="space-y-1 max-h-[300px] overflow-y-auto">
+                {notScannedBarcodes.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">All boxes scanned</p>
+                ) : (
+                  notScannedBarcodes.map((barcode: string) => (
+                    <div key={barcode} className="text-xs font-mono py-1 px-2 bg-muted text-muted-foreground rounded">{barcode}</div>
+                  ))
+                )}
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>
@@ -155,7 +248,6 @@ function OutboundSection({ shipmentId }: { shipmentId: string }) {
     queryKey: ['customer-shipment-outbounds', shipmentId],
     queryFn: async () => {
       if (!shipmentId) return [];
-      // Get outerboxes → pallets → outbounds for this shipment
       const { data: boxes } = await supabase
         .from('outerboxes')
         .select('pallet_id')
@@ -275,6 +367,96 @@ function OutboundSection({ shipmentId }: { shipmentId: string }) {
   );
 }
 
+function NoaHistorySection({ shipmentId, noaEntries, colliExpected }: { shipmentId: string; noaEntries: any[]; colliExpected: number }) {
+  // Fetch NOA files
+  const { data: noaFiles = [] } = useQuery({
+    queryKey: ['noa-files', shipmentId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('shipment_files')
+        .select('id, storage_path, file_type')
+        .eq('shipment_id', shipmentId)
+        .eq('file_type', 'noa');
+      return data || [];
+    },
+    enabled: !!shipmentId,
+  });
+
+  const handleDownloadNoa = async (storagePath: string, index: number) => {
+    try {
+      const { data, error } = await supabase.storage.from('shipment-files').download(storagePath);
+      if (error || !data) { alert('Failed to download NOA file.'); return; }
+      const url = URL.createObjectURL(data);
+      const a = document.createElement('a');
+      a.href = url; a.download = `NOA-${index + 1}.pdf`;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch { alert('Failed to download NOA file.'); }
+  };
+
+  return (
+    <div className="bg-card rounded-xl border animate-fade-in" style={{ animationDelay: '200ms' }}>
+      <div className="px-5 py-4 border-b"><h2 className="font-semibold">NOA History</h2></div>
+      {noaEntries.length === 0 ? (
+        <div className="px-5 py-8 text-center">
+          <span className="text-muted-foreground text-sm">No NOA received yet</span>
+        </div>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b text-muted-foreground">
+                <th className="text-left px-5 py-3 font-medium">NOA #</th>
+                <th className="text-left px-5 py-3 font-medium">Date Received</th>
+                <th className="text-right px-5 py-3 font-medium">Colli</th>
+                <th className="text-right px-5 py-3 font-medium">Weight (kg)</th>
+                <th className="text-right px-5 py-3 font-medium">PDF</th>
+              </tr>
+            </thead>
+            <tbody>
+              {noaEntries.map((n: any, idx: number) => {
+                // Try to match a NOA file by index
+                const noaFile = noaFiles[idx] || null;
+                return (
+                  <tr key={n.id} className="border-b last:border-0">
+                    <td className="px-5 py-3 font-medium">NOA {n.noa_number}</td>
+                    <td className="px-5 py-3 text-muted-foreground">{n.received_at ? new Date(n.received_at).toLocaleString('en-GB') : new Date(n.created_at).toLocaleString('en-GB')}</td>
+                    <td className="px-5 py-3 text-right tabular-nums">{n.colli}</td>
+                    <td className="px-5 py-3 text-right tabular-nums">{Number(n.weight).toLocaleString()}</td>
+                    <td className="px-5 py-3 text-right">
+                      {noaFile ? (
+                        <button onClick={() => handleDownloadNoa(noaFile.storage_path, idx)}
+                          className="inline-flex items-center gap-1 text-xs text-accent hover:underline">
+                          <Download className="h-3.5 w-3.5" /> Download
+                        </button>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">—</span>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+            <tfoot>
+              <tr className="bg-muted/30 font-medium border-t">
+                <td className="px-5 py-3">Total</td>
+                <td className="px-5 py-3"></td>
+                <td className="px-5 py-3 text-right tabular-nums">
+                  {noaEntries.reduce((sum: number, n: any) => sum + n.colli, 0)} / {colliExpected ?? '?'}
+                </td>
+                <td className="px-5 py-3 text-right tabular-nums">
+                  {noaEntries.reduce((sum: number, n: any) => sum + Number(n.weight), 0).toLocaleString()} kg
+                </td>
+                <td className="px-5 py-3"></td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function ShipmentDetail() {
   const { id } = useParams<{ id: string }>();
   const { data: shipment, isLoading } = useShipment(id);
@@ -317,7 +499,7 @@ export default function ShipmentDetail() {
       {/* Milestone Timeline */}
       <div className="bg-card rounded-xl border p-5 animate-fade-in" style={{ animationDelay: '80ms' }}>
         <h2 className="font-semibold mb-4">Progress</h2>
-        <div className="flex items-center gap-0 overflow-x-auto">
+        <div className="flex items-center gap-0 overflow-x-auto pb-2">
           {milestoneData.map((m, i) => (
             <div key={m.key} className="flex items-center">
               <div className="flex flex-col items-center min-w-[100px]">
@@ -326,6 +508,16 @@ export default function ShipmentDetail() {
                 </div>
                 <span className={`text-[11px] mt-1.5 text-center leading-tight ${m.reached ? 'text-foreground font-medium' : 'text-muted-foreground'}`}>{m.label}</span>
                 {m.date && <span className="text-[10px] text-muted-foreground tabular-nums">{new Date(m.date).toLocaleDateString('en-GB')}</span>}
+                {m.sub && (
+                  <div className="mt-1 space-y-0.5">
+                    {m.sub.map((s, si) => (
+                      <div key={si} className="text-[10px] text-muted-foreground text-center">
+                        {s.label}
+                        {s.date && <span className="block tabular-nums">{new Date(s.date).toLocaleDateString('en-GB')}</span>}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
               {i < milestoneData.length - 1 && (
                 <div className={`h-0.5 w-6 shrink-0 ${m.reached ? 'bg-accent' : 'bg-border'}`} />
@@ -358,52 +550,13 @@ export default function ShipmentDetail() {
       </div>
 
       {/* NOA History */}
-      <div className="bg-card rounded-xl border animate-fade-in" style={{ animationDelay: '200ms' }}>
-        <div className="px-5 py-4 border-b"><h2 className="font-semibold">NOA History</h2></div>
-        {noaEntries.length === 0 ? (
-          <div className="px-5 py-8 text-center">
-            <span className="text-muted-foreground text-sm">No NOA received yet</span>
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b text-muted-foreground">
-                  <th className="text-left px-5 py-3 font-medium">NOA #</th>
-                  <th className="text-left px-5 py-3 font-medium">Date Received</th>
-                  <th className="text-right px-5 py-3 font-medium">Colli</th>
-                  <th className="text-right px-5 py-3 font-medium">Weight (kg)</th>
-                </tr>
-              </thead>
-              <tbody>
-                {noaEntries.map((n: any) => (
-                  <tr key={n.id} className="border-b last:border-0">
-                    <td className="px-5 py-3 font-medium">NOA {n.noa_number}</td>
-                    <td className="px-5 py-3 text-muted-foreground">{n.received_at ? new Date(n.received_at).toLocaleString('en-GB') : new Date(n.created_at).toLocaleString('en-GB')}</td>
-                    <td className="px-5 py-3 text-right tabular-nums">{n.colli}</td>
-                    <td className="px-5 py-3 text-right tabular-nums">{Number(n.weight).toLocaleString()}</td>
-                  </tr>
-                ))}
-              </tbody>
-              <tfoot>
-                <tr className="bg-muted/30 font-medium border-t">
-                  <td className="px-5 py-3">Total</td>
-                  <td className="px-5 py-3"></td>
-                  <td className="px-5 py-3 text-right tabular-nums">
-                    {noaEntries.reduce((sum: number, n: any) => sum + n.colli, 0)} / {shipment.colli_expected ?? '?'}
-                  </td>
-                  <td className="px-5 py-3 text-right tabular-nums">
-                    {noaEntries.reduce((sum: number, n: any) => sum + Number(n.weight), 0).toLocaleString()} kg
-                  </td>
-                </tr>
-              </tfoot>
-            </table>
-          </div>
-        )}
-      </div>
+      <NoaHistorySection shipmentId={shipment.id} noaEntries={noaEntries} colliExpected={shipment.colli_expected || 0} />
 
       {/* Customs Clearance */}
       <ClearanceSection shipmentId={shipment.id} colliExpected={shipment.colli_expected || 0} />
+
+      {/* Scan Details (collapsible) */}
+      <ScanDetailsSection shipmentId={shipment.id} outerboxes={outerboxes} colliExpected={shipment.colli_expected || 0} />
 
       {/* Fyco Inspections */}
       <FycoSection shipmentId={shipment.id} />
