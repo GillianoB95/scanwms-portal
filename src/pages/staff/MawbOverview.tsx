@@ -387,6 +387,7 @@ export default function MawbOverview() {
                   shipment={s}
                   blocks={blocksByShipment.get(s.id) ?? []}
                   inspectionCount={inspectionsByShipment.get(s.id) ?? 0}
+                  warehouseMap={warehouseMap}
                 />
               ))
             )}
@@ -397,7 +398,7 @@ export default function MawbOverview() {
   );
 }
 
-function ShipmentRow({ shipment, blocks, inspectionCount }: { shipment: any; blocks: any[]; inspectionCount: number }) {
+function ShipmentRow({ shipment, blocks, inspectionCount, warehouseMap }: { shipment: any; blocks: any[]; inspectionCount: number; warehouseMap: Map<string, string> }) {
   const navigate = useNavigate();
   const updateShipment = useUpdateShipment();
   const deleteShipment = useDeleteShipment();
@@ -437,7 +438,7 @@ function ShipmentRow({ shipment, blocks, inspectionCount }: { shipment: any; blo
       <TableRow>
         <TableCell className="font-medium">{shipment.customers?.name || '—'}</TableCell>
         <TableCell className="font-mono text-sm">{shipment.mawb}</TableCell>
-        <TableCell>{shipment.warehouses?.code ? `${shipment.warehouses.code} — ${shipment.warehouses.name}` : '—'}</TableCell>
+        <TableCell>{shipment.warehouses?.code ? `${shipment.warehouses.code} — ${shipment.warehouses.name}` : (warehouseMap.get(shipment.warehouse_id) || '—')}</TableCell>
         <TableCell className="text-right">{shipment.colli_expected ?? 0}</TableCell>
         <TableCell>
           <div className="flex items-center gap-1 flex-wrap">
