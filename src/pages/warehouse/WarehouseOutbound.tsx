@@ -618,8 +618,15 @@ export default function WarehouseOutbound() {
                           if (error) {
                             toast({ title: 'Failed to remove', description: error.message, variant: 'destructive' });
                           } else {
+                            // Revert outerboxes on this pallet from scanned_out back to palletized
+                            await supabase
+                              .from('outerboxes')
+                              .update({ status: 'palletized' })
+                              .eq('pallet_id', p.id)
+                              .in('status', ['scanned_out']);
                             toast({ title: `${p.pallet_number} removed from outbound` });
                             qc.invalidateQueries({ queryKey: ['outbound-pallets', activeOutbound] });
+                            qc.invalidateQueries({ queryKey: ['stock-overview-shipments'] });
                           }
                         }}
                       >
