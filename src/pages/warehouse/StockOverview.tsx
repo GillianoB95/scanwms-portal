@@ -97,14 +97,14 @@ export default function StockOverview() {
     return map;
   }, [noaData]);
 
-  // Fetch outerboxes (scanned counts)
+  // Fetch outerboxes (scanned counts + pallet linkage)
   const { data: outerboxes = [] } = useQuery({
     queryKey: ['stock-overview-boxes', shipmentIds],
     queryFn: async () => {
       if (shipmentIds.length === 0) return [];
       const { data } = await supabase
         .from('outerboxes')
-        .select('id, shipment_id, hub, status')
+        .select('id, shipment_id, hub, status, pallet_id')
         .in('shipment_id', shipmentIds)
         .neq('status', 'deleted');
       return data ?? [];
@@ -112,7 +112,55 @@ export default function StockOverview() {
     enabled: shipmentIds.length > 0,
   });
 
-  // Fetch manifest_parcels for totals per hub
+  // Collect pallet IDs from outerboxes
+  const palletIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const box of outerboxes) {
+      if ((box as any).pallet_id) ids.add((box as any).pallet_id);
+    }
+    return Array.from(ids);
+  }, [outerboxes]);
+
+  // Fetch pallets with their outbound status
+  const { data: pallets = [] } = useQuery({
+    queryKey: ['stock-overview-pallets', palletIds],
+    queryFn: async () => {
+      if (palletIds.length === 0) return [];
+      const { data } = await supabase
+        .from('pallets')
+        .select('id, pallet_number, outbound_id, outbounds(status)')
+        .in('id', palletIds);
+      return data ?? [];
+    },
+    enabled: palletIds.length > 0,
+  });
+
+  // Build pallet number map per shipment+hub (exclude departed outbounds)
+  const hubPalletMap = useMemo(() => {
+    // Filter pallets: keep those NOT in a departed outbound
+    const activePalletIds = new Set<string>();
+    const palletNumberMap = new Map<string, string>();
+    for (const p of pallets) {
+      const outboundStatus = (p as any).outbounds?.status;
+      if (outboundStatus !== 'departed') {
+        activePalletIds.add((p as any).id);
+        palletNumberMap.set((p as any).id, (p as any).pallet_number ?? (p as any).id);
+      }
+    }
+
+    // Map shipment+hub → set of pallet numbers
+    const map = new Map<string, Set<string>>();
+    for (const box of outerboxes) {
+      const palletId = (box as any).pallet_id;
+      if (!palletId || !activePalletIds.has(palletId)) continue;
+      if (box.status !== 'scanned_in' && box.status !== 'palletized') continue;
+      const key = `${box.shipment_id}|${(box as any).hub || 'Unknown'}`;
+      if (!map.has(key)) map.set(key, new Set());
+      map.get(key)!.add(palletNumberMap.get(palletId)!);
+    }
+
+    return map;
+  }, [outerboxes, pallets]);
   const { data: manifestParcels = [] } = useQuery({
     queryKey: ['stock-overview-manifest', shipmentIds],
     queryFn: async () => {
@@ -291,32 +339,43 @@ export default function StockOverview() {
                         textColor = 'text-amber-700';
                       }
 
+                      const palletKey = `${s.id}|${hub}`;
+                      const palletNumbers = hubPalletMap.get(palletKey);
+                      const palletList = palletNumbers ? Array.from(palletNumbers).sort() : [];
+
                       return (
-                        <div key={hub} className={`flex items-center gap-4 rounded-md px-3 py-2 ${rowBg}`}>
-                          <span className={`w-20 text-sm font-medium truncate ${complete ? 'text-emerald-700' : notStarted ? 'text-muted-foreground' : 'text-amber-700'}`} title={hub}>
-                            {hub}
-                          </span>
-                          <span className={`w-20 text-sm ${textColor}`}>{counts.total} boxes</span>
-                          <div className="flex-1">
-                            <Progress
-                              value={pct}
-                              className={`h-2.5 ${complete ? '[&>div]:bg-emerald-500' : notStarted ? '[&>div]:bg-muted-foreground/30' : '[&>div]:bg-amber-500'}`}
-                            />
+                        <div key={hub} className={`rounded-md px-3 py-2 ${rowBg}`}>
+                          <div className="flex items-center gap-4">
+                            <span className={`w-20 text-sm font-medium truncate ${complete ? 'text-emerald-700' : notStarted ? 'text-muted-foreground' : 'text-amber-700'}`} title={hub}>
+                              {hub}
+                            </span>
+                            <span className={`w-20 text-sm ${textColor}`}>{counts.total} boxes</span>
+                            <div className="flex-1">
+                              <Progress
+                                value={pct}
+                                className={`h-2.5 ${complete ? '[&>div]:bg-emerald-500' : notStarted ? '[&>div]:bg-muted-foreground/30' : '[&>div]:bg-amber-500'}`}
+                              />
+                            </div>
+                            <span className={`w-16 text-sm text-right font-mono ${complete ? 'text-emerald-700' : notStarted ? 'text-muted-foreground' : 'text-amber-700'}`}>
+                              {counts.scanned}/{counts.total}
+                            </span>
+                            {complete && (
+                              <Badge variant="outline" className="border-emerald-500/30 bg-emerald-500/10 text-emerald-600 gap-1">
+                                <CheckCircle2 className="h-3 w-3" />
+                                Done
+                              </Badge>
+                            )}
+                            {!complete && !notStarted && (
+                              <Badge variant="outline" className="border-amber-500/30 bg-amber-500/10 text-amber-600 gap-1">
+                                <Clock className="h-3 w-3" />
+                                {pct}%
+                              </Badge>
+                            )}
                           </div>
-                          <span className={`w-16 text-sm text-right font-mono ${complete ? 'text-emerald-700' : notStarted ? 'text-muted-foreground' : 'text-amber-700'}`}>
-                            {counts.scanned}/{counts.total}
-                          </span>
-                          {complete && (
-                            <Badge variant="outline" className="border-emerald-500/30 bg-emerald-500/10 text-emerald-600 gap-1">
-                              <CheckCircle2 className="h-3 w-3" />
-                              Done
-                            </Badge>
-                          )}
-                          {!complete && !notStarted && (
-                            <Badge variant="outline" className="border-amber-500/30 bg-amber-500/10 text-amber-600 gap-1">
-                              <Clock className="h-3 w-3" />
-                              {pct}%
-                            </Badge>
+                          {palletList.length > 0 && (
+                            <div className="text-center text-xs text-muted-foreground mt-1 font-mono">
+                              {palletList.join(' · ')}
+                            </div>
                           )}
                         </div>
                       );
