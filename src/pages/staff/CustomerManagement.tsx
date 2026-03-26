@@ -117,8 +117,8 @@ function useUpsertNotificationSetting() {
 }
 
 /* ─── Customer Form Dialog ─── */
-function CustomerFormDialog({ open, onOpenChange, customer, parentId, isAdmin }: {
-  open: boolean; onOpenChange: (v: boolean) => void; customer?: any; parentId?: string; isAdmin: boolean;
+function CustomerFormDialog({ open, onOpenChange, customer, parentId, isAdmin, allCustomers = [] }: {
+  open: boolean; onOpenChange: (v: boolean) => void; customer?: any; parentId?: string; isAdmin: boolean; allCustomers?: any[];
 }) {
   const createCustomer = useCreateCustomer();
   const updateCustomer = useUpdateCustomer();
@@ -129,12 +129,14 @@ function CustomerFormDialog({ open, onOpenChange, customer, parentId, isAdmin }:
   const [warehouseId, setWarehouseId] = useState(customer?.warehouse_id || '__none__');
   const [customsEmailGrouping, setCustomsEmailGrouping] = useState(customer?.customs_email_grouping || 'per_shipment');
   const [kpiPalletizedHours, setKpiPalletizedHours] = useState(customer?.kpi_palletized_hours ?? 48);
+  const [selectedParentId, setSelectedParentId] = useState(parentId || '__none__');
   const [userEmail, setUserEmail] = useState('');
   const [userPassword, setUserPassword] = useState('');
   const [saving, setSaving] = useState(false);
 
   const isNew = !customer?.id;
   const isSub = !!parentId;
+  const topLevelCustomers = allCustomers.filter((c: any) => !c.parent_customer_id && c.id !== customer?.id);
 
   const handleSave = async () => {
     if (!name) return;
