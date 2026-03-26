@@ -5,21 +5,11 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth-context';
 import { useSubklanten } from '@/hooks/use-shipment-data';
 import { useHubs } from '@/hooks/use-hubs';
+import { parseAwbPdf, type AwbParsedData } from '@/lib/parse-awb';
 
 const MANIFEST_CLEANER_URL = 'https://scanwms-manifest-cleaner.onrender.com';
 
 type Step = 1 | 2;
-
-interface AwbServerData {
-  mawb: string | null;
-  pieces: number | null;
-  gross_weight: number | null;
-  chargeable_weight: number | null;
-  origin: string | null;
-  destination: string | null;
-  shipper: string | null;
-  consignee: string | null;
-}
 
 interface ManifestResult {
   totalParcels: number;
