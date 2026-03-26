@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { format } from 'date-fns';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { Card, CardContent } from '@/components/ui/card';
@@ -104,6 +105,7 @@ export function FycoParcelsPanel({ shipmentId }: Props) {
                   <TableHead>Parcel Number</TableHead>
                   <TableHead>Box Number</TableHead>
                   <TableHead>Destination Hub</TableHead>
+                  <TableHead>Scan Time</TableHead>
                   <TableHead>Status</TableHead>
                 </TableRow>
               </TableHeader>
@@ -117,6 +119,13 @@ export function FycoParcelsPanel({ shipmentId }: Props) {
                       <TableCell className="font-mono font-medium">{insp.parcel_barcode}</TableCell>
                       <TableCell className="font-mono">{boxInfo?.boxBarcode ?? '—'}</TableCell>
                       <TableCell>{boxInfo?.hub ?? '—'}</TableCell>
+                      <TableCell className="text-sm">
+                        {insp.scan_time ? (
+                          format(new Date(insp.scan_time), 'dd/MM/yy HH:mm')
+                        ) : (
+                          <span className="text-muted-foreground italic">Not scanned yet</span>
+                        )}
+                      </TableCell>
                       <TableCell>
                         <Badge className={statusCfg.className}>{statusCfg.label}</Badge>
                       </TableCell>
