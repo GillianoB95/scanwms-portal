@@ -3,6 +3,7 @@ import { ArrowLeft, Download, CheckCircle2, Circle, Truck, Loader2, Shield, Aler
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useStatusHistory, useNoas, useOutbounds, useOuterboxes, useClearances, useInspections } from '@/hooks/use-shipment-data';
+import { useAllWarehouses } from '@/hooks/use-staff-data';
 import { StatusBadge } from '@/components/StatusBadge';
 import { getStatusClass } from '@/lib/mock-data';
 
@@ -13,7 +14,7 @@ function useStaffShipment(id: string | undefined) {
       if (!id) return null;
       const { data, error } = await supabase
         .from('shipments')
-        .select('*, subklanten(name), customers(name), warehouses(name, code)')
+        .select('*, subklanten(name), customers(name)')
         .eq('id', id)
         .maybeSingle();
       if (error) throw error;
