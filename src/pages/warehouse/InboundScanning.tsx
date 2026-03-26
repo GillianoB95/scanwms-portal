@@ -746,7 +746,7 @@ export default function InboundScanning() {
           {shipment && (
             <div className="mt-4 p-3 rounded-lg bg-muted text-sm space-y-1">
               <p><span className="font-medium">MAWB:</span> <span className="font-mono">{shipment.mawb}</span></p>
-              <p><span className="font-medium">Customer:</span> {shipment.customers?.name ?? '—'} ({subklant})</p>
+              <p><span className="font-medium">Customer:</span> {shipment.customer_name ?? '—'} ({subklant})</p>
               <p><span className="font-medium">Colli Expected:</span> {shipment.colli_expected ?? '—'}</p>
               <p><span className="font-medium">Status:</span> {shipment.status}</p>
               {currentHub && (
