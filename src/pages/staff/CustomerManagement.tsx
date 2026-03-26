@@ -117,8 +117,8 @@ function useUpsertNotificationSetting() {
 }
 
 /* ─── Customer Form Dialog ─── */
-function CustomerFormDialog({ open, onOpenChange, customer, parentId, isAdmin }: {
-  open: boolean; onOpenChange: (v: boolean) => void; customer?: any; parentId?: string; isAdmin: boolean;
+function CustomerFormDialog({ open, onOpenChange, customer, parentId, isAdmin, allCustomers = [] }: {
+  open: boolean; onOpenChange: (v: boolean) => void; customer?: any; parentId?: string; isAdmin: boolean; allCustomers?: any[];
 }) {
   const createCustomer = useCreateCustomer();
   const updateCustomer = useUpdateCustomer();
@@ -129,19 +129,21 @@ function CustomerFormDialog({ open, onOpenChange, customer, parentId, isAdmin }:
   const [warehouseId, setWarehouseId] = useState(customer?.warehouse_id || '__none__');
   const [customsEmailGrouping, setCustomsEmailGrouping] = useState(customer?.customs_email_grouping || 'per_shipment');
   const [kpiPalletizedHours, setKpiPalletizedHours] = useState(customer?.kpi_palletized_hours ?? 48);
+  const [selectedParentId, setSelectedParentId] = useState(parentId || '__none__');
   const [userEmail, setUserEmail] = useState('');
   const [userPassword, setUserPassword] = useState('');
   const [saving, setSaving] = useState(false);
 
   const isNew = !customer?.id;
   const isSub = !!parentId;
+  const topLevelCustomers = allCustomers.filter((c: any) => !c.parent_customer_id && c.id !== customer?.id);
 
   const handleSave = async () => {
     if (!name) return;
     setSaving(true);
     try {
-      const payload: any = { name, short_name: shortName || null, email: email || null, warehouse_id: warehouseId === '__none__' ? null : warehouseId || null, customs_email_grouping: customsEmailGrouping, kpi_palletized_hours: kpiPalletizedHours };
-      if (parentId) payload.parent_customer_id = parentId;
+      const resolvedParentId = parentId || (selectedParentId !== '__none__' ? selectedParentId : null);
+      const payload: any = { name, short_name: shortName || null, email: email || null, warehouse_id: warehouseId === '__none__' ? null : warehouseId || null, customs_email_grouping: customsEmailGrouping, kpi_palletized_hours: kpiPalletizedHours, parent_customer_id: resolvedParentId };
 
       if (customer?.id) {
         await updateCustomer.mutateAsync({ id: customer.id, ...payload });
@@ -202,6 +204,20 @@ function CustomerFormDialog({ open, onOpenChange, customer, parentId, isAdmin }:
           <DialogTitle>{customer ? 'Edit Customer' : parentId ? 'Add Sub-Account' : 'Add Customer'}</DialogTitle>
         </DialogHeader>
         <div className="space-y-4 py-4">
+          {isNew && !parentId && (
+            <div className="space-y-2">
+              <Label>Parent Customer (optional)</Label>
+              <Select value={selectedParentId} onValueChange={setSelectedParentId}>
+                <SelectTrigger><SelectValue placeholder="None (top-level)" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">None (top-level customer)</SelectItem>
+                  {topLevelCustomers.map((c: any) => (
+                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
           <div className="space-y-2">
             <Label>Name *</Label>
             <Input value={name} onChange={e => setName(e.target.value)} placeholder="Company name" />
@@ -560,6 +576,7 @@ export default function CustomerManagement() {
         customer={editCustomer}
         parentId={addSubParentId}
         isAdmin={isAdmin}
+        allCustomers={customers}
       />
 
       {notifCustomer && (
