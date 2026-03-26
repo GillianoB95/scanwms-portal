@@ -131,13 +131,14 @@ function ScanDetailsSection({ shipmentId, outerboxes, colliExpected }: { shipmen
     enabled: !!shipmentId,
   });
 
-  const scannedBarcodes = outerboxes
+  const activeOuterboxes = outerboxes.filter((b: any) => b.status !== 'deleted');
+  const scannedBarcodes = activeOuterboxes
     .filter((b: any) => ['scanned_in', 'palletized', 'scanned_out'].includes(b.status))
     .map((b: any) => b.barcode)
     .sort();
 
-  const scannedSet = new Set(scannedBarcodes);
-  const notScannedBarcodes = manifestBarcodes.filter(b => !scannedSet.has(b)).sort();
+  const allActiveBarcodesSet = new Set(activeOuterboxes.map((b: any) => b.barcode));
+  const notScannedBarcodes = manifestBarcodes.filter(b => !allActiveBarcodesSet.has(b)).sort();
   const scannedCount = scannedBarcodes.length;
   const totalCount = colliExpected || manifestBarcodes.length;
 
