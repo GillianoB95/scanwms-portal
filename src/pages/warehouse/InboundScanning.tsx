@@ -245,7 +245,7 @@ export default function InboundScanning() {
     const allowedStatuses = ['In Stock', 'In Transit'];
     if (!allowedStatuses.includes(s.status)) {
       setShipment(s);
-      setScanningBlocked('This shipment must be marked as Unloaded by staff before scanning can begin.');
+      setScanningBlocked('This shipment must be marked as Unloaded first, before scanning can begin.');
       return;
     }
 
