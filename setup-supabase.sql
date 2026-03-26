@@ -341,3 +341,27 @@ begin
     (v_ship3, 'AMS-0078-PKG', 'removed', '2025-03-20T13:30:00Z');
 
 end $$;
+
+-- ============================================
+-- SECURITY DEFINER function: lookup customer/subklant names
+-- Allows any authenticated user to get names by IDs
+-- ============================================
+
+create or replace function public.lookup_customer_names(customer_ids uuid[], subklant_ids uuid[])
+returns json
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select json_build_object(
+    'customers', coalesce((
+      select json_object_agg(c.id::text, json_build_object('name', c.name, 'short_name', c.short_name))
+      from customers c where c.id = any(customer_ids)
+    ), '{}'::json),
+    'subklanten', coalesce((
+      select json_object_agg(s.id::text, json_build_object('name', s.name))
+      from subklanten s where s.id = any(subklant_ids)
+    ), '{}'::json)
+  )
+$$;

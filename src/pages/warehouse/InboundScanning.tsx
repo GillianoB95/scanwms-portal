@@ -227,19 +227,25 @@ export default function InboundScanning() {
         return;
       }
 
-      // Batch-fetch customer and subklant names
+      // Lookup customer/subklant names via security definer function (bypasses RLS)
       const customerIds = [...new Set(data.map(s => s.customer_id).filter(Boolean))];
       const subklantIds = [...new Set(data.map(s => s.subklant_id).filter(Boolean))];
-      const [custRes, subRes] = await Promise.all([
-        customerIds.length > 0
-          ? supabase.from('customers').select('id, name, short_name').in('id', customerIds)
-          : Promise.resolve({ data: [] }),
-        subklantIds.length > 0
-          ? supabase.from('subklanten').select('id, name').in('id', subklantIds)
-          : Promise.resolve({ data: [] }),
-      ]);
-      const custMap = new Map((custRes.data ?? []).map((c: any) => [c.id, c]));
-      const subMap = new Map((subRes.data ?? []).map((s: any) => [s.id, s.name]));
+      let custMap = new Map<string, any>();
+      let subMap = new Map<string, string>();
+      try {
+        const { data: lookup } = await supabase.rpc('lookup_customer_names', {
+          customer_ids: customerIds,
+          subklant_ids: subklantIds,
+        });
+        if (lookup) {
+          const customers = lookup.customers || {};
+          const subklanten = lookup.subklanten || {};
+          for (const [id, val] of Object.entries(customers)) custMap.set(id, val);
+          for (const [id, val] of Object.entries(subklanten)) subMap.set(id, (val as any).name);
+        }
+      } catch (e) {
+        console.warn('lookup_customer_names RPC not available, names will show as —');
+      }
       const enriched = data.map(s => ({
         ...s,
         customer_name: custMap.get(s.customer_id)?.name ?? null,
