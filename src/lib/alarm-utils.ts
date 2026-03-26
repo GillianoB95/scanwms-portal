@@ -11,6 +11,9 @@ export interface AlarmSettings {
   fyco_action_no_release_days: number;
   shipment_noa_not_unloaded_hours: number;
   shipment_no_noa_after_eta_days: number;
+  noa_kpi_warning_hours: number;
+  carrier_pickup_hours: number;
+  carrier_pickup_warning_hours: number;
 }
 
 export const DEFAULT_ALARM_SETTINGS: AlarmSettings = {
@@ -20,6 +23,9 @@ export const DEFAULT_ALARM_SETTINGS: AlarmSettings = {
   fyco_action_no_release_days: 5,
   shipment_noa_not_unloaded_hours: 24,
   shipment_no_noa_after_eta_days: 2,
+  noa_kpi_warning_hours: 12,
+  carrier_pickup_hours: 16,
+  carrier_pickup_warning_hours: 12,
 };
 
 /** Count working days (Mon-Fri) between two dates */
