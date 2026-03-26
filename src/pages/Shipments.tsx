@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Search, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
+import { Search, ChevronLeft, ChevronRight, Loader2, Package } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { StatusBadge } from '@/components/StatusBadge';
+import { Progress } from '@/components/ui/progress';
 
 type Tab = 'active' | 'archive';
 type SubFilter = 'all' | 'awaiting-noa' | 'partial-noa' | 'noa-complete' | 'in-transit' | 'in-stock' | 'outbound';
@@ -19,11 +20,18 @@ const subFilterConfig: { key: SubFilter; label: string; match: (s: any) => boole
   { key: 'outbound', label: 'Outbound', match: s => s.status === 'Outbound' || s.status === 'outbound' },
 ];
 
+interface ScanProgress {
+  expected: number;
+  inWarehouse: number;
+  shipped: number;
+}
+
 export default function Shipments() {
   const navigate = useNavigate();
   const [shipments, setShipments] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [scanProgress, setScanProgress] = useState<Record<string, ScanProgress>>({});
   
   const [tab, setTab] = useState<Tab>('active');
   const [search, setSearch] = useState('');
@@ -37,10 +45,8 @@ export default function Shipments() {
 
       const { data, error } = await supabase
         .from('shipments')
-        .select('id, mawb, status, created_at, pieces, parcels, weight, subklanten(name)')
+        .select('id, mawb, status, created_at, pieces, parcels, weight, colli_expected, subklanten(name)')
         .order('created_at', { ascending: false });
-
-      
 
       if (error) {
         console.error('Shipments error:', error);
@@ -50,8 +56,67 @@ export default function Shipments() {
         return;
       }
 
-      setShipments(data || []);
+      const items = data || [];
+      setShipments(items);
       setIsLoading(false);
+
+      // Fetch scan progress for all shipments
+      if (items.length > 0) {
+        const ids = items.map((s: any) => s.id);
+        const { data: boxes } = await supabase
+          .from('outerboxes')
+          .select('shipment_id, status, pallet_id')
+          .in('shipment_id', ids)
+          .neq('status', 'deleted');
+
+        if (boxes) {
+          // Get pallet IDs to check which are in departed outbounds
+          const palletIds = [...new Set(boxes.filter(b => b.pallet_id).map(b => b.pallet_id))];
+          let departedPalletIds = new Set<string>();
+
+          if (palletIds.length > 0) {
+            const { data: pallets } = await supabase
+              .from('pallets')
+              .select('id, outbound_id')
+              .in('id', palletIds)
+              .not('outbound_id', 'is', null);
+
+            if (pallets && pallets.length > 0) {
+              const outboundIds = [...new Set(pallets.map(p => p.outbound_id))];
+              const { data: outbounds } = await supabase
+                .from('outbounds')
+                .select('id')
+                .in('id', outboundIds)
+                .eq('status', 'departed');
+
+              const departedOutboundIds = new Set((outbounds || []).map(o => o.id));
+              const palletOutboundMap = new Map(pallets.map(p => [p.id, p.outbound_id]));
+              
+              for (const [palletId, outboundId] of palletOutboundMap) {
+                if (departedOutboundIds.has(outboundId)) {
+                  departedPalletIds.add(palletId);
+                }
+              }
+            }
+          }
+
+          const progress: Record<string, ScanProgress> = {};
+          for (const s of items) {
+            const shipBoxes = boxes.filter(b => b.shipment_id === s.id);
+            const shipped = shipBoxes.filter(b => b.pallet_id && departedPalletIds.has(b.pallet_id)).length;
+            const inWarehouse = shipBoxes.filter(b => 
+              ['scanned_in', 'palletized', 'scanned_out'].includes(b.status) && 
+              !(b.pallet_id && departedPalletIds.has(b.pallet_id))
+            ).length;
+            progress[s.id] = {
+              expected: s.colli_expected || 0,
+              inWarehouse,
+              shipped,
+            };
+          }
+          setScanProgress(progress);
+        }
+      }
     };
 
     fetchShipments().catch((err) => {
@@ -173,11 +238,16 @@ export default function Shipments() {
                 <th className="text-right px-5 py-3 font-medium">Pieces</th>
                 <th className="text-right px-5 py-3 font-medium">Weight</th>
                 <th className="text-left px-5 py-3 font-medium">Status</th>
+                <th className="text-left px-5 py-3 font-medium">Scan Progress</th>
                 <th className="text-left px-5 py-3 font-medium">Created</th>
               </tr>
             </thead>
             <tbody>
-              {paginated.map((s: any) => (
+              {paginated.map((s: any) => {
+                const sp = scanProgress[s.id];
+                const hasProgress = sp && sp.expected > 0;
+                const progressPct = hasProgress ? Math.round(((sp.inWarehouse + sp.shipped) / sp.expected) * 100) : 0;
+                return (
                 <tr
                   key={s.id}
                   onClick={() => navigate(`/shipments/${s.id}`)}
@@ -191,13 +261,28 @@ export default function Shipments() {
                   <td className="px-5 py-3">
                     <StatusBadge status={s.status} />
                   </td>
+                  <td className="px-5 py-3">
+                    {hasProgress ? (
+                      <div className="space-y-1 min-w-[180px]">
+                        <div className="flex items-center gap-3 text-xs tabular-nums text-muted-foreground">
+                          <span>Expected: <strong className="text-foreground">{sp.expected}</strong></span>
+                          <span>In warehouse: <strong className="text-foreground">{sp.inWarehouse}</strong></span>
+                          <span>Shipped: <strong className="text-foreground">{sp.shipped}</strong></span>
+                        </div>
+                        <Progress value={progressPct} className="h-1.5" />
+                      </div>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">—</span>
+                    )}
+                  </td>
                   <td className="px-5 py-3 text-muted-foreground tabular-nums">
                     {new Date(s.created_at).toLocaleDateString('en-GB')}
                   </td>
                 </tr>
-              ))}
+                );
+              })}
               {paginated.length === 0 && (
-                <tr><td colSpan={5} className="px-5 py-12 text-center text-muted-foreground">No shipments found</td></tr>
+                <tr><td colSpan={6} className="px-5 py-12 text-center text-muted-foreground">No shipments found</td></tr>
               )}
             </tbody>
           </table>
