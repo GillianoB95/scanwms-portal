@@ -491,7 +491,9 @@ export default function InboundScanning() {
         toast({ title: 'Fyco parcel scanned', description: `${barcode.trim()} — scan time recorded` });
         setBarcode('');
         barcodeRef.current?.focus();
+        qc.invalidateQueries({ queryKey: ['scanned-boxes', shipment?.id] });
         qc.invalidateQueries({ queryKey: ['fyco-management'] });
+        qc.invalidateQueries({ queryKey: ['fyco-parcels-panel'] });
       } else if (!result.isPreAlerted) {
         setNotPreAlertedBarcode(barcode.trim());
       } else if (result.fycoBlocked) {
@@ -651,7 +653,7 @@ export default function InboundScanning() {
   }, [shipment, scanningBlocked]);
 
   const totalExpected = shipment?.colli_expected ?? 0;
-  const totalScanned = scannedBoxes.filter((b: any) => b.status !== 'deleted').length;
+  const totalScanned = scannedBoxes.filter((b: any) => b.status !== 'deleted' && !b.isFyco).length;
   const subklant = shipment?.subklant_name || shipment?.customer_short || shipment?.customer_name || '—';
 
   // Print Label logic — hub is auto-set from current session hub
