@@ -7,7 +7,8 @@ import { useSubklanten } from '@/hooks/use-shipment-data';
 import { useHubs } from '@/hooks/use-hubs';
 import { parseAwbPdf, type AwbParsedData } from '@/lib/parse-awb';
 
-const MANIFEST_CLEANER_URL = 'https://scanwms-manifest-cleaner.onrender.com';
+import * as XLSX from 'xlsx';
+import { Progress } from '@/components/ui/progress';
 
 type Step = 1 | 2;
 
