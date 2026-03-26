@@ -217,7 +217,7 @@ export default function InboundScanning() {
       // Use ilike for partial/suffix matching
       const { data, error } = await supabase
         .from('shipments')
-        .select('id, mawb, warehouse_id, colli_expected, status, created_at, customer_id, subklant_id, customers(name, short_name), subklanten(name)')
+        .select('id, mawb, warehouse_id, colli_expected, status, created_at, customer_id, subklant_id')
         .ilike('mawb', `%${q}`)
         .order('created_at', { ascending: false })
         .limit(10);
@@ -226,10 +226,31 @@ export default function InboundScanning() {
         setShipmentError('No shipments found matching this MAWB');
         return;
       }
-      if (data.length === 1) {
-        selectShipment(data[0]);
+
+      // Batch-fetch customer and subklant names
+      const customerIds = [...new Set(data.map(s => s.customer_id).filter(Boolean))];
+      const subklantIds = [...new Set(data.map(s => s.subklant_id).filter(Boolean))];
+      const [custRes, subRes] = await Promise.all([
+        customerIds.length > 0
+          ? supabase.from('customers').select('id, name, short_name').in('id', customerIds)
+          : Promise.resolve({ data: [] }),
+        subklantIds.length > 0
+          ? supabase.from('subklanten').select('id, name').in('id', subklantIds)
+          : Promise.resolve({ data: [] }),
+      ]);
+      const custMap = new Map((custRes.data ?? []).map((c: any) => [c.id, c]));
+      const subMap = new Map((subRes.data ?? []).map((s: any) => [s.id, s.name]));
+      const enriched = data.map(s => ({
+        ...s,
+        customer_name: custMap.get(s.customer_id)?.name ?? null,
+        customer_short: custMap.get(s.customer_id)?.short_name ?? null,
+        subklant_name: subMap.get(s.subklant_id) ?? null,
+      }));
+
+      if (enriched.length === 1) {
+        selectShipment(enriched[0]);
       } else {
-        setMawbResults(data);
+        setMawbResults(enriched);
       }
     } catch (err: any) {
       setShipmentError(err.message);
@@ -587,7 +608,7 @@ export default function InboundScanning() {
 
   const totalExpected = shipment?.colli_expected ?? 0;
   const totalScanned = scannedBoxes.filter((b: any) => b.status !== 'deleted').length;
-  const subklant = shipment?.subklanten?.name || shipment?.customers?.short_name || shipment?.customers?.name || '—';
+  const subklant = shipment?.subklant_name || shipment?.customer_short || shipment?.customer_name || '—';
 
   // Print Label logic — hub is auto-set from current session hub
   const handleGenerateLabel = async () => {
@@ -715,7 +736,7 @@ export default function InboundScanning() {
                 >
                   <div>
                     <span className="font-mono font-medium">{s.mawb}</span>
-                    <span className="text-sm text-muted-foreground ml-3">{(s.customers as any)?.name ?? ''}</span>
+                    <span className="text-sm text-muted-foreground ml-3">{s.customer_name ?? ''}</span>
                   </div>
                   <span className="text-xs text-muted-foreground">{s.status}</span>
                 </button>
@@ -725,7 +746,7 @@ export default function InboundScanning() {
           {shipment && (
             <div className="mt-4 p-3 rounded-lg bg-muted text-sm space-y-1">
               <p><span className="font-medium">MAWB:</span> <span className="font-mono">{shipment.mawb}</span></p>
-              <p><span className="font-medium">Customer:</span> {shipment.customers?.name ?? '—'} ({subklant})</p>
+              <p><span className="font-medium">Customer:</span> {shipment.customer_name ?? '—'} ({subklant})</p>
               <p><span className="font-medium">Colli Expected:</span> {shipment.colli_expected ?? '—'}</p>
               <p><span className="font-medium">Status:</span> {shipment.status}</p>
               {currentHub && (
