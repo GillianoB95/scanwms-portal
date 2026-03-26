@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Search, Loader2, Plus, Pencil, Trash2, ChevronDown, ChevronRight, Users, Bell } from 'lucide-react';
+import { Search, Loader2, Plus, Pencil, Trash2, ChevronDown, ChevronRight, Users, Bell, KeyRound, X } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
