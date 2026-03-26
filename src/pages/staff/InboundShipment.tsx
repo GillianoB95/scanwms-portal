@@ -177,6 +177,7 @@ function UnloadModal({ shipment, open, onOpenChange }: { shipment: any; open: bo
 export default function InboundShipment() {
   const navigate = useNavigate();
   const { data: shipments = [], isLoading } = useAllShipments();
+  const { data: allWarehouses = [] } = useAllWarehouses();
   const updateShipment = useUpdateShipment();
 
   const [search, setSearch] = useState('');
@@ -189,6 +190,18 @@ export default function InboundShipment() {
   const [unloadShipment, setUnloadShipment] = useState<any>(null);
   const [editShipment, setEditShipment] = useState<any>(null);
 
+  const warehouseMap = useMemo(() => {
+    const map = new Map<string, string>();
+    allWarehouses.forEach((w: any) => map.set(w.id, `${w.code} — ${w.name}`));
+    return map;
+  }, [allWarehouses]);
+
+  const getWarehouseName = (s: any) => {
+    if (s.warehouses?.code) return `${s.warehouses.code} — ${s.warehouses.name}`;
+    if (s.warehouse_id) return warehouseMap.get(s.warehouse_id) || s.warehouse_id;
+    return '—';
+  };
+
   const customers = useMemo(() => {
     const set = new Set(shipments.map((s: any) => s.customers?.name).filter(Boolean));
     return Array.from(set).sort() as string[];
@@ -197,10 +210,10 @@ export default function InboundShipment() {
   const warehouses = useMemo(() => {
     const map = new Map<string, string>();
     shipments.forEach((s: any) => {
-      if (s.warehouses?.code) map.set(s.warehouse_id, `${s.warehouses.code} — ${s.warehouses.name}`);
+      if (s.warehouse_id) map.set(s.warehouse_id, getWarehouseName(s));
     });
     return Array.from(map.entries()).sort((a, b) => a[1].localeCompare(b[1]));
-  }, [shipments]);
+  }, [shipments, warehouseMap]);
 
   const filtered = useMemo(() => {
     return shipments.filter((s: any) => {
