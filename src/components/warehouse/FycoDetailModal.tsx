@@ -50,19 +50,16 @@ export function WarehouseFycoDetailModal({ shipment, open, onOpenChange }: { shi
   });
 
   // Fetch outerbox_barcode from manifest_parcels
-  const parcelBarcodes = inspections.map((i: any) => i.parcel_barcode).filter(Boolean);
   const { data: manifestParcels = [] } = useQuery({
-    queryKey: ['warehouse-fyco-manifest', shipment?.id, parcelBarcodes],
+    queryKey: ['warehouse-fyco-manifest', shipment?.id],
     queryFn: async () => {
-      if (parcelBarcodes.length === 0) return [];
       const { data } = await supabase
         .from('manifest_parcels')
         .select('parcel_barcode, outerbox_barcode')
-        .eq('shipment_id', shipment.id)
-        .in('parcel_barcode', parcelBarcodes);
+        .eq('shipment_id', shipment.id);
       return data ?? [];
     },
-    enabled: parcelBarcodes.length > 0 && open,
+    enabled: !!shipment?.id && open,
   });
 
   const boxMap = new Map<string, string>();
