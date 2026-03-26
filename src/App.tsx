@@ -28,6 +28,7 @@ import WarehouseOutbound from "./pages/warehouse/WarehouseOutbound";
 import PrintLabels from "./pages/warehouse/PrintLabels";
 import StockOverview from "./pages/warehouse/StockOverview";
 import FycoManagement from "./pages/FycoManagement";
+import Outbounds from "./pages/Outbounds";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -89,6 +90,7 @@ const App = () => (
             <Route path="/shipments" element={<ProtectedRoute><Shipments /></ProtectedRoute>} />
             <Route path="/shipments/:id" element={<ProtectedRoute><ShipmentDetail /></ProtectedRoute>} />
             <Route path="/new-shipment" element={<ProtectedRoute><NewShipment /></ProtectedRoute>} />
+            <Route path="/outbounds" element={<ProtectedRoute><Outbounds /></ProtectedRoute>} />
 
             {/* Staff Portal */}
             <Route path="/staff" element={<StaffRoute><MawbOverview /></StaffRoute>} />

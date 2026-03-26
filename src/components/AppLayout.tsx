@@ -1,11 +1,12 @@
 import { ReactNode, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '@/lib/auth-context';
-import { LayoutDashboard, Package, PlusCircle, LogOut, Menu, X } from 'lucide-react';
+import { LayoutDashboard, Package, PlusCircle, Truck, LogOut, Menu, X } from 'lucide-react';
 
 const navItems = [
   { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { to: '/shipments', label: 'Shipments', icon: Package },
+  { to: '/outbounds', label: 'Outbounds', icon: Truck },
   { to: '/new-shipment', label: 'New Shipment', icon: PlusCircle },
 ];
 
