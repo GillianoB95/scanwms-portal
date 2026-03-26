@@ -183,7 +183,7 @@ export function useInspections(shipmentId: string | undefined) {
       if (!shipmentId) return [];
       const { data, error } = await supabase
         .from('inspections')
-        .select('*')
+        .select('*, manifest_parcels(outerbox_barcode, hub)')
         .eq('shipment_id', shipmentId)
         .order('created_at', { ascending: true });
       if (error) {

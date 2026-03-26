@@ -168,7 +168,21 @@ export function useCreateInspections() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (inspections: { shipment_id: string; barcode: string }[]) => {
-      const rows = inspections.map(i => ({ shipment_id: i.shipment_id, barcode: i.barcode, parcel_barcode: i.barcode }));
+      // Look up manifest_parcel_id for each barcode
+      const rows = await Promise.all(inspections.map(async (i) => {
+        const { data: mp } = await supabase
+          .from('manifest_parcels')
+          .select('id')
+          .eq('shipment_id', i.shipment_id)
+          .ilike('parcel_barcode', i.barcode)
+          .maybeSingle();
+        return {
+          shipment_id: i.shipment_id,
+          barcode: i.barcode,
+          parcel_barcode: i.barcode,
+          manifest_parcel_id: mp?.id ?? null,
+        };
+      }));
       const { error } = await supabase.from('inspections').insert(rows);
       if (error) throw error;
     },

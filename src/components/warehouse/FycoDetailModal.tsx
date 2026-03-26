@@ -41,22 +41,9 @@ export function WarehouseFycoDetailModal({ shipment, open, onOpenChange }: { shi
     queryFn: async () => {
       const { data } = await supabase
         .from('inspections')
-        .select('*')
+        .select('*, manifest_parcels(outerbox_barcode, hub)')
         .eq('shipment_id', shipment.id)
         .order('created_at', { ascending: true });
-      return data ?? [];
-    },
-    enabled: !!shipment?.id && open,
-  });
-
-  // Fetch outerbox_barcode from manifest_parcels
-  const { data: manifestParcels = [] } = useQuery({
-    queryKey: ['warehouse-fyco-manifest', shipment?.id],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from('manifest_parcels')
-        .select('parcel_barcode, outerbox_barcode')
-        .eq('shipment_id', shipment.id);
       return data ?? [];
     },
     enabled: !!shipment?.id && open,
