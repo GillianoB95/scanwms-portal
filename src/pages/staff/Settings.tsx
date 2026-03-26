@@ -497,7 +497,7 @@ function AlarmSettingsTab() {
 
   const handleSave = async () => {
     try {
-      await updateSettings.mutateAsync({ id: (settings as any)?.id, ...values });
+      await updateSettings.mutateAsync(values);
       toast.success('Alarm settings saved');
     } catch {
       toast.error('Failed to save alarm settings');
