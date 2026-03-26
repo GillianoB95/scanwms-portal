@@ -26,32 +26,19 @@ export default function StockOverview() {
   const [hubFilter, setHubFilter] = useState<string>('all');
   const { data: alarmSettings = DEFAULT_ALARM_SETTINGS } = useAlarmSettings();
 
-  const { data: warehouseCode } = useQuery({
-    queryKey: ['warehouse-code', warehouseId],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from('warehouses')
-        .select('code')
-        .eq('id', warehouseId!)
-        .single();
-      return data?.code ?? null;
-    },
-    enabled: !!warehouseId,
-  });
-
   const { data: shipments = [] } = useQuery({
-    queryKey: ['stock-overview-shipments', warehouseCode],
+    queryKey: ['stock-overview-shipments', warehouseId],
     queryFn: async () => {
-      if (!warehouseCode) return [];
+      if (!warehouseId) return [];
       const { data } = await supabase
         .from('shipments')
         .select('id, mawb, unloaded_at, unloaded_colli, colli_expected, subklant_id, customer_id, subklanten(name)')
-        .eq('warehouse_id', warehouseCode)
+        .eq('warehouse_id', warehouseId)
         .in('status', ['In Stock', 'Partially Unloaded'])
         .order('mawb', { ascending: true });
       return data ?? [];
     },
-    enabled: !!warehouseCode,
+    enabled: !!warehouseId,
   });
 
   const shipmentIds = shipments.map((s: any) => s.id);
