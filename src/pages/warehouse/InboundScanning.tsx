@@ -217,7 +217,7 @@ export default function InboundScanning() {
       // Use ilike for partial/suffix matching
       const { data, error } = await supabase
         .from('shipments')
-        .select('id, mawb, warehouse_id, colli_expected, status, created_at, customers(name, short_name)')
+        .select('id, mawb, warehouse_id, colli_expected, status, created_at, customer_id, subklant_id, customers(name, short_name), subklanten(name)')
         .ilike('mawb', `%${q}`)
         .order('created_at', { ascending: false })
         .limit(10);
@@ -545,17 +545,24 @@ export default function InboundScanning() {
 
   const unloadMutation = useMutation({
     mutationFn: async () => {
+      const scannedCount = scannedBoxes.filter((b: any) => b.status !== 'deleted').length;
       const { error } = await supabase
         .from('shipments')
-        .update({ status: 'In Stock', unloaded_at: new Date().toISOString() })
+        .update({
+          status: 'In Stock',
+          unloaded_at: new Date().toISOString(),
+          unloaded_colli: scannedCount,
+        })
         .eq('id', shipment.id);
       if (error) throw error;
     },
     onSuccess: () => {
       toast({ title: 'Shipment marked as unloaded and In Stock' });
-      setShipment(null);
-      setMawbInput('');
-      setCurrentHub(null);
+      setShipment((prev: any) => prev ? { ...prev, status: 'In Stock' } : null);
+      qc.invalidateQueries({ queryKey: ['scanned-boxes', shipment?.id] });
+    },
+    onError: (err: any) => {
+      toast({ title: 'Failed to mark as unloaded', description: err.message, variant: 'destructive' });
     },
   });
 
@@ -578,7 +585,7 @@ export default function InboundScanning() {
 
   const totalExpected = shipment?.colli_expected ?? 0;
   const totalScanned = scannedBoxes.filter((b: any) => b.status !== 'deleted').length;
-  const subklant = shipment?.customers?.short_name || shipment?.customers?.name || '—';
+  const subklant = shipment?.subklanten?.name || shipment?.customers?.short_name || shipment?.customers?.name || '—';
 
   // Print Label logic — hub is auto-set from current session hub
   const handleGenerateLabel = async () => {
