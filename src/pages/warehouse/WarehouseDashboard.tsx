@@ -160,16 +160,38 @@ export default function WarehouseDashboard() {
     queryFn: async () => {
       const query = supabase
         .from('shipments')
-        .select('*, customers(name, short_name)')
+        .select('*')
         .in('status', allDbStatuses)
         .order('created_at', { ascending: false });
       if (warehouseCode) query.eq('warehouse_id', warehouseCode);
       const { data } = await query;
-      // Normalize 'Created' to 'Awaiting NOA' for display
-      return (data ?? []).map((s: any) => ({
+      const items = (data ?? []).map((s: any) => ({
         ...s,
         status: s.status === 'Created' ? 'Awaiting NOA' : s.status,
       }));
+
+      // Lookup customer/subklant names via security definer RPC
+      const customerIds = [...new Set(items.map((s: any) => s.customer_id).filter(Boolean))];
+      const subklantIds = [...new Set(items.map((s: any) => s.subklant_id).filter(Boolean))];
+      try {
+        const { data: lookup } = await supabase.rpc('lookup_customer_names', {
+          customer_ids: customerIds,
+          subklant_ids: subklantIds,
+        });
+        if (lookup) {
+          const customers = lookup.customers || {};
+          const subklanten = lookup.subklanten || {};
+          return items.map((s: any) => ({
+            ...s,
+            customer_name: customers[s.customer_id]?.name ?? null,
+            customer_short: customers[s.customer_id]?.short_name ?? null,
+            subklant_name: subklanten[s.subklant_id]?.name ?? null,
+          }));
+        }
+      } catch (e) {
+        console.warn('lookup_customer_names not available');
+      }
+      return items;
     },
     enabled: !!auth,
   });
