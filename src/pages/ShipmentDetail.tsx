@@ -3,6 +3,7 @@ import { ArrowLeft, Download, CheckCircle2, Circle, Truck, Loader2, Shield, Aler
 import { useQuery } from '@tanstack/react-query';
 import { useShipment, useStatusHistory, useNoas, useOutbounds, useOuterboxes, useClearances, useInspections } from '@/hooks/use-shipment-data';
 import { useAuth } from '@/lib/auth-context';
+import { useAccessibleCustomerIds } from '@/hooks/use-accessible-customers';
 import { supabase } from '@/lib/supabase';
 import { StatusBadge } from '@/components/StatusBadge';
 import { getStatusClass } from '@/lib/mock-data';
@@ -298,11 +299,8 @@ function OutboundSection({ shipmentId }: { shipmentId: string }) {
     if (!customer?.id) return;
     setDownloadingId(outboundId);
     try {
-      const customerIds = [customer.id];
-      if (!customer.parent_id) {
-        const { data: subs } = await supabase.from('customers').select('id').eq('parent_id', customer.id);
-        if (subs) customerIds.push(...subs.map(s => s.id));
-      }
+      const { data: ids } = await supabase.rpc('get_accessible_customer_ids');
+      const customerIds = (ids as string[]) ?? [customer.id];
       const { data: cmrRecords } = await supabase
         .from('cmr_records')
         .select('file_path, file_name')
