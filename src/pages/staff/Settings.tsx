@@ -58,10 +58,10 @@ function useEmailTemplates() {
 function useUpsertTemplate() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (tpl: { template_type: string; subject: string; body: string }) => {
+    mutationFn: async (tpl: { template_type: string; subject: string; body: string; email_account_id?: string | null }) => {
       const { data: existing } = await supabase.from('email_templates').select('id').eq('template_type', tpl.template_type).maybeSingle();
       if (existing) {
-        const { error } = await supabase.from('email_templates').update({ subject: tpl.subject, body: tpl.body }).eq('id', existing.id);
+        const { error } = await supabase.from('email_templates').update({ subject: tpl.subject, body: tpl.body, email_account_id: tpl.email_account_id ?? null }).eq('id', existing.id);
         if (error) throw error;
       } else {
         const { error } = await supabase.from('email_templates').insert(tpl);
