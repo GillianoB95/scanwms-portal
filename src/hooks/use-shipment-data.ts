@@ -10,12 +10,12 @@ export function useShipments() {
       if (!customer) return [];
 
       // Main accounts (no parent) see own + sub-account shipments
-      if (!customer.parent_customer_id) {
-        // Get sub-account IDs
+      if (!customer.parent_id) {
+        // Get sub-account IDs (this is a parent account)
         const { data: subAccounts } = await supabase
           .from('customers')
           .select('id')
-          .eq('parent_customer_id', customer.id);
+          .eq('parent_id', customer.id);
         
         const ids = [customer.id, ...(subAccounts ?? []).map((s: any) => s.id)];
         
@@ -139,11 +139,11 @@ export function useOuterboxes(shipmentId: string | undefined) {
 export function useSubklanten() {
   const { customer } = useAuth();
   return useQuery({
-    queryKey: ['subklanten', customer?.id, customer?.parent_customer_id],
+    queryKey: ['subklanten', customer?.id, customer?.parent_id],
     queryFn: async () => {
       if (!customer) return [];
       // Sub-accounts fetch subklanten from the parent customer
-      const ownerId = customer.parent_customer_id ?? customer.id;
+      const ownerId = customer.parent_id ?? customer.id;
       const { data: subs, error } = await supabase
         .from('subklanten')
         .select('*')
