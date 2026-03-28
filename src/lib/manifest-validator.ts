@@ -1,27 +1,20 @@
 /**
  * Client-side manifest validation for customs compliance.
- * Validates required fields, MAWB match, EU country codes, IOSS format, etc.
+ * Column-based validation using fixed column indices (A=0, B=1, etc.).
  */
 
-const EU_COUNTRIES = new Set([
-  'AT','BE','BG','CY','CZ','DE','DK','EE','ES','FI','FR','GR','HR','HU',
-  'IE','IT','LT','LU','LV','MT','NL','PL','PT','RO','SE','SI','SK',
+const ALLOWED_COUNTRIES = new Set([
+  'NL','AL','BA','SE','HR','RS','GR','FR','PL','UA','LI','RO','AT','DK','MT',
+  'ES','LT','BE','MD','BG','LV','SM','MK','SI','IS','BY','CY','LU','ME','PT',
+  'FI','IE','AD','EU','VA','MC','CZ','IT','HU','DE','EE','SK',
 ]);
 
-const FORBIDDEN_CHARS = /[^\u0000-\u024F\s\d'.,\-\/()#&@+:;!?"°²³€£$%*=~^{}[\]|\\<>]/g;
+const BARCODE_FORBIDDEN = /[!@#$%^&*()\\_+{}\[\]\\|?\/><\*\-\+]/g;
 
 export interface ManifestValidationResult {
   errors: string[];
   warnings: string[];
   fixedRows: any[][];
-}
-
-function findCol(headers: string[], ...candidates: string[]): number {
-  for (const c of candidates) {
-    const idx = headers.findIndex(h => h.toLowerCase().includes(c.toLowerCase()));
-    if (idx >= 0) return idx;
-  }
-  return -1;
 }
 
 function colLetter(idx: number): string {
@@ -37,26 +30,22 @@ function colLetter(idx: number): string {
 function normalizeIoss(raw: string): { value: string; changed: boolean } {
   if (!raw) return { value: '', changed: false };
   const stripped = raw.replace(/[\s\-._]/g, '').toUpperCase();
-  // Already correct: IM + 10 digits
   if (/^IM\d{10}$/.test(stripped)) {
     return stripped !== raw ? { value: stripped, changed: true } : { value: raw, changed: false };
   }
-  // Has digits but wrong prefix
   const digits = stripped.replace(/\D/g, '');
-  if (digits.length === 10) {
-    return { value: `IM${digits}`, changed: true };
-  }
-  if (digits.length === 12 && stripped.startsWith('IM')) {
-    return { value: `IM${digits.slice(0, 10)}`, changed: true };
-  }
+  if (digits.length === 10) return { value: `IM${digits}`, changed: true };
+  if (digits.length === 12 && stripped.startsWith('IM')) return { value: `IM${digits.slice(0, 10)}`, changed: true };
   return { value: raw, changed: false };
 }
 
-function stripForbiddenChars(val: string): { value: string; changed: boolean } {
-  const cleaned = val.replace(FORBIDDEN_CHARS, '').replace(/\s{2,}/g, ' ').trim();
-  return { value: cleaned, changed: cleaned !== val };
-}
-
+/**
+ * Validate manifest using fixed column positions:
+ * A=0 OrderNumber, B=1 ParcelBarcode, C=2 BoxBagbarcode, D=3 Waybill,
+ * L=11 Countrycodereceiver, M=12 Productdescription, N=13 Total weight,
+ * R=17 Quantity, T=19 Total value, U=20 SKU, V=21 Hscode,
+ * X=23 Shipper IOSS, AH=33 CSOR_NAME, AM=38 CSOR_POSTCODE, AN=39 CSOR_COUNTRY
+ */
 export function validateManifestForCustoms(
   header: any[],
   rows: any[][],
@@ -66,147 +55,151 @@ export function validateManifestForCustoms(
   const warnings: string[] = [];
   const fixedRows = rows.map(r => [...r]);
 
-  const headers = header.map((h: any) => String(h).trim());
-
-  // Find required columns
-  const orderCol = findCol(headers, 'ordernumber', 'order');
-  const parcelCol = findCol(headers, 'parcelbarcode', 'parcel');
-  const boxCol = findCol(headers, 'boxbagbarcode', 'boxbag', 'outer');
-  const waybillCol = findCol(headers, 'waybill');
-  const nameCol = findCol(headers, 'namereceiver', 'receiver', 'name');
-  const addressCol = findCol(headers, 'addressreceiver', 'address');
-  const cityCol = findCol(headers, 'cityreceiver', 'city');
-  const zipCol = findCol(headers, 'zipcodereceiver', 'zipcode', 'zip');
-  const countryCol = findCol(headers, 'countrycodereceiver', 'countrycode', 'country');
-  const descCol = findCol(headers, 'productdescription', 'description', 'product');
-  const weightCol = headers.findIndex(h => /^total\s*weight$/i.test(h.trim()) || h.toLowerCase() === 'totalweight' || h.toLowerCase() === 'total_weight');
-  const qtyCol = findCol(headers, 'quantity', 'qty');
-  const totalValueCol = headers.findIndex(h => /^total\s*value$/i.test(h.trim()) || h.toLowerCase() === 'totalvalue' || h.toLowerCase() === 'total_value');
-  const skuCol = findCol(headers, 'sku');
-  const iossCol = findCol(headers, 'ioss');
-  const csorNameCol = findCol(headers, 'csor_name', 'csorname');
-  const csorPostcodeCol = findCol(headers, 'csor_postcode', 'csorpostcode');
-  const csorCountryCol = findCol(headers, 'csor_country', 'csorcountry');
-
-  // Column presence checks
-  const requiredCols: [number, string][] = [
-    [parcelCol, 'ParcelBarcode'],
-    [boxCol, 'BoxBagbarcode'],
-    [waybillCol, 'Waybill'],
-    [countryCol, 'Countrycode'],
-    [weightCol, 'Total weight'],
-    [qtyCol, 'Quantity'],
-    [totalValueCol, 'Total value'],
-    [skuCol, 'SKU'],
-    [iossCol, 'IOSS'],
-    [csorNameCol, 'CSOR_NAME'],
-    [csorPostcodeCol, 'CSOR_POSTCODE'],
-    [csorCountryCol, 'CSOR_COUNTRY'],
-  ];
-
-  for (const [idx, name] of requiredCols) {
-    if (idx < 0) {
-      errors.push(`Missing required column: ${name}`);
-    }
-  }
-
-  if (errors.length > 0) {
-    // Can't validate rows if columns are missing
-    return { errors, warnings, fixedRows };
-  }
+  const COL = {
+    ORDER: 0,        // A
+    PARCEL: 1,       // B
+    BOXBAG: 2,       // C
+    WAYBILL: 3,      // D
+    COUNTRY: 11,     // L
+    DESCRIPTION: 12, // M
+    WEIGHT: 13,      // N
+    QUANTITY: 17,     // R
+    TOTAL_VALUE: 19,  // T
+    SKU: 20,          // U
+    HSCODE: 21,       // V
+    IOSS: 23,         // X
+    CSOR_NAME: 33,    // AH
+    CSOR_POSTCODE: 38,// AM
+    CSOR_COUNTRY: 39, // AN
+  };
 
   const mawbDigits = mawb.replace(/\D/g, '');
+
+  // Track parcel barcodes for duplicate detection
+  const seenParcels = new Map<string, number>();
 
   for (let i = 0; i < fixedRows.length; i++) {
     const row = fixedRows[i];
     if (!row || row.every((c: any) => c === '' || c == null)) continue;
     const rowNum = i + 2; // 1-based + header row
 
-    // MAWB match: check col A (order number) or first column
-    if (orderCol >= 0) {
-      const orderVal = String(row[orderCol] || '').replace(/\D/g, '');
-      if (orderVal && mawbDigits && orderVal !== mawbDigits) {
-        errors.push(`Row ${rowNum}, Column ${colLetter(orderCol)} (OrderNumber): MAWB mismatch — expected ${mawb}, got ${row[orderCol]}`);
+    const val = (col: number) => String(row[col] ?? '').trim();
+
+    // A - OrderNumber: must match MAWB
+    if (mawbDigits) {
+      const orderVal = val(COL.ORDER).replace(/\D/g, '');
+      if (orderVal && orderVal !== mawbDigits) {
+        errors.push(`Row ${rowNum}: Wrong manifest: order number ${val(COL.ORDER)} does not match shipment MAWB ${mawb}. Please upload the correct manifest file.`);
       }
     }
 
-    // Required field checks (non-empty)
-    const fieldChecks: [number, string][] = [
-      [parcelCol, 'ParcelBarcode'],
-      [boxCol, 'BoxBagbarcode'],
-      [waybillCol, 'Waybill'],
-      [countryCol, 'Countrycode'],
-      [skuCol, 'SKU'],
-      [csorNameCol, 'CSOR_NAME'],
-      [csorPostcodeCol, 'CSOR_POSTCODE'],
-      [csorCountryCol, 'CSOR_COUNTRY'],
-    ];
-    for (const [col, name] of fieldChecks) {
-      const val = String(row[col] || '').trim();
-      if (!val) {
-        errors.push(`Row ${rowNum}, Column ${colLetter(col)} (${name}): Required field is empty`);
-      }
+    // B - ParcelBarcode: required, no forbidden chars
+    const parcel = val(COL.PARCEL);
+    if (!parcel) {
+      errors.push(`Row ${rowNum}, Column B (ParcelBarcode): Required field is empty`);
+    } else if (BARCODE_FORBIDDEN.test(parcel)) {
+      errors.push(`Row ${rowNum}, Column B (ParcelBarcode): ParcelBarcode contains forbidden characters — cannot auto-fix barcodes`);
     }
 
-    // Numeric required fields
-    if (weightCol >= 0) {
-      const w = parseFloat(String(row[weightCol] || ''));
-      if (isNaN(w) || w <= 0) {
-        errors.push(`Row ${rowNum}, Column ${colLetter(weightCol)} (Total weight): Must be a positive number`);
-      }
-    }
-    if (qtyCol >= 0) {
-      const q = parseInt(String(row[qtyCol] || ''));
-      if (isNaN(q) || q < 1) {
-        errors.push(`Row ${rowNum}, Column ${colLetter(qtyCol)} (Quantity): Must be at least 1`);
-      }
-    }
-    if (totalValueCol >= 0) {
-      const v = parseFloat(String(row[totalValueCol] || ''));
-      if (isNaN(v) || v <= 0) {
-        errors.push(`Row ${rowNum}, Column ${colLetter(totalValueCol)} (Total value): Must be a positive number`);
-      }
-    }
-
-    // EU country whitelist
-    if (countryCol >= 0) {
-      const country = String(row[countryCol] || '').trim().toUpperCase();
-      if (country && !EU_COUNTRIES.has(country)) {
-        errors.push(`Row ${rowNum}, Column ${colLetter(countryCol)} (Countrycode): "${country}" is not in the EU whitelist`);
-      }
-    }
-
-    // IOSS validation + auto-fix
-    if (iossCol >= 0) {
-      const rawIoss = String(row[iossCol] || '').trim();
-      if (!rawIoss) {
-        errors.push(`Row ${rowNum}, Column ${colLetter(iossCol)} (IOSS): Required field is empty`);
+    // Duplicate parcel detection — silently rename
+    if (parcel) {
+      if (seenParcels.has(parcel)) {
+        const newBarcode = `${parcel}_DUP${rowNum}`;
+        fixedRows[i][COL.PARCEL] = newBarcode;
+        // silent fix, no warning shown to customer
       } else {
-        const { value: normalizedIoss, changed } = normalizeIoss(rawIoss);
-        if (changed) {
-          fixedRows[i][iossCol] = normalizedIoss;
-          warnings.push(`Row ${rowNum}, Column ${colLetter(iossCol)} (IOSS): Auto-normalized "${rawIoss}" → "${normalizedIoss}"`);
-        }
-        if (!/^IM\d{10}$/.test(normalizedIoss)) {
-          errors.push(`Row ${rowNum}, Column ${colLetter(iossCol)} (IOSS): Must be "IM" + 10 digits, got "${normalizedIoss}"`);
-        }
+        seenParcels.set(parcel, i);
       }
     }
 
-    // Strip forbidden characters from address fields
-    const addressFields: [number, string][] = [
-      [nameCol, 'Namereceiver'],
-      [addressCol, 'Addressreceiver'],
-      [cityCol, 'Cityreceiver'],
-    ];
-    for (const [col, name] of addressFields) {
-      if (col < 0) continue;
-      const val = String(row[col] || '');
-      const { value: cleaned, changed } = stripForbiddenChars(val);
+    // C - BoxBagbarcode: required, no forbidden chars
+    const box = val(COL.BOXBAG);
+    if (!box) {
+      errors.push(`Row ${rowNum}, Column C (BoxBagbarcode): Required field is empty`);
+    } else if (BARCODE_FORBIDDEN.test(box)) {
+      errors.push(`Row ${rowNum}, Column C (BoxBagbarcode): BoxBagbarcode contains forbidden characters — cannot auto-fix barcodes`);
+    }
+
+    // D - Waybill: required, no forbidden chars
+    const waybill = val(COL.WAYBILL);
+    if (!waybill) {
+      errors.push(`Row ${rowNum}, Column D (Waybill): Required field is empty`);
+    } else if (BARCODE_FORBIDDEN.test(waybill)) {
+      errors.push(`Row ${rowNum}, Column D (Waybill): Waybill contains forbidden characters`);
+    }
+
+    // L - Countrycodereceiver: must be in allowed list
+    const country = val(COL.COUNTRY).toUpperCase();
+    if (!country) {
+      errors.push(`Row ${rowNum}, Column L (Countrycodereceiver): Required field is empty`);
+    } else if (!ALLOWED_COUNTRIES.has(country)) {
+      errors.push(`Row ${rowNum}, Column L (Countrycodereceiver): Country code "${country}" is not in the list of allowed EU country codes`);
+    }
+
+    // M + V: at least one of description or HS code required
+    const desc = val(COL.DESCRIPTION);
+    const hscode = val(COL.HSCODE);
+    if (!desc && !hscode) {
+      errors.push(`Row ${rowNum}: Cannot upload this manifest because row is missing both a product description and an HS code — at least one is required`);
+    }
+
+    // N - Total weight: required, numeric
+    const weightStr = val(COL.WEIGHT);
+    const weight = parseFloat(weightStr.replace(',', '.'));
+    if (!weightStr || isNaN(weight) || weight <= 0) {
+      errors.push(`Row ${rowNum}, Column N (Total weight): Must be a positive number`);
+    }
+
+    // R - Quantity: required, numeric
+    const qtyStr = val(COL.QUANTITY);
+    const qty = parseInt(qtyStr);
+    if (!qtyStr || isNaN(qty) || qty < 1) {
+      errors.push(`Row ${rowNum}, Column R (Quantity): Must be at least 1`);
+    }
+
+    // T - Total value: required, numeric
+    const totalValStr = val(COL.TOTAL_VALUE);
+    const totalVal = parseFloat(totalValStr.replace(',', '.'));
+    if (!totalValStr || isNaN(totalVal) || totalVal <= 0) {
+      errors.push(`Row ${rowNum}, Column T (Total value): Must be a positive number`);
+    }
+
+    // U - SKU: required
+    if (!val(COL.SKU)) {
+      errors.push(`Row ${rowNum}, Column U (SKU): Required field is empty`);
+    }
+
+    // X - IOSS: required, IM + 10 digits (auto-normalize silently)
+    const rawIoss = val(COL.IOSS);
+    if (!rawIoss) {
+      errors.push(`Row ${rowNum}, Column X (Shipper IOSS): Required field is empty`);
+    } else {
+      const { value: normalized, changed } = normalizeIoss(rawIoss);
       if (changed) {
-        fixedRows[i][col] = cleaned;
-        warnings.push(`Row ${rowNum}, Column ${colLetter(col)} (${name}): Stripped forbidden characters`);
+        fixedRows[i][COL.IOSS] = normalized;
+        // silent fix
       }
+      if (!/^IM\d{10}$/.test(normalized)) {
+        errors.push(`Row ${rowNum}, Column X (Shipper IOSS): Must be "IM" + 10 digits, got "${normalized}"`);
+      }
+    }
+
+    // AH - CSOR_NAME: required
+    if (!val(COL.CSOR_NAME)) {
+      errors.push(`Row ${rowNum}, Column AH (CSOR_NAME): Required field is empty`);
+    }
+
+    // AM - CSOR_POSTCODE: required, min 4 chars
+    const postcode = val(COL.CSOR_POSTCODE);
+    if (!postcode) {
+      errors.push(`Row ${rowNum}, Column AM (CSOR_POSTCODE): Required field is empty`);
+    } else if (postcode.length < 4) {
+      errors.push(`Row ${rowNum}, Column AM (CSOR_POSTCODE): Must be at least 4 characters`);
+    }
+
+    // AN - CSOR_COUNTRY: required
+    if (!val(COL.CSOR_COUNTRY)) {
+      errors.push(`Row ${rowNum}, Column AN (CSOR_COUNTRY): Required field is empty`);
     }
   }
 
