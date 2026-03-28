@@ -230,8 +230,12 @@ function EmailAccountFormDialog({ open, onOpenChange, account }: { open: boolean
 
   const [customerId, setCustomerId] = useState(account?.customer_id || '');
   const [warehouseId, setWarehouseId] = useState(account?.warehouse_id || '');
+  const [fromName, setFromName] = useState(account?.from_name || '');
   const [fromEmail, setFromEmail] = useState(account?.from_email || '');
   const [domain, setDomain] = useState(account?.domain || '');
+  const [resendApiKey, setResendApiKey] = useState(account?.resend_api_key || '');
+  const [isDefault, setIsDefault] = useState(account?.is_default || false);
+  const [showApiKey, setShowApiKey] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const isEdit = !!account?.id;
@@ -240,12 +244,16 @@ function EmailAccountFormDialog({ open, onOpenChange, account }: { open: boolean
     if (!fromEmail || !domain) return;
     setSaving(true);
     try {
-      const payload = {
+      const payload: any = {
         customer_id: customerId || null,
         warehouse_id: warehouseId || null,
+        from_name: fromName || null,
         from_email: fromEmail,
         domain,
+        is_default: isDefault,
       };
+      // Only include resend_api_key if provided (don't overwrite with empty)
+      if (resendApiKey) payload.resend_api_key = resendApiKey;
       if (isEdit) {
         await updateAccount.mutateAsync({ id: account.id, ...payload });
       } else {
@@ -261,7 +269,7 @@ function EmailAccountFormDialog({ open, onOpenChange, account }: { open: boolean
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle>{isEdit ? 'Edit Email Account' : 'Add Email Account'}</DialogTitle>
         </DialogHeader>
@@ -287,12 +295,36 @@ function EmailAccountFormDialog({ open, onOpenChange, account }: { open: boolean
             </Select>
           </div>
           <div className="space-y-2">
+            <Label>From Name</Label>
+            <Input value={fromName} onChange={e => setFromName(e.target.value)} placeholder="DSC Asia" />
+          </div>
+          <div className="space-y-2">
             <Label>From Email *</Label>
-            <Input type="email" value={fromEmail} onChange={e => setFromEmail(e.target.value)} placeholder="noreply@company.com" />
+            <Input type="email" value={fromEmail} onChange={e => setFromEmail(e.target.value)} placeholder="noa@dscasia.nl" />
           </div>
           <div className="space-y-2">
             <Label>Domain *</Label>
-            <Input value={domain} onChange={e => setDomain(e.target.value)} placeholder="company.com" />
+            <Input value={domain} onChange={e => setDomain(e.target.value)} placeholder="dscasia.nl" />
+          </div>
+          <div className="space-y-2">
+            <Label>Resend API Key</Label>
+            <div className="flex gap-2">
+              <Input
+                type={showApiKey ? 'text' : 'password'}
+                value={resendApiKey}
+                onChange={e => setResendApiKey(e.target.value)}
+                placeholder={isEdit ? '••••••••••••' : 're_xxxxxxxxxxxxx'}
+                className="font-mono text-sm"
+              />
+              <Button type="button" variant="ghost" size="icon" className="h-9 w-9 shrink-0" onClick={() => setShowApiKey(!showApiKey)}>
+                {showApiKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground">Required for sending via Resend. Get it from resend.com/api-keys</p>
+          </div>
+          <div className="flex items-center gap-3">
+            <Switch checked={isDefault} onCheckedChange={setIsDefault} />
+            <Label>Default sender for this customer</Label>
           </div>
         </div>
         <DialogFooter>
@@ -324,29 +356,40 @@ function EmailAccountsTab() {
           Add Email Account
         </Button>
       </div>
-      <p className="text-sm text-muted-foreground">SMTP connection is not required — these settings are stored for future use.</p>
+      <p className="text-sm text-muted-foreground">Configure Resend email accounts per customer. The API key is used to send emails directly via the Resend API.</p>
       <div className="bg-card rounded-xl border overflow-hidden">
         <Table>
           <TableHeader>
             <TableRow>
               <TableHead>Customer</TableHead>
-              <TableHead>Warehouse</TableHead>
-              <TableHead>From Email</TableHead>
+              <TableHead>From</TableHead>
               <TableHead>Domain</TableHead>
+              <TableHead>API Key</TableHead>
+              <TableHead>Default</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {accounts.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">No email accounts configured</TableCell>
+                <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">No email accounts configured</TableCell>
               </TableRow>
             ) : accounts.map((a: any) => (
               <TableRow key={a.id}>
                 <TableCell>{a.customers?.name || '—'}</TableCell>
-                <TableCell>{a.warehouses ? `${a.warehouses.code} — ${a.warehouses.name}` : '—'}</TableCell>
-                <TableCell className="font-mono text-sm">{a.from_email}</TableCell>
+                <TableCell>
+                  <div>
+                    {a.from_name && <span className="text-sm font-medium">{a.from_name} </span>}
+                    <span className="font-mono text-sm text-muted-foreground">&lt;{a.from_email}&gt;</span>
+                  </div>
+                </TableCell>
                 <TableCell className="text-muted-foreground">{a.domain}</TableCell>
+                <TableCell className="font-mono text-xs text-muted-foreground">
+                  {a.resend_api_key ? '••••' + a.resend_api_key.slice(-4) : '—'}
+                </TableCell>
+                <TableCell>
+                  {a.is_default && <span className="text-xs font-medium text-accent bg-accent/10 px-2 py-0.5 rounded">Default</span>}
+                </TableCell>
                 <TableCell>
                   <div className="flex items-center justify-end gap-1">
                     <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setEditAccount(a); setFormOpen(true); }}>
