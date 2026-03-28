@@ -441,13 +441,7 @@ export default function NewShipment() {
               {manifestResult.errors.length > 20 && <div className="text-xs text-destructive">...and {manifestResult.errors.length - 20} more errors</div>}
             </div>
           )}
-          {manifestResult && !manifestProcessing && manifestResult.warnings.length > 0 && manifestResult.errors.length === 0 && (
-            <div className="rounded-xl border border-yellow-500/30 bg-yellow-500/5 p-4 space-y-2 animate-fade-in max-h-40 overflow-y-auto">
-              <p className="text-sm font-semibold text-yellow-600 flex items-center gap-1.5"><AlertTriangle className="h-4 w-4" /> Auto-fixed warnings ({manifestResult.warnings.length})</p>
-              {manifestResult.warnings.slice(0, 10).map((w, i) => <div key={i} className="text-xs text-yellow-700 font-mono">{w}</div>)}
-              {manifestResult.warnings.length > 10 && <div className="text-xs text-yellow-600">...and {manifestResult.warnings.length - 10} more</div>}
-            </div>
-          )}
+          {/* Auto-fix warnings are applied silently — not shown to customers */}
           {manifestResult && !manifestProcessing && manifestResult.parsedRows.length > 0 && manifestResult.errors.length === 0 && (
             <div className="bg-emerald-500/10 rounded-lg p-3 animate-fade-in flex items-center gap-2 text-sm text-emerald-700">
               <CheckCircle2 className="h-4 w-4" /> Manifest ready — {manifestResult.parsedRows.length} parcels, {manifestResult.totalWeight.toFixed(1)} kg
