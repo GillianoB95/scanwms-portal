@@ -473,10 +473,12 @@ function useCustomsInspectionTemplate() {
 
 function CustomsInspectionTab() {
   const { data: template, isLoading } = useCustomsInspectionTemplate();
+  const { data: emailAccounts = [] } = useEmailAccounts();
   const upsert = useUpsertTemplate();
   const [subject, setSubject] = useState('');
   const [body, setBody] = useState('');
   const [recipients, setRecipients] = useState('');
+  const [emailAccountId, setEmailAccountId] = useState<string>('');
   const [initialized, setInitialized] = useState(false);
 
   // Sync state when data loads
@@ -484,6 +486,7 @@ function CustomsInspectionTab() {
     setSubject(template.subject || 'Customs Inspection — {{mawb}}');
     setBody(template.body || 'Dear Customs,\n\nPlease find below the inspection parcel(s) for MAWB {{mawb}} at warehouse {{warehouse_name}}.\n\nSLA Deadline: {{sla_deadline}}\n\nParcels:\n{{parcel_list}}\n\nBest regards');
     setRecipients(template.recipients || '');
+    setEmailAccountId(template.email_account_id || '');
     setInitialized(true);
   } else if (!template && !isLoading && !initialized) {
     setSubject('Customs Inspection — {{mawb}}');
@@ -492,13 +495,13 @@ function CustomsInspectionTab() {
   }
 
   const handleSave = async () => {
-    // Upsert template + recipients
     const { data: existing } = await supabase.from('email_templates').select('id').eq('template_type', 'customs_inspection').maybeSingle();
+    const payload: any = { subject, body, recipients, email_account_id: emailAccountId || null };
     if (existing) {
-      const { error } = await supabase.from('email_templates').update({ subject, body, recipients }).eq('id', existing.id);
+      const { error } = await supabase.from('email_templates').update(payload).eq('id', existing.id);
       if (error) { toast.error('Failed to save'); return; }
     } else {
-      const { error } = await supabase.from('email_templates').insert({ template_type: 'customs_inspection', subject, body, recipients });
+      const { error } = await supabase.from('email_templates').insert({ template_type: 'customs_inspection', ...payload });
       if (error) { toast.error('Failed to save'); return; }
     }
     toast.success('Customs inspection template saved');
@@ -524,6 +527,22 @@ function CustomsInspectionTab() {
           <Label>Recipients (comma-separated)</Label>
           <Input value={recipients} onChange={e => setRecipients(e.target.value)} placeholder="customs@example.com, inspector@example.com" />
         </div>
+        <div className="space-y-2">
+          <Label>Send from account</Label>
+          <Select value={emailAccountId} onValueChange={setEmailAccountId}>
+            <SelectTrigger><SelectValue placeholder="Select email account" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="">None (use mail client)</SelectItem>
+              {emailAccounts.map((a: any) => (
+                <SelectItem key={a.id} value={a.id}>
+                  {a.from_name ? `${a.from_name} <${a.from_email}>` : a.from_email}
+                  {a.customers?.name ? ` (${a.customers.name})` : ''}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <p className="text-xs text-muted-foreground">When linked to a Resend account, emails are sent directly instead of opening the mail client.</p>
+        </div>
         <div className="flex justify-end">
           <Button onClick={handleSave}>
             <Save className="h-4 w-4 mr-2" />
@@ -534,8 +553,6 @@ function CustomsInspectionTab() {
     </div>
   );
 }
-
-/* ─── Alarm Settings Tab ─── */
 const ALARM_FIELDS = [
   { key: 'fyco_no_check_days', label: 'Fyco: no check alarm', unit: 'working days', description: 'Days after scan without customs check' },
   { key: 'fyco_no_action_days', label: 'Fyco: no action after check', unit: 'working days', description: 'Days after check without further action' },
