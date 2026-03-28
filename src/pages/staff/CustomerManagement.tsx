@@ -31,7 +31,7 @@ function useCustomersWithSubs() {
 function useCreateCustomer() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (customer: { name: string; short_name?: string; email?: string; warehouse_id?: string; parent_customer_id?: string }) => {
+    mutationFn: async (customer: { name: string; short_name?: string; email?: string; warehouse_id?: string; parent_id?: string }) => {
       const { data, error } = await supabase.from('customers').insert(customer).select().single();
       if (error) throw error;
       return data;
@@ -136,24 +136,24 @@ function CustomerFormDialog({ open, onOpenChange, customer, parentId, isAdmin, a
 
   const isNew = !customer?.id;
   const isSub = !!parentId;
-  const topLevelCustomers = allCustomers.filter((c: any) => !c.parent_customer_id && c.id !== customer?.id);
+  const topLevelCustomers = allCustomers.filter((c: any) => !c.parent_id && c.id !== customer?.id);
 
   const handleSave = async () => {
     if (!name) return;
     setSaving(true);
     try {
       const resolvedParentId = parentId || (selectedParentId !== '__none__' ? selectedParentId : null);
-      const payload: any = { name, short_name: shortName || null, email: email || null, warehouse_id: warehouseId === '__none__' ? null : warehouseId || null, customs_email_grouping: customsEmailGrouping, kpi_palletized_hours: kpiPalletizedHours, parent_customer_id: resolvedParentId };
+      const payload: any = { name, short_name: shortName || null, email: email || null, warehouse_id: warehouseId === '__none__' ? null : warehouseId || null, customs_email_grouping: customsEmailGrouping, kpi_palletized_hours: kpiPalletizedHours, parent_id: resolvedParentId };
 
       if (customer?.id) {
         await updateCustomer.mutateAsync({ id: customer.id, ...payload });
 
         // Cascade warehouse change to sub-accounts if this is a parent account
-        if (!customer.parent_customer_id && payload.warehouse_id) {
+        if (!customer.parent_id && payload.warehouse_id) {
           const { error: cascadeError } = await supabase
             .from('customers')
             .update({ warehouse_id: payload.warehouse_id })
-            .eq('parent_customer_id', customer.id);
+            .eq('parent_id', customer.id);
           if (cascadeError) {
             console.error('Failed to cascade warehouse to sub-accounts:', cascadeError);
             toast.error('Warehouse updated but failed to sync sub-accounts');
@@ -539,15 +539,15 @@ export default function CustomerManagement() {
 
   const mainCustomers = useMemo(() => {
     return customers
-      .filter((c: any) => !c.parent_customer_id)
+      .filter((c: any) => !c.parent_id)
       .filter((c: any) => !search || c.name?.toLowerCase().includes(search.toLowerCase()));
   }, [customers, search]);
 
   const subsByParent = useMemo(() => {
     const map = new Map<string, any[]>();
-    customers.filter((c: any) => c.parent_customer_id).forEach((c: any) => {
-      if (!map.has(c.parent_customer_id)) map.set(c.parent_customer_id, []);
-      map.get(c.parent_customer_id)!.push(c);
+    customers.filter((c: any) => c.parent_id).forEach((c: any) => {
+      if (!map.has(c.parent_id)) map.set(c.parent_id, []);
+      map.get(c.parent_id)!.push(c);
     });
     return map;
   }, [customers]);
@@ -569,7 +569,7 @@ export default function CustomerManagement() {
   const openEditDialog = (customer: any) => {
     try {
       setEditCustomer(customer);
-      setAddSubParentId(customer.parent_customer_id || undefined);
+      setAddSubParentId(customer.parent_id || undefined);
       setDialogOpen(true);
     } catch (err: any) {
       console.error('Failed to open edit dialog:', err);

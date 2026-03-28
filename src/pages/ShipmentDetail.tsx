@@ -299,8 +299,8 @@ function OutboundSection({ shipmentId }: { shipmentId: string }) {
     setDownloadingId(outboundId);
     try {
       const customerIds = [customer.id];
-      if (!customer.parent_customer_id) {
-        const { data: subs } = await supabase.from('customers').select('id').eq('parent_customer_id', customer.id);
+      if (!customer.parent_id) {
+        const { data: subs } = await supabase.from('customers').select('id').eq('parent_id', customer.id);
         if (subs) customerIds.push(...subs.map(s => s.id));
       }
       const { data: cmrRecords } = await supabase

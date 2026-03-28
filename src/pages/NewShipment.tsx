@@ -63,7 +63,7 @@ export default function NewShipment() {
   const [submitError, setSubmitError] = useState<string | null>(null);
 
   // Auto-set subklantId for customer users (non-staff)
-  const isSubAccount = !!customer?.parent_customer_id;
+  const isSubAccount = !!customer?.parent_id;
   useEffect(() => {
     if (isStaffUser) return; // Staff selects manually
     if (subklanten.length > 0 && !subklantId) {
