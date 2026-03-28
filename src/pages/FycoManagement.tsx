@@ -230,12 +230,29 @@ function SendToCustomsModal({ open, onOpenChange, parcels, isStaff: _isStaff, us
   userEmail: string;
   onSent: () => void;
 }) {
+  const [sending, setSending] = useState(false);
   const { data: template } = useQuery({
     queryKey: ['customs-inspection-template'],
     queryFn: async () => {
-      const { data } = await supabase.from('email_templates').select('*').eq('template_type', 'customs_inspection').maybeSingle();
+      const { data } = await supabase.from('email_templates').select('*, email_account_id').eq('template_type', 'customs_inspection').maybeSingle();
       return data;
     },
+  });
+
+  // Fetch linked email account (or default)
+  const emailAccountId = template?.email_account_id;
+  const { data: emailAccount } = useQuery({
+    queryKey: ['email-account-for-template', emailAccountId],
+    queryFn: async () => {
+      if (emailAccountId) {
+        const { data } = await supabase.from('email_accounts').select('*').eq('id', emailAccountId).single();
+        return data;
+      }
+      // Fallback: get default account
+      const { data } = await supabase.from('email_accounts').select('*').eq('is_default', true).maybeSingle();
+      return data;
+    },
+    enabled: !!template,
   });
 
   if (!parcels.length) return null;
@@ -256,23 +273,51 @@ function SendToCustomsModal({ open, onOpenChange, parcels, isStaff: _isStaff, us
   const subjectStr = fillTemplate(template?.subject || 'Customs Inspection — {{mawb}}', vars);
   const bodyStr = fillTemplate(template?.body || 'Parcels:\n{{parcel_list}}', vars);
   const recipients = template?.recipients || '';
+  const hasResendAccount = !!emailAccount?.resend_api_key;
 
   const handleConfirm = async () => {
-    // Open mailto
-    const mailto = `mailto:${encodeURIComponent(recipients)}?subject=${encodeURIComponent(subjectStr)}&body=${encodeURIComponent(bodyStr)}`;
-    window.open(mailto, '_blank');
-
-    // Mark inspections as email sent
     const ids = parcels.map(p => p.id);
-    const { error } = await supabase.from('inspections').update({
-      email_sent_at: new Date().toISOString(),
-      email_sent_by: userEmail,
-    }).in('id', ids);
-    if (error) {
-      toast.error('Failed to mark as sent');
+
+    if (hasResendAccount && emailAccount) {
+      // Send via Resend edge function
+      setSending(true);
+      try {
+        const htmlBody = bodyStr.replace(/\n/g, '<br/>');
+        const { data, error } = await supabase.functions.invoke('send-email', {
+          body: {
+            email_account_id: emailAccount.id,
+            to: recipients,
+            subject: subjectStr,
+            html: htmlBody,
+            inspection_ids: ids,
+          },
+        });
+        if (error) throw error;
+        if (data?.error) throw new Error(data.error);
+        toast.success(`Email sent to ${recipients} for ${ids.length} parcel(s)`);
+        onSent();
+      } catch (err: any) {
+        console.error('Send email error:', err);
+        toast.error(err.message || 'Failed to send email');
+      } finally {
+        setSending(false);
+      }
     } else {
-      toast.success(`Email prepared for ${ids.length} parcel(s)`);
-      onSent();
+      // Fallback: open mailto
+      const mailto = `mailto:${encodeURIComponent(recipients)}?subject=${encodeURIComponent(subjectStr)}&body=${encodeURIComponent(bodyStr)}`;
+      window.open(mailto, '_blank');
+
+      // Mark inspections as email sent
+      const { error } = await supabase.from('inspections').update({
+        email_sent_at: new Date().toISOString(),
+        email_sent_by: userEmail,
+      }).in('id', ids);
+      if (error) {
+        toast.error('Failed to mark as sent');
+      } else {
+        toast.success(`Email prepared for ${ids.length} parcel(s)`);
+        onSent();
+      }
     }
     onOpenChange(false);
   };
@@ -284,6 +329,14 @@ function SendToCustomsModal({ open, onOpenChange, parcels, isStaff: _isStaff, us
           <DialogTitle>Send to Customs — {mawb}</DialogTitle>
         </DialogHeader>
         <div className="space-y-4 py-4">
+          {hasResendAccount && (
+            <div className="space-y-1">
+              <Label className="text-xs text-muted-foreground">From</Label>
+              <p className="text-sm font-mono bg-muted rounded px-3 py-2">
+                {emailAccount.from_name ? `${emailAccount.from_name} <${emailAccount.from_email}>` : emailAccount.from_email}
+              </p>
+            </div>
+          )}
           <div className="space-y-1">
             <Label className="text-xs text-muted-foreground">To</Label>
             <p className="text-sm font-mono bg-muted rounded px-3 py-2">{recipients || '(no recipients set)'}</p>
@@ -296,13 +349,20 @@ function SendToCustomsModal({ open, onOpenChange, parcels, isStaff: _isStaff, us
             <Label className="text-xs text-muted-foreground">Body</Label>
             <pre className="text-sm bg-muted rounded px-3 py-2 whitespace-pre-wrap font-sans max-h-64 overflow-auto">{bodyStr}</pre>
           </div>
-          <p className="text-xs text-muted-foreground">{parcels.length} parcel(s) will be marked as email sent.</p>
+          <p className="text-xs text-muted-foreground">
+            {parcels.length} parcel(s) will be marked as email sent.
+            {!hasResendAccount && ' (No Resend account linked — will open mail client instead)'}
+          </p>
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button onClick={handleConfirm}>
-            <Mail className="h-4 w-4 mr-2" />
-            Open in Mail Client
+          <Button onClick={handleConfirm} disabled={sending}>
+            {sending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+            {hasResendAccount ? (
+              <><Send className="h-4 w-4 mr-2" />Send Email</>
+            ) : (
+              <><Mail className="h-4 w-4 mr-2" />Open in Mail Client</>
+            )}
           </Button>
         </DialogFooter>
       </DialogContent>

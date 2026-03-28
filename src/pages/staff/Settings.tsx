@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Loader2, Plus, Pencil, Trash2, Save, AlertTriangle } from 'lucide-react';
+import { Loader2, Plus, Pencil, Trash2, Save, AlertTriangle, Eye, EyeOff } from 'lucide-react';
 import { useAlarmSettings, useUpdateAlarmSettings } from '@/hooks/use-alarm-settings';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
@@ -57,10 +58,10 @@ function useEmailTemplates() {
 function useUpsertTemplate() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (tpl: { template_type: string; subject: string; body: string }) => {
+    mutationFn: async (tpl: { template_type: string; subject: string; body: string; email_account_id?: string | null }) => {
       const { data: existing } = await supabase.from('email_templates').select('id').eq('template_type', tpl.template_type).maybeSingle();
       if (existing) {
-        const { error } = await supabase.from('email_templates').update({ subject: tpl.subject, body: tpl.body }).eq('id', existing.id);
+        const { error } = await supabase.from('email_templates').update({ subject: tpl.subject, body: tpl.body, email_account_id: tpl.email_account_id ?? null }).eq('id', existing.id);
         if (error) throw error;
       } else {
         const { error } = await supabase.from('email_templates').insert(tpl);
@@ -76,22 +77,25 @@ function useUpsertTemplate() {
 
 function EmailTemplatesTab() {
   const { data: templates = [], isLoading } = useEmailTemplates();
+  const { data: emailAccounts = [] } = useEmailAccounts();
   const upsert = useUpsertTemplate();
   const [editing, setEditing] = useState<string | null>(null);
   const [subject, setSubject] = useState('');
   const [body, setBody] = useState('');
+  const [emailAccountId, setEmailAccountId] = useState<string>('');
 
   const startEdit = (key: string) => {
     const saved = templates.find((t: any) => t.template_type === key);
     const def = DEFAULT_TEMPLATES.find(d => d.key === key)!;
     setSubject(saved?.subject ?? def.default_subject);
     setBody(saved?.body ?? def.default_body);
+    setEmailAccountId(saved?.email_account_id ?? '');
     setEditing(key);
   };
 
   const handleSave = async () => {
     if (!editing) return;
-    await upsert.mutateAsync({ template_type: editing, subject, body });
+    await upsert.mutateAsync({ template_type: editing, subject, body, email_account_id: emailAccountId || null });
     setEditing(null);
   };
 
@@ -108,16 +112,25 @@ function EmailTemplatesTab() {
             <TableRow>
               <TableHead>Template</TableHead>
               <TableHead>Subject</TableHead>
+              <TableHead>Send From</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {DEFAULT_TEMPLATES.map(def => {
               const saved = templates.find((t: any) => t.template_type === def.key);
+              const linkedAccount = emailAccounts.find((a: any) => a.id === saved?.email_account_id);
               return (
                 <TableRow key={def.key}>
                   <TableCell className="font-medium">{def.label}</TableCell>
                   <TableCell className="text-sm text-muted-foreground">{saved?.subject ?? def.default_subject}</TableCell>
+                  <TableCell className="text-sm text-muted-foreground">
+                    {linkedAccount ? (
+                      <span>{linkedAccount.from_name || linkedAccount.from_email}</span>
+                    ) : (
+                      <span className="text-xs text-muted-foreground/60">Not set</span>
+                    )}
+                  </TableCell>
                   <TableCell className="text-right">
                     <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => startEdit(def.key)}>
                       <Pencil className="h-3.5 w-3.5" />
@@ -145,6 +158,21 @@ function EmailTemplatesTab() {
                 <Label>Body</Label>
                 <Textarea value={body} onChange={e => setBody(e.target.value)} rows={10} className="font-mono text-sm" />
               </div>
+              <div className="space-y-2">
+                <Label>Send from account</Label>
+                <Select value={emailAccountId} onValueChange={setEmailAccountId}>
+                  <SelectTrigger><SelectValue placeholder="Select email account" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">None (use default)</SelectItem>
+                    {emailAccounts.map((a: any) => (
+                      <SelectItem key={a.id} value={a.id}>
+                        {a.from_name ? `${a.from_name} <${a.from_email}>` : a.from_email}
+                        {a.customers?.name ? ` (${a.customers.name})` : ''}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setEditing(null)}>Cancel</Button>
@@ -159,8 +187,6 @@ function EmailTemplatesTab() {
     </div>
   );
 }
-
-/* ─── Email Accounts ─── */
 function useEmailAccounts() {
   return useQuery({
     queryKey: ['email-accounts'],
@@ -175,7 +201,7 @@ function useEmailAccounts() {
 function useCreateEmailAccount() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (account: { customer_id?: string; warehouse_id?: string; from_email: string; domain: string }) => {
+    mutationFn: async (account: { customer_id?: string; warehouse_id?: string; from_email: string; from_name?: string; domain: string; resend_api_key?: string; is_default?: boolean }) => {
       const { error } = await supabase.from('email_accounts').insert(account);
       if (error) throw error;
     },
@@ -229,8 +255,12 @@ function EmailAccountFormDialog({ open, onOpenChange, account }: { open: boolean
 
   const [customerId, setCustomerId] = useState(account?.customer_id || '');
   const [warehouseId, setWarehouseId] = useState(account?.warehouse_id || '');
+  const [fromName, setFromName] = useState(account?.from_name || '');
   const [fromEmail, setFromEmail] = useState(account?.from_email || '');
   const [domain, setDomain] = useState(account?.domain || '');
+  const [resendApiKey, setResendApiKey] = useState(account?.resend_api_key || '');
+  const [isDefault, setIsDefault] = useState(account?.is_default || false);
+  const [showApiKey, setShowApiKey] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const isEdit = !!account?.id;
@@ -239,12 +269,16 @@ function EmailAccountFormDialog({ open, onOpenChange, account }: { open: boolean
     if (!fromEmail || !domain) return;
     setSaving(true);
     try {
-      const payload = {
+      const payload: any = {
         customer_id: customerId || null,
         warehouse_id: warehouseId || null,
+        from_name: fromName || null,
         from_email: fromEmail,
         domain,
+        is_default: isDefault,
       };
+      // Only include resend_api_key if provided (don't overwrite with empty)
+      if (resendApiKey) payload.resend_api_key = resendApiKey;
       if (isEdit) {
         await updateAccount.mutateAsync({ id: account.id, ...payload });
       } else {
@@ -260,7 +294,7 @@ function EmailAccountFormDialog({ open, onOpenChange, account }: { open: boolean
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle>{isEdit ? 'Edit Email Account' : 'Add Email Account'}</DialogTitle>
         </DialogHeader>
@@ -286,12 +320,36 @@ function EmailAccountFormDialog({ open, onOpenChange, account }: { open: boolean
             </Select>
           </div>
           <div className="space-y-2">
+            <Label>From Name</Label>
+            <Input value={fromName} onChange={e => setFromName(e.target.value)} placeholder="DSC Asia" />
+          </div>
+          <div className="space-y-2">
             <Label>From Email *</Label>
-            <Input type="email" value={fromEmail} onChange={e => setFromEmail(e.target.value)} placeholder="noreply@company.com" />
+            <Input type="email" value={fromEmail} onChange={e => setFromEmail(e.target.value)} placeholder="noa@dscasia.nl" />
           </div>
           <div className="space-y-2">
             <Label>Domain *</Label>
-            <Input value={domain} onChange={e => setDomain(e.target.value)} placeholder="company.com" />
+            <Input value={domain} onChange={e => setDomain(e.target.value)} placeholder="dscasia.nl" />
+          </div>
+          <div className="space-y-2">
+            <Label>Resend API Key</Label>
+            <div className="flex gap-2">
+              <Input
+                type={showApiKey ? 'text' : 'password'}
+                value={resendApiKey}
+                onChange={e => setResendApiKey(e.target.value)}
+                placeholder={isEdit ? '••••••••••••' : 're_xxxxxxxxxxxxx'}
+                className="font-mono text-sm"
+              />
+              <Button type="button" variant="ghost" size="icon" className="h-9 w-9 shrink-0" onClick={() => setShowApiKey(!showApiKey)}>
+                {showApiKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground">Required for sending via Resend. Get it from resend.com/api-keys</p>
+          </div>
+          <div className="flex items-center gap-3">
+            <Switch checked={isDefault} onCheckedChange={setIsDefault} />
+            <Label>Default sender for this customer</Label>
           </div>
         </div>
         <DialogFooter>
@@ -323,29 +381,40 @@ function EmailAccountsTab() {
           Add Email Account
         </Button>
       </div>
-      <p className="text-sm text-muted-foreground">SMTP connection is not required — these settings are stored for future use.</p>
+      <p className="text-sm text-muted-foreground">Configure Resend email accounts per customer. The API key is used to send emails directly via the Resend API.</p>
       <div className="bg-card rounded-xl border overflow-hidden">
         <Table>
           <TableHeader>
             <TableRow>
               <TableHead>Customer</TableHead>
-              <TableHead>Warehouse</TableHead>
-              <TableHead>From Email</TableHead>
+              <TableHead>From</TableHead>
               <TableHead>Domain</TableHead>
+              <TableHead>API Key</TableHead>
+              <TableHead>Default</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {accounts.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">No email accounts configured</TableCell>
+                <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">No email accounts configured</TableCell>
               </TableRow>
             ) : accounts.map((a: any) => (
               <TableRow key={a.id}>
                 <TableCell>{a.customers?.name || '—'}</TableCell>
-                <TableCell>{a.warehouses ? `${a.warehouses.code} — ${a.warehouses.name}` : '—'}</TableCell>
-                <TableCell className="font-mono text-sm">{a.from_email}</TableCell>
+                <TableCell>
+                  <div>
+                    {a.from_name && <span className="text-sm font-medium">{a.from_name} </span>}
+                    <span className="font-mono text-sm text-muted-foreground">&lt;{a.from_email}&gt;</span>
+                  </div>
+                </TableCell>
                 <TableCell className="text-muted-foreground">{a.domain}</TableCell>
+                <TableCell className="font-mono text-xs text-muted-foreground">
+                  {a.resend_api_key ? '••••' + a.resend_api_key.slice(-4) : '—'}
+                </TableCell>
+                <TableCell>
+                  {a.is_default && <span className="text-xs font-medium text-accent bg-accent/10 px-2 py-0.5 rounded">Default</span>}
+                </TableCell>
                 <TableCell>
                   <div className="flex items-center justify-end gap-1">
                     <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setEditAccount(a); setFormOpen(true); }}>
@@ -404,10 +473,12 @@ function useCustomsInspectionTemplate() {
 
 function CustomsInspectionTab() {
   const { data: template, isLoading } = useCustomsInspectionTemplate();
+  const { data: emailAccounts = [] } = useEmailAccounts();
   const upsert = useUpsertTemplate();
   const [subject, setSubject] = useState('');
   const [body, setBody] = useState('');
   const [recipients, setRecipients] = useState('');
+  const [emailAccountId, setEmailAccountId] = useState<string>('');
   const [initialized, setInitialized] = useState(false);
 
   // Sync state when data loads
@@ -415,6 +486,7 @@ function CustomsInspectionTab() {
     setSubject(template.subject || 'Customs Inspection — {{mawb}}');
     setBody(template.body || 'Dear Customs,\n\nPlease find below the inspection parcel(s) for MAWB {{mawb}} at warehouse {{warehouse_name}}.\n\nSLA Deadline: {{sla_deadline}}\n\nParcels:\n{{parcel_list}}\n\nBest regards');
     setRecipients(template.recipients || '');
+    setEmailAccountId(template.email_account_id || '');
     setInitialized(true);
   } else if (!template && !isLoading && !initialized) {
     setSubject('Customs Inspection — {{mawb}}');
@@ -423,13 +495,13 @@ function CustomsInspectionTab() {
   }
 
   const handleSave = async () => {
-    // Upsert template + recipients
     const { data: existing } = await supabase.from('email_templates').select('id').eq('template_type', 'customs_inspection').maybeSingle();
+    const payload: any = { subject, body, recipients, email_account_id: emailAccountId || null };
     if (existing) {
-      const { error } = await supabase.from('email_templates').update({ subject, body, recipients }).eq('id', existing.id);
+      const { error } = await supabase.from('email_templates').update(payload).eq('id', existing.id);
       if (error) { toast.error('Failed to save'); return; }
     } else {
-      const { error } = await supabase.from('email_templates').insert({ template_type: 'customs_inspection', subject, body, recipients });
+      const { error } = await supabase.from('email_templates').insert({ template_type: 'customs_inspection', ...payload });
       if (error) { toast.error('Failed to save'); return; }
     }
     toast.success('Customs inspection template saved');
@@ -455,6 +527,22 @@ function CustomsInspectionTab() {
           <Label>Recipients (comma-separated)</Label>
           <Input value={recipients} onChange={e => setRecipients(e.target.value)} placeholder="customs@example.com, inspector@example.com" />
         </div>
+        <div className="space-y-2">
+          <Label>Send from account</Label>
+          <Select value={emailAccountId} onValueChange={setEmailAccountId}>
+            <SelectTrigger><SelectValue placeholder="Select email account" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="">None (use mail client)</SelectItem>
+              {emailAccounts.map((a: any) => (
+                <SelectItem key={a.id} value={a.id}>
+                  {a.from_name ? `${a.from_name} <${a.from_email}>` : a.from_email}
+                  {a.customers?.name ? ` (${a.customers.name})` : ''}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <p className="text-xs text-muted-foreground">When linked to a Resend account, emails are sent directly instead of opening the mail client.</p>
+        </div>
         <div className="flex justify-end">
           <Button onClick={handleSave}>
             <Save className="h-4 w-4 mr-2" />
@@ -465,8 +553,6 @@ function CustomsInspectionTab() {
     </div>
   );
 }
-
-/* ─── Alarm Settings Tab ─── */
 const ALARM_FIELDS = [
   { key: 'fyco_no_check_days', label: 'Fyco: no check alarm', unit: 'working days', description: 'Days after scan without customs check' },
   { key: 'fyco_no_action_days', label: 'Fyco: no action after check', unit: 'working days', description: 'Days after check without further action' },
