@@ -1,71 +1,46 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth-context';
+import { useAccessibleCustomerIds } from './use-accessible-customers';
 
 export function useShipments() {
-  const { customer } = useAuth();
+  const { data: accessibleIds = [] } = useAccessibleCustomerIds();
   return useQuery({
-    queryKey: ['shipments', customer?.id],
+    queryKey: ['shipments', accessibleIds],
     queryFn: async () => {
-      if (!customer) return [];
-
-      // Main accounts (no parent) see own + sub-account shipments
-      if (!customer.parent_id) {
-        // Get sub-account IDs (this is a parent account)
-        const { data: subAccounts } = await supabase
-          .from('customers')
-          .select('id')
-          .eq('parent_id', customer.id);
-        
-        const ids = [customer.id, ...(subAccounts ?? []).map((s: any) => s.id)];
-        
-        const { data, error } = await supabase
-          .from('shipments')
-          .select('*, subklanten(name)')
-          .in('customer_id', ids)
-          .order('created_at', { ascending: false });
-
-        if (error) {
-          console.error('Shipments query failed:', error.message);
-          throw error;
-        }
-        return data ?? [];
-      }
-
-      // Sub-accounts see only their own shipments
+      if (accessibleIds.length === 0) return [];
       const { data, error } = await supabase
         .from('shipments')
         .select('*, subklanten(name)')
-        .eq('customer_id', customer.id)
+        .in('customer_id', accessibleIds)
         .order('created_at', { ascending: false });
-
       if (error) {
         console.error('Shipments query failed:', error.message);
         throw error;
       }
       return data ?? [];
     },
-    enabled: !!customer,
+    enabled: accessibleIds.length > 0,
     retry: false,
   });
 }
 
 export function useShipment(id: string | undefined) {
-  const { customer } = useAuth();
+  const { data: accessibleIds = [] } = useAccessibleCustomerIds();
   return useQuery({
-    queryKey: ['shipment', id],
+    queryKey: ['shipment', id, accessibleIds],
     queryFn: async () => {
-      if (!id || !customer) return null;
+      if (!id || accessibleIds.length === 0) return null;
       const { data, error } = await supabase
         .from('shipments')
         .select('*, subklanten(name)')
         .eq('id', id)
-        .eq('customer_id', customer.id)
+        .in('customer_id', accessibleIds)
         .maybeSingle();
       if (error) throw error;
       return data;
     },
-    enabled: !!id && !!customer,
+    enabled: !!id && accessibleIds.length > 0,
   });
 }
 
@@ -142,7 +117,6 @@ export function useSubklanten() {
     queryKey: ['subklanten', customer?.id, customer?.parent_id],
     queryFn: async () => {
       if (!customer) return [];
-      // Sub-accounts fetch subklanten from the parent customer
       const ownerId = customer.parent_id ?? customer.id;
       const { data: subs, error } = await supabase
         .from('subklanten')
@@ -197,7 +171,6 @@ export function useInspections(shipmentId: string | undefined) {
   });
 }
 
-// Batch fetch clearances & inspections for current shipments only (for list view badges)
 export function useAllClearances(shipmentIds: string[]) {
   return useQuery({
     queryKey: ['all-clearances', shipmentIds],
@@ -208,7 +181,7 @@ export function useAllClearances(shipmentIds: string[]) {
         .select('shipment_id, status, colli_cleared')
         .in('shipment_id', shipmentIds);
       if (error) {
-        console.warn('Clearances query failed (table may not exist yet):', error.message);
+        console.warn('Clearances query failed:', error.message);
         return [];
       }
       return data ?? [];
@@ -228,7 +201,7 @@ export function useAllInspections(shipmentIds: string[]) {
         .select('shipment_id, status')
         .in('shipment_id', shipmentIds);
       if (error) {
-        console.warn('Inspections query failed (table may not exist yet):', error.message);
+        console.warn('Inspections query failed:', error.message);
         return [];
       }
       return data ?? [];
