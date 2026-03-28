@@ -160,10 +160,10 @@ function EmailTemplatesTab() {
               </div>
               <div className="space-y-2">
                 <Label>Send from account</Label>
-                <Select value={emailAccountId} onValueChange={setEmailAccountId}>
+                <Select value={emailAccountId || '__none__'} onValueChange={v => setEmailAccountId(v === '__none__' ? '' : v)}>
                   <SelectTrigger><SelectValue placeholder="Select email account" /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">None (use default)</SelectItem>
+                    <SelectItem value="__none__">None (use default)</SelectItem>
                     {emailAccounts.map((a: any) => (
                       <SelectItem key={a.id} value={a.id}>
                         {a.from_name ? `${a.from_name} <${a.from_email}>` : a.from_email}
@@ -301,20 +301,20 @@ function EmailAccountFormDialog({ open, onOpenChange, account }: { open: boolean
         <div className="space-y-4 py-4">
           <div className="space-y-2">
             <Label>Customer</Label>
-            <Select value={customerId} onValueChange={setCustomerId}>
+            <Select value={customerId || '__none__'} onValueChange={v => setCustomerId(v === '__none__' ? '' : v)}>
               <SelectTrigger><SelectValue placeholder="Select customer (optional)" /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="">None</SelectItem>
+                <SelectItem value="__none__">None</SelectItem>
                 {customers.map((c: any) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
               </SelectContent>
             </Select>
           </div>
           <div className="space-y-2">
             <Label>Warehouse</Label>
-            <Select value={warehouseId} onValueChange={setWarehouseId}>
+            <Select value={warehouseId || '__none__'} onValueChange={v => setWarehouseId(v === '__none__' ? '' : v)}>
               <SelectTrigger><SelectValue placeholder="Select warehouse (optional)" /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="">None</SelectItem>
+                <SelectItem value="__none__">None</SelectItem>
                 {warehouses.map((w: any) => <SelectItem key={w.id} value={w.id}>{w.code} — {w.name}</SelectItem>)}
               </SelectContent>
             </Select>
@@ -529,10 +529,10 @@ function CustomsInspectionTab() {
         </div>
         <div className="space-y-2">
           <Label>Send from account</Label>
-          <Select value={emailAccountId} onValueChange={setEmailAccountId}>
+          <Select value={emailAccountId || '__none__'} onValueChange={v => setEmailAccountId(v === '__none__' ? '' : v)}>
             <SelectTrigger><SelectValue placeholder="Select email account" /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="">None (use mail client)</SelectItem>
+              <SelectItem value="__none__">None (use mail client)</SelectItem>
               {emailAccounts.map((a: any) => (
                 <SelectItem key={a.id} value={a.id}>
                   {a.from_name ? `${a.from_name} <${a.from_email}>` : a.from_email}
