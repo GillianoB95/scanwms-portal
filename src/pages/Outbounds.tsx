@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Loader2, Download, Truck } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth-context';
+import { useAccessibleCustomerIds } from '@/hooks/use-accessible-customers';
 import { StatusBadge } from '@/components/StatusBadge';
 
 interface OutboundRow {
@@ -19,38 +20,25 @@ interface OutboundRow {
 
 export default function Outbounds() {
   const { customer } = useAuth();
+  const { data: accessibleIds = [] } = useAccessibleCustomerIds();
   const [outbounds, setOutbounds] = useState<OutboundRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!customer?.id) return;
+    if (!customer?.id || accessibleIds.length === 0) return;
 
     const fetch = async () => {
       setLoading(true);
       setError(null);
 
       try {
-        // Get all shipment IDs belonging to this customer (including sub-accounts)
-        const customerIds = [customer.id];
-        
-        // If this is a parent customer, also include sub-accounts
-        if (!customer.parent_id) {
-          const { data: subAccounts } = await supabase
-            .from('customers')
-            .select('id')
-            .eq('parent_id', customer.id);
-          if (subAccounts) {
-            customerIds.push(...subAccounts.map(s => s.id));
-          }
-        }
-
-        // Get shipment IDs for this customer
+        // Get shipment IDs for accessible customers
         const { data: shipments } = await supabase
           .from('shipments')
           .select('id')
-          .in('customer_id', customerIds);
+          .in('customer_id', accessibleIds);
 
         if (!shipments || shipments.length === 0) {
           setOutbounds([]);
@@ -122,28 +110,19 @@ export default function Outbounds() {
     };
 
     fetch();
-  }, [customer?.id]);
+  }, [customer?.id, accessibleIds]);
 
   const handleDownloadCmr = async (outboundId: string) => {
     if (!customer?.id) return;
     setDownloadingId(outboundId);
 
     try {
-      // Look up CMR record for this outbound + customer's subklant
-      const customerIds = [customer.id];
-      if (!customer.parent_id) {
-        const { data: subs } = await supabase
-          .from('customers')
-          .select('id')
-          .eq('parent_id', customer.id);
-        if (subs) customerIds.push(...subs.map(s => s.id));
-      }
-
+      // Look up CMR record for this outbound + accessible customers
       const { data: cmrRecords } = await supabase
         .from('cmr_records')
         .select('file_path, file_name')
         .eq('outbound_id', outboundId)
-        .in('subclient_id', customerIds);
+        .in('subclient_id', accessibleIds);
 
       if (!cmrRecords || cmrRecords.length === 0) {
         alert('No CMR file available for this outbound.');
