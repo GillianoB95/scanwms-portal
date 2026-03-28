@@ -77,22 +77,25 @@ function useUpsertTemplate() {
 
 function EmailTemplatesTab() {
   const { data: templates = [], isLoading } = useEmailTemplates();
+  const { data: emailAccounts = [] } = useEmailAccounts();
   const upsert = useUpsertTemplate();
   const [editing, setEditing] = useState<string | null>(null);
   const [subject, setSubject] = useState('');
   const [body, setBody] = useState('');
+  const [emailAccountId, setEmailAccountId] = useState<string>('');
 
   const startEdit = (key: string) => {
     const saved = templates.find((t: any) => t.template_type === key);
     const def = DEFAULT_TEMPLATES.find(d => d.key === key)!;
     setSubject(saved?.subject ?? def.default_subject);
     setBody(saved?.body ?? def.default_body);
+    setEmailAccountId(saved?.email_account_id ?? '');
     setEditing(key);
   };
 
   const handleSave = async () => {
     if (!editing) return;
-    await upsert.mutateAsync({ template_type: editing, subject, body });
+    await upsert.mutateAsync({ template_type: editing, subject, body, email_account_id: emailAccountId || null });
     setEditing(null);
   };
 
@@ -109,16 +112,25 @@ function EmailTemplatesTab() {
             <TableRow>
               <TableHead>Template</TableHead>
               <TableHead>Subject</TableHead>
+              <TableHead>Send From</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {DEFAULT_TEMPLATES.map(def => {
               const saved = templates.find((t: any) => t.template_type === def.key);
+              const linkedAccount = emailAccounts.find((a: any) => a.id === saved?.email_account_id);
               return (
                 <TableRow key={def.key}>
                   <TableCell className="font-medium">{def.label}</TableCell>
                   <TableCell className="text-sm text-muted-foreground">{saved?.subject ?? def.default_subject}</TableCell>
+                  <TableCell className="text-sm text-muted-foreground">
+                    {linkedAccount ? (
+                      <span>{linkedAccount.from_name || linkedAccount.from_email}</span>
+                    ) : (
+                      <span className="text-xs text-muted-foreground/60">Not set</span>
+                    )}
+                  </TableCell>
                   <TableCell className="text-right">
                     <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => startEdit(def.key)}>
                       <Pencil className="h-3.5 w-3.5" />
@@ -146,6 +158,21 @@ function EmailTemplatesTab() {
                 <Label>Body</Label>
                 <Textarea value={body} onChange={e => setBody(e.target.value)} rows={10} className="font-mono text-sm" />
               </div>
+              <div className="space-y-2">
+                <Label>Send from account</Label>
+                <Select value={emailAccountId} onValueChange={setEmailAccountId}>
+                  <SelectTrigger><SelectValue placeholder="Select email account" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">None (use default)</SelectItem>
+                    {emailAccounts.map((a: any) => (
+                      <SelectItem key={a.id} value={a.id}>
+                        {a.from_name ? `${a.from_name} <${a.from_email}>` : a.from_email}
+                        {a.customers?.name ? ` (${a.customers.name})` : ''}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setEditing(null)}>Cancel</Button>
@@ -160,8 +187,6 @@ function EmailTemplatesTab() {
     </div>
   );
 }
-
-/* ─── Email Accounts ─── */
 function useEmailAccounts() {
   return useQuery({
     queryKey: ['email-accounts'],
