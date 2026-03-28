@@ -35,7 +35,7 @@ Deno.serve(async (req) => {
     }
 
     const body = await req.json();
-    const { email_account_id, to, subject, html, inspection_ids } = body;
+    const { email_account_id, to, subject, html, inspection_ids, attachments } = body;
 
     if (!email_account_id || !to || !subject || !html) {
       return new Response(JSON.stringify({ error: 'Missing required fields: email_account_id, to, subject, html' }), {
@@ -70,18 +70,25 @@ Deno.serve(async (req) => {
       ? `${account.from_name} <${account.from_email}>`
       : account.from_email;
 
+    const emailPayload: any = {
+      from: fromStr,
+      to: Array.isArray(to) ? to : to.split(',').map((e: string) => e.trim()),
+      subject,
+      html,
+    };
+
+    // Add attachments if provided (Resend format: [{filename, path}] or [{filename, content}])
+    if (attachments && Array.isArray(attachments) && attachments.length > 0) {
+      emailPayload.attachments = attachments;
+    }
+
     const resendResponse = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${account.resend_api_key}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        from: fromStr,
-        to: Array.isArray(to) ? to : to.split(',').map((e: string) => e.trim()),
-        subject,
-        html,
-      }),
+      body: JSON.stringify(emailPayload),
     });
 
     const resendData = await resendResponse.json();
