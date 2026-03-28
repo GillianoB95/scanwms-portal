@@ -176,7 +176,7 @@ function useEmailAccounts() {
 function useCreateEmailAccount() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (account: { customer_id?: string; warehouse_id?: string; from_email: string; domain: string }) => {
+    mutationFn: async (account: { customer_id?: string; warehouse_id?: string; from_email: string; from_name?: string; domain: string; resend_api_key?: string; is_default?: boolean }) => {
       const { error } = await supabase.from('email_accounts').insert(account);
       if (error) throw error;
     },
