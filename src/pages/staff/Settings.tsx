@@ -33,8 +33,9 @@ const DEFAULT_TEMPLATES = [
   {
     key: 'converted_manifest',
     label: 'Converted Manifest',
-    default_subject: 'Manifest Converted — {{mawb}}',
-    default_body: 'Dear {{customer_name}},\n\nThe manifest for shipment {{mawb}} has been converted and is ready.\n\nColli: {{colli_count}}\n\nBest regards',
+    default_subject: 'Converted manifest ({{mawb}})',
+    default_body: 'Dear customs team,\n\nPlease find attached the converted manifest for shipment {{mawb}}.\n\nKind regards,\n{{warehouse_name}}',
+    hasRecipients: true,
   },
   {
     key: 'inbound_finish_scan',
@@ -58,13 +59,15 @@ function useEmailTemplates() {
 function useUpsertTemplate() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (tpl: { template_type: string; subject: string; body: string; email_account_id?: string | null }) => {
+    mutationFn: async (tpl: { template_type: string; subject: string; body: string; email_account_id?: string | null; recipients?: string | null }) => {
       const { data: existing } = await supabase.from('email_templates').select('id').eq('template_type', tpl.template_type).maybeSingle();
+      const payload: any = { subject: tpl.subject, body: tpl.body, email_account_id: tpl.email_account_id ?? null };
+      if (tpl.recipients !== undefined) payload.recipients = tpl.recipients ?? null;
       if (existing) {
-        const { error } = await supabase.from('email_templates').update({ subject: tpl.subject, body: tpl.body, email_account_id: tpl.email_account_id ?? null }).eq('id', existing.id);
+        const { error } = await supabase.from('email_templates').update(payload).eq('id', existing.id);
         if (error) throw error;
       } else {
-        const { error } = await supabase.from('email_templates').insert(tpl);
+        const { error } = await supabase.from('email_templates').insert({ template_type: tpl.template_type, ...payload });
         if (error) throw error;
       }
     },
@@ -83,6 +86,7 @@ function EmailTemplatesTab() {
   const [subject, setSubject] = useState('');
   const [body, setBody] = useState('');
   const [emailAccountId, setEmailAccountId] = useState<string>('');
+  const [recipients, setRecipients] = useState('');
 
   const startEdit = (key: string) => {
     const saved = templates.find((t: any) => t.template_type === key);
@@ -90,12 +94,21 @@ function EmailTemplatesTab() {
     setSubject(saved?.subject ?? def.default_subject);
     setBody(saved?.body ?? def.default_body);
     setEmailAccountId(saved?.email_account_id ?? '');
+    setRecipients(saved?.recipients ?? '');
     setEditing(key);
   };
 
+  const currentDef = editing ? DEFAULT_TEMPLATES.find(d => d.key === editing) : null;
+
   const handleSave = async () => {
     if (!editing) return;
-    await upsert.mutateAsync({ template_type: editing, subject, body, email_account_id: emailAccountId || null });
+    await upsert.mutateAsync({
+      template_type: editing,
+      subject,
+      body,
+      email_account_id: emailAccountId || null,
+      recipients: (currentDef as any)?.hasRecipients ? (recipients || null) : undefined,
+    });
     setEditing(null);
   };
 
@@ -173,6 +186,13 @@ function EmailTemplatesTab() {
                   </SelectContent>
                 </Select>
               </div>
+              {(currentDef as any)?.hasRecipients && (
+                <div className="space-y-2">
+                  <Label>Recipients (comma-separated)</Label>
+                  <Input value={recipients} onChange={e => setRecipients(e.target.value)} placeholder="customs@example.com, agent@example.com" />
+                  <p className="text-xs text-muted-foreground">Email address(es) of the customs agent. Converted manifest will be sent to these recipients.</p>
+                </div>
+              )}
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setEditing(null)}>Cancel</Button>

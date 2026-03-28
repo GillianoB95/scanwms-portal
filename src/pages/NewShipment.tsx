@@ -1,11 +1,13 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Upload, ArrowLeft, ArrowRight, Plane, Truck, AlertTriangle, XCircle, CheckCircle2, Loader2 } from 'lucide-react';
+import { Upload, ArrowLeft, ArrowRight, Plane, Truck, AlertTriangle, XCircle, CheckCircle2, Loader2, Mail } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth-context';
 import { useSubklanten } from '@/hooks/use-shipment-data';
 import { useHubs } from '@/hooks/use-hubs';
 import { parseAwbPdf, type AwbParsedData } from '@/lib/parse-awb';
+import { validateManifestForCustoms } from '@/lib/manifest-validator';
+import { convertManifestToCustoms, convertedRowsToXlsx } from '@/lib/manifest-converter';
 
 import * as XLSX from 'xlsx';
 import { Progress } from '@/components/ui/progress';
@@ -18,6 +20,8 @@ interface ManifestResult {
   errors: string[];
   warnings: string[];
   parsedRows: ManifestParsedRow[];
+  rawHeader?: any[];
+  rawRows?: any[][];
 }
 
 interface ManifestParsedRow {
@@ -65,17 +69,15 @@ export default function NewShipment() {
   // Auto-set subklantId for customer users (non-staff)
   const isSubAccount = !!customer?.parent_id;
   useEffect(() => {
-    if (isStaffUser) return; // Staff selects manually
+    if (isStaffUser) return;
     if (subklanten.length > 0 && !subklantId) {
       if (isSubAccount) {
-        // Sub-account: match by name
         const match = subklanten.find((s: any) =>
           s.name?.toLowerCase() === customer?.name?.toLowerCase()
         );
         if (match) setSubklantId(match.id);
         else if (subklanten.length === 1) setSubklantId(subklanten[0].id);
       } else {
-        // Main account with only one subklant: auto-select
         if (subklanten.length === 1) setSubklantId(subklanten[0].id);
       }
     }
@@ -87,7 +89,7 @@ export default function NewShipment() {
     return `${digits.slice(0, 3)}-${digits.slice(3)}`;
   }, []);
 
-  // AWB extraction — client-side via pdfjs-dist
+  // AWB extraction
   useEffect(() => {
     if (!awbFile) { setAwbData(null); setAwbError(null); setAwbManualMode(false); return; }
     let cancelled = false;
@@ -113,9 +115,7 @@ export default function NewShipment() {
     return () => { cancelled = true; };
   }, [awbFile]);
 
-
-
-  // Client-side manifest parsing
+  // Client-side manifest parsing with validation
   useEffect(() => {
     if (!manifestFile) { setManifestResult(null); setManifestError(null); return; }
     let cancelled = false;
@@ -135,7 +135,14 @@ export default function NewShipment() {
           return;
         }
 
-        const header = rows[0].map((h: any) => String(h).trim().toLowerCase());
+        const rawHeader = rows[0];
+        const rawDataRows = rows.slice(1).filter(r => r && !r.every((c: any) => c === '' || c == null));
+        const header = rawHeader.map((h: any) => String(h).trim().toLowerCase());
+
+        // Run customs validation if we have a MAWB
+        const currentMawb = mawb || '';
+        const validation = validateManifestForCustoms(rawHeader, rawDataRows, currentMawb);
+
         const colIdx = (candidates: string[]) => header.findIndex(h => candidates.some(c => h.includes(c)));
         const orderCol = colIdx(['ordernumber', 'order']);
         const parcelCol = colIdx(['parcelbarcode', 'parcel']);
@@ -152,10 +159,13 @@ export default function NewShipment() {
           return;
         }
 
+        // Use validated/fixed rows
+        const dataRows = validation.fixedRows.length > 0 ? validation.fixedRows : rawDataRows;
+
         const parsedRows: ManifestParsedRow[] = [];
         let lastHub = '';
-        for (let i = 1; i < rows.length; i++) {
-          const r = rows[i];
+        for (let i = 0; i < dataRows.length; i++) {
+          const r = dataRows[i];
           if (!r || r.every((c: any) => c === '' || c == null)) continue;
           const parcelBarcode = String(r[parcelCol] || '').trim();
           if (!parcelBarcode) continue;
@@ -179,9 +189,11 @@ export default function NewShipment() {
           setManifestResult({
             totalParcels: parsedRows.length,
             totalWeight: parsedRows.reduce((sum, r) => sum + (r.total_weight || 0), 0),
-            errors: [],
-            warnings: [],
+            errors: validation.errors,
+            warnings: validation.warnings,
             parsedRows,
+            rawHeader,
+            rawRows: dataRows,
           });
         }
       } catch (err: any) {
@@ -192,7 +204,7 @@ export default function NewShipment() {
     })();
 
     return () => { cancelled = true; };
-  }, [manifestFile]);
+  }, [manifestFile, mawb]);
 
   // Duplicate MAWB check
   useEffect(() => {
@@ -212,7 +224,6 @@ export default function NewShipment() {
       if (awbData.gross_weight != null && manualGrossWeight === '') setManualGrossWeight(String(awbData.gross_weight));
       if (awbData.chargeable_weight != null && manualChargeableWeight === '') setManualChargeableWeight(String(awbData.chargeable_weight));
     }
-    // Clear fields when awbData is reset (new file upload)
     if (!awbData) {
       setManualColli('');
       setManualGrossWeight('');
@@ -272,8 +283,10 @@ export default function NewShipment() {
       const uploadFile = async (file: File | Blob, fileType: string, filename: string) => {
         const storagePath = `shipments/${shipmentId}/${fileType}-${filename}`;
         const { error: uploadErr } = await supabase.storage.from('shipment-files').upload(storagePath, file, { upsert: true });
-        if (uploadErr) { console.warn(`File upload failed (${fileType}):`, uploadErr.message); return; }
-        await supabase.from('shipment_files').insert({ shipment_id: shipmentId, file_type: fileType, storage_path: storagePath });
+        if (uploadErr) { console.warn(`File upload failed (${fileType}):`, uploadErr.message); return null; }
+        const { error: insertErr } = await supabase.from('shipment_files').insert({ shipment_id: shipmentId, file_type: fileType, storage_path: storagePath });
+        if (insertErr) console.warn(`File record insert failed (${fileType}):`, insertErr.message);
+        return storagePath;
       };
 
       if (awbFile) await uploadFile(awbFile, 'air_waybill', awbFile.name);
@@ -289,8 +302,36 @@ export default function NewShipment() {
         const { error: insertErr } = await supabase.from('manifest_parcels').insert(batch);
         if (insertErr) console.warn('Batch insert error:', insertErr.message);
       }
-      setManifestProgress(null);
 
+      // Convert manifest to customs format and upload
+      if (manifestResult.rawHeader && manifestResult.rawRows) {
+        setManifestProgress('Converting manifest to customs format...');
+        try {
+          const { convertedHeader, convertedRows } = convertManifestToCustoms(
+            manifestResult.rawHeader,
+            manifestResult.rawRows,
+          );
+          const convertedBlob = convertedRowsToXlsx(convertedHeader, convertedRows);
+          const convertedFilename = `${mawb.replace(/\D/g, '')}_customs_converted.xlsx`;
+          const convertedPath = await uploadFile(convertedBlob, 'manifest_converted', convertedFilename);
+
+          // Send email with converted manifest
+          if (convertedPath) {
+            setManifestProgress('Sending converted manifest to customs...');
+            try {
+              await sendConvertedManifestEmail(shipmentId, customer.id, mawb, convertedPath, user.email);
+            } catch (emailErr: any) {
+              console.warn('Email dispatch failed:', emailErr.message);
+              // Don't block shipment creation on email failure
+            }
+          }
+        } catch (convErr: any) {
+          console.warn('Manifest conversion failed:', convErr.message);
+          // Don't block shipment creation on conversion failure
+        }
+      }
+
+      setManifestProgress(null);
       navigate(`/shipments/${shipmentId}`);
     } catch (err: any) {
       setSubmitError(err.message || 'Unknown error');
@@ -362,7 +403,6 @@ export default function NewShipment() {
           {awbExtracting && <div className="flex items-center gap-2 text-sm text-muted-foreground animate-fade-in"><Loader2 className="h-4 w-4 animate-spin" /> Extracting AWB data...</div>}
           {awbError && <div className="text-sm text-destructive bg-destructive/10 rounded-lg px-3 py-2 animate-fade-in flex items-center gap-1.5"><AlertTriangle className="h-4 w-4 shrink-0" />{awbError}</div>}
           
-          {/* AWB Fields — always editable, auto-filled when extraction succeeds */}
           {awbFile && (
             <div className="bg-muted/40 rounded-lg p-4 space-y-3 animate-fade-in">
               <div className="flex items-center justify-between">
@@ -391,18 +431,26 @@ export default function NewShipment() {
             </div>
           )}
 
-                    {manifestProcessing && <div className="flex items-center gap-2 text-sm text-muted-foreground animate-fade-in"><Loader2 className="h-4 w-4 animate-spin" /> Parsing manifest...</div>}
+          {manifestProcessing && <div className="flex items-center gap-2 text-sm text-muted-foreground animate-fade-in"><Loader2 className="h-4 w-4 animate-spin" /> Parsing manifest...</div>}
           {manifestError && <div className="text-sm text-destructive bg-destructive/10 rounded-lg px-3 py-2 animate-fade-in flex items-center gap-1.5"><XCircle className="h-4 w-4 shrink-0" />{manifestError}</div>}
           
           {manifestResult && !manifestProcessing && manifestResult.errors.length > 0 && (
-            <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-4 space-y-2 animate-fade-in">
-              <p className="text-sm font-semibold text-destructive flex items-center gap-1.5"><XCircle className="h-4 w-4" /> Manifest validation errors</p>
-              {manifestResult.errors.slice(0,5).map((e, i) => <div key={i} className="text-xs text-destructive">{e}</div>)}
+            <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-4 space-y-2 animate-fade-in max-h-60 overflow-y-auto">
+              <p className="text-sm font-semibold text-destructive flex items-center gap-1.5"><XCircle className="h-4 w-4" /> Manifest validation errors ({manifestResult.errors.length})</p>
+              {manifestResult.errors.slice(0, 20).map((e, i) => <div key={i} className="text-xs text-destructive font-mono">{e}</div>)}
+              {manifestResult.errors.length > 20 && <div className="text-xs text-destructive">...and {manifestResult.errors.length - 20} more errors</div>}
             </div>
           )}
-          {manifestResult && !manifestProcessing && manifestResult.parsedRows.length > 0 && (
+          {manifestResult && !manifestProcessing && manifestResult.warnings.length > 0 && manifestResult.errors.length === 0 && (
+            <div className="rounded-xl border border-yellow-500/30 bg-yellow-500/5 p-4 space-y-2 animate-fade-in max-h-40 overflow-y-auto">
+              <p className="text-sm font-semibold text-yellow-600 flex items-center gap-1.5"><AlertTriangle className="h-4 w-4" /> Auto-fixed warnings ({manifestResult.warnings.length})</p>
+              {manifestResult.warnings.slice(0, 10).map((w, i) => <div key={i} className="text-xs text-yellow-700 font-mono">{w}</div>)}
+              {manifestResult.warnings.length > 10 && <div className="text-xs text-yellow-600">...and {manifestResult.warnings.length - 10} more</div>}
+            </div>
+          )}
+          {manifestResult && !manifestProcessing && manifestResult.parsedRows.length > 0 && manifestResult.errors.length === 0 && (
             <div className="bg-emerald-500/10 rounded-lg p-3 animate-fade-in flex items-center gap-2 text-sm text-emerald-700">
-              <CheckCircle2 className="h-4 w-4" /> Manifest ready
+              <CheckCircle2 className="h-4 w-4" /> Manifest ready — {manifestResult.parsedRows.length} parcels, {manifestResult.totalWeight.toFixed(1)} kg
             </div>
           )}
           {manifestProgress && (
@@ -412,7 +460,6 @@ export default function NewShipment() {
             </div>
           )}
 
-          {/* Show which required fields are still missing */}
           {!canProceed && (awbFile || manifestFile || mawb) && (
             <div className="text-xs text-muted-foreground space-y-0.5">
               {mawb.replace(/\D/g, '').length !== 11 && <div className="text-destructive">• MAWB number incomplete</div>}
@@ -444,6 +491,10 @@ export default function NewShipment() {
               <div><span className="text-muted-foreground text-xs block">Colli</span><span className="font-bold tabular-nums">{colli || '—'}</span></div>
               <div><span className="text-muted-foreground text-xs block">Chargeable Weight</span><span className="font-bold tabular-nums">{chargeableWeight ? `${chargeableWeight.toLocaleString()} kg` : '—'}</span></div>
             </div>
+            <div className="text-xs text-muted-foreground flex items-center gap-1.5 pt-2 border-t">
+              <Mail className="h-3.5 w-3.5" />
+              Converted manifest will be auto-sent to customs after creation
+            </div>
           </div>
 
           {submitError && (
@@ -466,6 +517,95 @@ export default function NewShipment() {
       )}
     </div>
   );
+}
+
+async function sendConvertedManifestEmail(
+  shipmentId: string,
+  customerId: string,
+  mawb: string,
+  convertedStoragePath: string,
+  userEmail: string,
+) {
+  // Fetch default email account for this customer
+  const { data: emailAccount } = await supabase
+    .from('email_accounts')
+    .select('id, from_email, from_name, resend_api_key')
+    .eq('customer_id', customerId)
+    .eq('is_default', true)
+    .maybeSingle();
+
+  if (!emailAccount?.resend_api_key) {
+    console.warn('No default email account with Resend API key found for customer');
+    return;
+  }
+
+  // Fetch template
+  const { data: template } = await supabase
+    .from('email_templates')
+    .select('subject, body, recipients, email_account_id')
+    .eq('template_type', 'converted_manifest')
+    .maybeSingle();
+
+  // Use template-linked account if set, otherwise use default
+  let account = emailAccount;
+  if (template?.email_account_id) {
+    const { data: linkedAccount } = await supabase
+      .from('email_accounts')
+      .select('id, from_email, from_name, resend_api_key')
+      .eq('id', template.email_account_id)
+      .maybeSingle();
+    if (linkedAccount?.resend_api_key) account = linkedAccount;
+  }
+
+  const recipients = template?.recipients;
+  if (!recipients) {
+    console.warn('No recipients configured for converted_manifest template');
+    return;
+  }
+
+  // Generate signed URL for the converted file
+  const { data: signedUrlData } = await supabase.storage
+    .from('shipment-files')
+    .createSignedUrl(convertedStoragePath, 3600); // 1 hour
+
+  if (!signedUrlData?.signedUrl) {
+    console.warn('Could not generate signed URL for converted manifest');
+    return;
+  }
+
+  // Build email content from template
+  const subject = (template?.subject || 'Converted manifest ({{mawb}})')
+    .replace(/\{\{mawb\}\}/g, mawb);
+  const body = (template?.body || 'Dear customs team,\n\nPlease find attached the converted manifest for shipment {{mawb}}.\n\nKind regards')
+    .replace(/\{\{mawb\}\}/g, mawb);
+
+  const htmlBody = body.split('\n').map(line => `<p>${line || '&nbsp;'}</p>`).join('');
+
+  // Call send-email edge function with attachment
+  const { error } = await supabase.functions.invoke('send-email', {
+    body: {
+      email_account_id: account.id,
+      to: recipients,
+      subject,
+      html: htmlBody,
+      attachments: [{
+        filename: `${mawb.replace(/\D/g, '')}_customs_converted.xlsx`,
+        path: signedUrlData.signedUrl,
+      }],
+    },
+  });
+
+  if (error) {
+    console.warn('Send email error:', error);
+    return;
+  }
+
+  // Update shipment_files record with email sent info
+  await supabase
+    .from('shipment_files')
+    .update({ email_sent_at: new Date().toISOString(), email_sent_by: userEmail })
+    .eq('shipment_id', shipmentId)
+    .eq('file_type', 'manifest_converted');
 }
 
 function UploadZone({ label, accept, file, onFile }: { label: string; accept: string; file: File | null; onFile: (f: File | null) => void }) {
