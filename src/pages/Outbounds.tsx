@@ -11,7 +11,7 @@ interface OutboundRow {
   pickup_date: string | null;
   truck_reference: string | null;
   license_plate: string | null;
-  seal_number: string | null;
+  
   status: string;
   departed_at: string | null;
   prepared_at: string | null;
