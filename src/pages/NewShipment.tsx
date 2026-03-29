@@ -285,12 +285,12 @@ export default function NewShipment() {
       if (existing) { setSubmitError(`A shipment with MAWB ${mawb} already exists.`); setSubmitting(false); return; }
 
       const effectiveCustomerId = (isParentAccount && selectedChildId) ? selectedChildId : customer.id;
-
+      const effectiveSubklantId = (isParentAccount && selectedChildId) ? selectedChildId : (subklantId || null);
       const effectiveWeight = Math.max(grossWeight, chargeableWeight);
 
       const { data: shipment, error: shipErr } = await supabase.from('shipments').insert({
         customer_id: effectiveCustomerId,
-        subklant_id: subklantId || null,
+        subklant_id: effectiveSubklantId,
         mawb,
         transport_type: 'AIR',
         colli_expected: colli,
@@ -304,35 +304,68 @@ export default function NewShipment() {
       if (shipErr) throw new Error(`Failed to create shipment: ${shipErr.message}`);
       const shipmentId = shipment.id;
 
-      await supabase.from('shipment_status_history').insert({
+      const { error: statusHistoryErr } = await supabase.from('shipment_status_history').insert({
         shipment_id: shipmentId, status: 'Awaiting NOA',
         changed_by: user.email, notes: 'Shipment created via portal',
       });
+      if (statusHistoryErr) {
+        console.error('[NewShipment] Failed to insert shipment status history', statusHistoryErr);
+      }
 
       const uploadFile = async (file: File | Blob, fileType: string, filename: string) => {
         const storagePath = `shipments/${shipmentId}/${fileType}-${filename}`;
         const { error: uploadErr } = await supabase.storage.from('shipment-files').upload(storagePath, file, { upsert: true });
-        if (uploadErr) { console.warn(`File upload failed (${fileType}):`, uploadErr.message); return null; }
-        const { error: insertErr } = await supabase.from('shipment_files').insert({ shipment_id: shipmentId, file_type: fileType, storage_path: storagePath });
-        if (insertErr) console.warn(`File record insert failed (${fileType}):`, insertErr.message);
+        if (uploadErr) {
+          console.error(`[NewShipment] File upload failed (${fileType})`, uploadErr);
+          return null;
+        }
+
+        const { error: insertErr } = await supabase
+          .from('shipment_files')
+          .insert({ shipment_id: shipmentId, file_type: fileType, storage_path: storagePath });
+        if (insertErr) {
+          console.error(`[NewShipment] shipment_files insert failed (${fileType})`, insertErr);
+        }
+
         return storagePath;
       };
 
-      if (awbFile) await uploadFile(awbFile, 'air_waybill', awbFile.name);
-      if (manifestFile) await uploadFile(manifestFile, 'manifest_original', manifestFile.name);
-
-      // Insert manifest_parcels in batches of 50 with progress
-      const parcelRows = manifestResult.parsedRows;
-      await supabase.from('manifest_parcels').delete().eq('shipment_id', shipmentId);
-      const batchSize = 50;
-      for (let i = 0; i < parcelRows.length; i += batchSize) {
-        const batch = parcelRows.slice(i, i + batchSize).map(r => ({ shipment_id: shipmentId, ...r }));
-        setManifestProgress(`Processing ${Math.min(i + batchSize, parcelRows.length)}/${parcelRows.length}...`);
-        const { error: insertErr } = await supabase.from('manifest_parcels').insert(batch);
-        if (insertErr) console.warn('Batch insert error:', insertErr.message);
+      try {
+        if (awbFile) await uploadFile(awbFile, 'awb', awbFile.name);
+      } catch (awbUploadErr) {
+        console.error('[NewShipment] AWB upload step failed', awbUploadErr);
       }
 
-      // Convert manifest to customs format and upload
+      try {
+        if (manifestFile) await uploadFile(manifestFile, 'manifest_original', manifestFile.name);
+      } catch (manifestUploadErr) {
+        console.error('[NewShipment] Original manifest upload step failed', manifestUploadErr);
+      }
+
+      try {
+        const parcelRows = manifestResult.parsedRows;
+        const { error: deleteErr } = await supabase.from('manifest_parcels').delete().eq('shipment_id', shipmentId);
+        if (deleteErr) {
+          console.error('[NewShipment] Failed to clear existing manifest_parcels', deleteErr);
+        }
+
+        const batchSize = 50;
+        for (let i = 0; i < parcelRows.length; i += batchSize) {
+          const batch = parcelRows.slice(i, i + batchSize).map(r => ({ shipment_id: shipmentId, ...r }));
+          setManifestProgress(`Processing ${Math.min(i + batchSize, parcelRows.length)}/${parcelRows.length}...`);
+          const { error: insertErr } = await supabase.from('manifest_parcels').insert(batch);
+          if (insertErr) {
+            console.error('[NewShipment] manifest_parcels batch insert failed', {
+              startIndex: i,
+              endIndex: Math.min(i + batchSize, parcelRows.length),
+              error: insertErr,
+            });
+          }
+        }
+      } catch (manifestInsertErr) {
+        console.error('[NewShipment] Manifest population step failed', manifestInsertErr);
+      }
+
       if (manifestResult.rawHeader && manifestResult.rawRows) {
         setManifestProgress('Converting manifest to customs format...');
         try {
@@ -344,25 +377,23 @@ export default function NewShipment() {
           const convertedFilename = `${mawb.replace(/\D/g, '')}_customs_converted.xlsx`;
           const convertedPath = await uploadFile(convertedBlob, 'manifest_converted', convertedFilename);
 
-          // Send email with converted manifest
           if (convertedPath) {
             setManifestProgress('Sending converted manifest to customs...');
             try {
-              await sendConvertedManifestEmail(shipmentId, customer.id, mawb, convertedPath, user.email);
-            } catch (emailErr: any) {
-              console.warn('Email dispatch failed:', emailErr.message);
-              // Don't block shipment creation on email failure
+              await sendConvertedManifestEmail(shipmentId, effectiveCustomerId, mawb, convertedPath, user.email);
+            } catch (emailErr) {
+              console.error('[NewShipment] Converted manifest email step failed', emailErr);
             }
           }
-        } catch (convErr: any) {
-          console.warn('Manifest conversion failed:', convErr.message);
-          // Don't block shipment creation on conversion failure
+        } catch (convErr) {
+          console.error('[NewShipment] Manifest conversion step failed', convErr);
         }
       }
 
       setManifestProgress(null);
       navigate(`/shipments/${shipmentId}`);
     } catch (err: any) {
+      console.error('[NewShipment] Shipment creation failed', err);
       setSubmitError(err.message || 'Unknown error');
       setSubmitting(false);
     }
@@ -566,45 +597,52 @@ async function sendConvertedManifestEmail(
     .maybeSingle();
 
   if (!emailAccount?.resend_api_key) {
-    console.warn('No default email account with Resend API key found for customer');
+    console.error('[NewShipment] No default email account with Resend API key found for customer', { customerId });
     return;
   }
 
-  // Fetch template
-  const { data: template } = await supabase
+  const { data: template, error: templateError } = await supabase
     .from('email_templates')
     .select('subject, body, recipients, email_account_id')
     .eq('template_type', 'converted_manifest')
     .maybeSingle();
+  if (templateError) {
+    console.error('[NewShipment] Failed to load converted_manifest template', templateError);
+    return;
+  }
 
-  // Use template-linked account if set, otherwise use default
   let account = emailAccount;
   if (template?.email_account_id) {
-    const { data: linkedAccount } = await supabase
+    const { data: linkedAccount, error: linkedAccountError } = await supabase
       .from('email_accounts')
       .select('id, from_email, from_name, resend_api_key')
       .eq('id', template.email_account_id)
       .maybeSingle();
+    if (linkedAccountError) {
+      console.error('[NewShipment] Failed to load template-linked email account', linkedAccountError);
+    }
     if (linkedAccount?.resend_api_key) account = linkedAccount;
   }
 
   const recipients = template?.recipients;
   if (!recipients) {
-    console.warn('No recipients configured for converted_manifest template');
+    console.error('[NewShipment] No recipients configured for converted_manifest template');
     return;
   }
 
-  // Generate signed URL for the converted file
-  const { data: signedUrlData } = await supabase.storage
+  const { data: signedUrlData, error: signedUrlError } = await supabase.storage
     .from('shipment-files')
-    .createSignedUrl(convertedStoragePath, 3600); // 1 hour
+    .createSignedUrl(convertedStoragePath, 3600);
+  if (signedUrlError) {
+    console.error('[NewShipment] Failed to generate signed URL for converted manifest', signedUrlError);
+    return;
+  }
 
   if (!signedUrlData?.signedUrl) {
-    console.warn('Could not generate signed URL for converted manifest');
+    console.error('[NewShipment] Signed URL missing for converted manifest', { convertedStoragePath });
     return;
   }
 
-  // Build email content from template
   const subject = (template?.subject || 'Converted manifest ({{mawb}})')
     .replace(/\{\{mawb\}\}/g, mawb);
   const body = (template?.body || 'Dear customs team,\n\nPlease find attached the converted manifest for shipment {{mawb}}.\n\nKind regards')
@@ -612,7 +650,6 @@ async function sendConvertedManifestEmail(
 
   const htmlBody = body.split('\n').map(line => `<p>${line || '&nbsp;'}</p>`).join('');
 
-  // Call send-email edge function with attachment
   const { error } = await supabase.functions.invoke('send-email', {
     body: {
       email_account_id: account.id,
@@ -627,7 +664,7 @@ async function sendConvertedManifestEmail(
   });
 
   if (error) {
-    console.warn('Send email error:', error);
+    console.error('[NewShipment] Send email error', error);
     return;
   }
 
