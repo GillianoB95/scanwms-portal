@@ -588,7 +588,7 @@ export default function InboundScanning() {
       if (!boxHub || !boxWeight) {
         const { data: mpRows, error: manifestLookupError } = await supabase
           .from('manifest_parcels')
-          .select('id, outerbox_barcode, hub, waybill, weight')
+          .select('id, outerbox_barcode, hub, waybill, total_weight')
           .eq('shipment_id', shipment.id)
           .eq('outerbox_barcode', normalizedCode);
         if (manifestLookupError) throw manifestLookupError;
@@ -602,7 +602,7 @@ export default function InboundScanning() {
         if (mpRows && mpRows.length > 0) {
           if (!boxHub && mpRows[0].hub) boxHub = mpRows[0].hub;
           if (!boxWeight) {
-            const totalWeight = mpRows.reduce((sum: number, r: any) => sum + (parseFloat(r.weight) || 0), 0);
+            const totalWeight = mpRows.reduce((sum: number, r: any) => sum + (parseFloat(r.total_weight) || 0), 0);
             if (totalWeight > 0) boxWeight = totalWeight;
           }
         }
