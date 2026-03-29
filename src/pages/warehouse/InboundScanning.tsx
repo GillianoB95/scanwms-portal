@@ -545,13 +545,28 @@ export default function InboundScanning() {
       const effectiveHubMap = freshManifestData.hubMap.size > 0 ? freshManifestData.hubMap : hubMap;
       const effectiveWeightMap = freshManifestData.weightMap.size > 0 ? freshManifestData.weightMap : weightMap;
 
-      const boxHub = effectiveHubMap.get(normalizedCode) || null;
+      let boxHub = effectiveHubMap.get(normalizedCode) || null;
+      let boxWeight = effectiveWeightMap.get(normalizedCode) || null;
+
+      // Fallback: look up hub/weight from manifest_parcels DB if not in parsed manifest
+      if (!boxHub || !boxWeight) {
+        const { data: mpRows } = await supabase
+          .from('manifest_parcels')
+          .select('hub, weight')
+          .eq('shipment_id', shipment.id)
+          .ilike('outerbox_barcode', code);
+        if (mpRows && mpRows.length > 0) {
+          if (!boxHub && mpRows[0].hub) boxHub = mpRows[0].hub;
+          if (!boxWeight) {
+            const totalWeight = mpRows.reduce((sum: number, r: any) => sum + (parseFloat(r.weight) || 0), 0);
+            if (totalWeight > 0) boxWeight = totalWeight;
+          }
+        }
+      }
 
       if (boxHub && currentHub && boxHub !== currentHub) {
         throw new Error(`Cannot mix hubs on one pallet. Hub "${currentHub}" is active. Print the pallet label first to close this pallet, then you can scan "${boxHub}" boxes.`);
       }
-
-      const boxWeight = effectiveWeightMap.get(normalizedCode) || null;
 
       const insertData: any = {
         shipment_id: shipment.id,
