@@ -249,12 +249,16 @@ export default function WarehouseOutbound() {
 
   const addPallet = useMutation({
     mutationFn: async (code: string) => {
+      const normalized = code.trim().toUpperCase();
+      console.log('[OUTBOUND-SCAN] Looking up pallet:', normalized);
       const { data: pallet, error: findErr } = await supabase
         .from('pallets')
         .select('id, shipment_id, hub_code, shipments(customs_cleared)')
-        .eq('pallet_number', code)
+        .eq('pallet_number', normalized)
         .maybeSingle();
-      if (findErr || !pallet) throw new Error('Pallet not found');
+      console.log('[OUTBOUND-SCAN] Pallet lookup result:', { pallet, findErr });
+      if (findErr) throw new Error(`Pallet lookup error: ${findErr.message}`);
+      if (!pallet) throw new Error(`Pallet "${normalized}" not found`);
 
       const outboundHub = activeOutboundRecord?.hub_code;
       if (outboundHub && pallet.hub_code && pallet.hub_code !== outboundHub) {
@@ -275,12 +279,12 @@ export default function WarehouseOutbound() {
         throw new Error('Shipment not customs cleared — cannot add to outbound');
       }
 
-      const { count } = await supabase
+      const { count: inspCount } = await supabase
         .from('inspections')
         .select('*', { count: 'exact', head: true })
         .eq('shipment_id', pallet.shipment_id)
         .eq('status', 'Under Inspection');
-      if (count && count > 0) {
+      if (inspCount && inspCount > 0) {
         throw new Error('Shipment has open inspections — cannot add to outbound');
       }
 
@@ -303,10 +307,12 @@ export default function WarehouseOutbound() {
         }
       }
 
-      const { error } = await supabase
+      console.log('[OUTBOUND-SCAN] Updating pallet', pallet.id, 'with outbound_id', activeOutbound);
+      const { error, count } = await supabase
         .from('pallets')
         .update({ outbound_id: activeOutbound })
         .eq('id', pallet.id);
+      console.log('[OUTBOUND-SCAN] Update result:', { error, count });
       if (error) throw error;
 
       // If outbound was already prepared, reset to preparing
