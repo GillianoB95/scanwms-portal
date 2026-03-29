@@ -241,16 +241,21 @@ export default function NewShipment() {
   // Auto-populate manual fields when extraction succeeds
   useEffect(() => {
     if (awbData) {
-      if (awbData.pieces != null && manualColli === '') setManualColli(String(awbData.pieces));
-      if (awbData.gross_weight != null && manualGrossWeight === '') setManualGrossWeight(String(awbData.gross_weight));
-      if (awbData.chargeable_weight != null && manualChargeableWeight === '') setManualChargeableWeight(String(awbData.chargeable_weight));
+      if (awbData.pieces != null) setManualColli(String(awbData.pieces));
+      if (awbData.gross_weight != null) setManualGrossWeight(String(awbData.gross_weight));
+      if (awbData.chargeable_weight != null) setManualChargeableWeight(String(awbData.chargeable_weight));
     }
-    if (!awbData) {
+    if (!awbData && awbManualMode) {
       setManualColli('0');
       setManualGrossWeight('0');
       setManualChargeableWeight('0');
     }
-  }, [awbData]);
+    if (!awbData && !awbManualMode) {
+      setManualColli('');
+      setManualGrossWeight('');
+      setManualChargeableWeight('');
+    }
+  }, [awbData, awbManualMode]);
 
   const colli = manualColli !== '' ? (parseInt(manualColli) || 0) : 0;
   const grossWeight = manualGrossWeight !== '' ? (parseFloat(manualGrossWeight) || 0) : 0;
