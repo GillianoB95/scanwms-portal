@@ -587,8 +587,21 @@ async function sendConvertedManifestEmail(
   mawb: string,
   convertedStoragePath: string,
   userEmail: string,
-  warehouseId: string | null,
+  resolvedWarehouseId: string | null,
 ) {
+  // If warehouseId not passed, fetch from shipment record
+  let warehouseId = resolvedWarehouseId;
+  if (!warehouseId) {
+    console.log('[SendEmail] Step 0: warehouseId is null, fetching from shipment', shipmentId);
+    const { data: shipmentData } = await supabase
+      .from('shipments')
+      .select('warehouse_id')
+      .eq('id', shipmentId)
+      .single();
+    warehouseId = shipmentData?.warehouse_id || null;
+    console.log('[SendEmail] Step 0 result: warehouse_id from shipment =', warehouseId);
+  }
+
   console.log('[SendEmail] Step 1: Fetching email account by warehouse_id', warehouseId);
   let emailAccount: { id: string; from_email: string; from_name: string | null; resend_api_key: string } | null = null;
 
