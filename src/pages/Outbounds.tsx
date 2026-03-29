@@ -121,9 +121,10 @@ export default function Outbounds() {
         }));
 
         setOutbounds(rows);
-      } catch (err) {
-        console.error('Outbounds fetch error:', err);
-        setError(err instanceof Error ? err.message : 'Failed to load outbounds');
+      } catch (err: any) {
+        console.error('Outbounds fetch error:', JSON.stringify(err));
+        const msg = err?.message || err?.msg || (typeof err === 'string' ? err : 'Failed to load outbounds');
+        setError(msg);
       } finally {
         setLoading(false);
       }
