@@ -314,7 +314,7 @@ export default function WarehouseOutbound() {
         .eq('id', pallet.id)
         .select('id');
       console.log('[OUTBOUND-SCAN] Update result:', { error, updateData });
-      console.log('[OUTBOUND-SCAN] Update result:', { error, count });
+      console.log('[OUTBOUND-SCAN] Update result:', { error, updateData });
       if (error) throw error;
 
       // If outbound was already prepared, reset to preparing
