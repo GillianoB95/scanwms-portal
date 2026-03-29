@@ -824,7 +824,7 @@ export default function WarehouseOutbound() {
                     </TableHeader>
                     <TableBody>
                       {items.map((o: any) => (
-                        <TableRow key={o.id}>
+                        <TableRow key={o.id} className="cursor-pointer hover:bg-muted/50" onClick={() => setActiveOutbound(o.id)}>
                           <TableCell className="font-mono text-sm text-muted-foreground">
                             {o.outbound_number ? `Outbound #${o.outbound_number}` : '—'}
                           </TableCell>
@@ -848,7 +848,7 @@ export default function WarehouseOutbound() {
                               <X className="h-4 w-4 text-muted-foreground/40 mx-auto" />
                             )}
                           </TableCell>
-                          <TableCell>
+                          <TableCell onClick={e => e.stopPropagation()}>
                             <div className="flex items-center justify-end gap-1">
                               <Button variant="ghost" size="icon" className="h-8 w-8" title="Scan pallets" onClick={() => setActiveOutbound(o.id)}>
                                 <ScanBarcode className="h-3.5 w-3.5" />
@@ -929,7 +929,7 @@ export default function WarehouseOutbound() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowCreate(false)}>Cancel</Button>
-            <Button onClick={() => createOutbound.mutate()} disabled={!hub || !pickupDate || createOutbound.isPending}>
+            <Button onClick={() => createOutbound.mutate()} disabled={!hub || !truckRef || !pickupDate || createOutbound.isPending}>
               Create Outbound
             </Button>
           </DialogFooter>

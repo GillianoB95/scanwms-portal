@@ -141,8 +141,18 @@ export default function WarehouseDashboard() {
 
   // All shipments assigned to this warehouse (broader fetch for filtering)
   // Database may store 'Created' or 'Awaiting NOA' — fetch both
-  const allDbStatuses = ['Created', 'Awaiting NOA', 'Partial NOA', 'NOA Complete', 'In Transit', 'In Stock', 'Outbound'];
+  const allDbStatuses = ['Created', 'Awaiting NOA', 'awaiting_noa', 'Partial NOA', 'partial_noa', 'NOA Complete', 'noa_complete', 'In Transit', 'in_transit', 'In Stock', 'in_stock', 'Outbound', 'outbound'];
   const allStatuses = ['Awaiting NOA', 'Partial NOA', 'NOA Complete', 'In Transit', 'In Stock', 'Outbound'];
+
+  const statusNormalizeMap: Record<string, string> = {
+    'Created': 'Awaiting NOA',
+    'awaiting_noa': 'Awaiting NOA',
+    'partial_noa': 'Partial NOA',
+    'noa_complete': 'NOA Complete',
+    'in_transit': 'In Transit',
+    'in_stock': 'In Stock',
+    'outbound': 'Outbound',
+  };
 
   const { data: shipments = [] } = useQuery({
     queryKey: ['warehouse-shipments', warehouseId],
@@ -150,13 +160,12 @@ export default function WarehouseDashboard() {
       const query = supabase
         .from('shipments')
         .select('*')
-        .in('status', allDbStatuses)
         .order('created_at', { ascending: false });
       if (warehouseId) query.eq('warehouse_id', warehouseId);
       const { data } = await query;
       const items = (data ?? []).map((s: any) => ({
         ...s,
-        status: s.status === 'Created' ? 'Awaiting NOA' : s.status,
+        status: statusNormalizeMap[s.status] || s.status,
       }));
 
       // Lookup customer/subklant names via security definer RPC
