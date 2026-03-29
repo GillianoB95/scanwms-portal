@@ -589,17 +589,45 @@ async function sendConvertedManifestEmail(
   userEmail: string,
 ) {
   console.log('[SendEmail] Step 1: Fetching email account for customer', customerId);
-  const { data: emailAccount, error: accErr } = await supabase
+  let emailAccount: { id: string; from_email: string; from_name: string | null; resend_api_key: string } | null = null;
+
+  // Try direct customer first
+  const { data: directAccount } = await supabase
     .from('email_accounts')
     .select('id, from_email, from_name, resend_api_key')
     .eq('customer_id', customerId)
     .eq('is_default', true)
     .maybeSingle();
 
-  console.log('[SendEmail] Step 1 result:', { emailAccount: emailAccount ? { id: emailAccount.id, from_email: emailAccount.from_email, hasKey: !!emailAccount.resend_api_key, keyPrefix: emailAccount.resend_api_key?.substring(0, 10) } : null, error: accErr });
+  if (directAccount?.resend_api_key) {
+    emailAccount = directAccount;
+  } else {
+    // Try parent customer
+    console.log('[SendEmail] Step 1b: No account for customer, checking parent');
+    const { data: customerData } = await supabase
+      .from('customers')
+      .select('parent_id')
+      .eq('id', customerId)
+      .single();
+
+    if (customerData?.parent_id) {
+      const { data: parentAccount } = await supabase
+        .from('email_accounts')
+        .select('id, from_email, from_name, resend_api_key')
+        .eq('customer_id', customerData.parent_id)
+        .eq('is_default', true)
+        .maybeSingle();
+
+      if (parentAccount?.resend_api_key) {
+        emailAccount = parentAccount;
+      }
+    }
+  }
+
+  console.log('[SendEmail] Step 1 result:', { emailAccount: emailAccount ? { id: emailAccount.id, from_email: emailAccount.from_email, hasKey: !!emailAccount.resend_api_key, keyPrefix: emailAccount.resend_api_key?.substring(0, 10) } : null });
 
   if (!emailAccount?.resend_api_key) {
-    console.error('[SendEmail] BLOCKED: No default email account with Resend API key found for customer', { customerId });
+    console.error('[SendEmail] BLOCKED: No default email account with Resend API key found for customer or parent', { customerId });
     return;
   }
 
