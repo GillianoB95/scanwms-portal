@@ -277,6 +277,8 @@ export default function NewShipment() {
 
       const effectiveCustomerId = (isParentAccount && selectedChildId) ? selectedChildId : customer.id;
 
+      const effectiveWeight = Math.max(grossWeight, chargeableWeight);
+
       const { data: shipment, error: shipErr } = await supabase.from('shipments').insert({
         customer_id: effectiveCustomerId,
         subklant_id: subklantId || null,
