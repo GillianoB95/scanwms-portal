@@ -129,7 +129,7 @@ export default function Outbounds() {
       }
     };
 
-    fetch();
+    fetchOutbounds();
   }, [customer?.id, accessibleIds]);
 
   const handleDownloadCmr = async (outboundId: string) => {
