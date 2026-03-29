@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import { Loader2, Download, Truck } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth-context';
-import { useAccessibleCustomerIds } from '@/hooks/use-accessible-customers';
 import { StatusBadge } from '@/components/StatusBadge';
 
 interface OutboundRow {
@@ -11,21 +10,19 @@ interface OutboundRow {
   pickup_date: string | null;
   truck_reference: string | null;
   license_plate: string | null;
-  
   status: string;
-  hub: string | null;
+  hub_code: string | null;
 }
 
 export default function Outbounds() {
   const { customer } = useAuth();
-  const { data: accessibleIds = [] } = useAccessibleCustomerIds();
   const [outbounds, setOutbounds] = useState<OutboundRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!customer?.id || accessibleIds.length === 0) {
+    if (!customer?.id) {
       setLoading(false);
       return;
     }
@@ -35,92 +32,9 @@ export default function Outbounds() {
       setError(null);
 
       try {
-        // Get shipment IDs for accessible customers
-        const { data: shipments, error: shipErr } = await supabase
-          .from('shipments')
-          .select('id')
-          .in('customer_id', accessibleIds);
-
-        console.log('[OUTBOUNDS] Step 1 - shipments for accessibleIds', { accessibleIds, shipments: shipments?.length, shipErr });
-
-        if (!shipments || shipments.length === 0) {
-          setOutbounds([]);
-          setLoading(false);
-          return;
-        }
-
-        const shipmentIds = shipments.map(s => s.id);
-
-        // Get outerboxes linked to these shipments that have a pallet
-        const { data: outerboxes, error: obErr } = await supabase
-          .from('outerboxes')
-          .select('pallet_id')
-          .in('shipment_id', shipmentIds)
-          .not('pallet_id', 'is', null);
-
-        console.log('[OUTBOUNDS] Step 2 - outerboxes with pallet_id', { shipmentIds, outerboxes: outerboxes?.length, obErr });
-
-        if (!outerboxes || outerboxes.length === 0) {
-          setOutbounds([]);
-          setLoading(false);
-          return;
-        }
-
-        const palletIds = [...new Set(outerboxes.map(o => o.pallet_id))];
-
-        // Get pallets with outbound_id via RPC (bypasses RLS on pallets)
-        const { data: rpcData, error: palErr } = await supabase
-          .rpc('get_outbound_ids_for_pallets', { pallet_ids: palletIds });
-
-        const pallets = rpcData?.get_outbound_ids_for_pallets || rpcData || [];
-
-        console.log('[OUTBOUNDS] Step 3 - pallets via RPC', { palletIds, pallets: pallets?.length, palErr });
-
-        if (!pallets || pallets.length === 0) {
-          setOutbounds([]);
-          setLoading(false);
-          return;
-        }
-
-        const outboundIds = [...new Set(pallets.map(p => p.outbound_id))];
-
-        // Build hub lookup per outbound from outerboxes using palletIds from step 2
-        const hubsByOutbound: Record<string, Set<string>> = {};
-        const { data: obsWithHub } = await supabase
-          .from('outerboxes')
-          .select('pallet_id, hub')
-          .in('pallet_id', palletIds)
-          .not('hub', 'is', null);
-
-        if (obsWithHub) {
-          // Map pallet_id → outbound_id using RPC results
-          const palletToOutbound: Record<string, string> = {};
-          for (const p of pallets) palletToOutbound[p.id] = p.outbound_id;
-
-          for (const ob of obsWithHub) {
-            const obId = palletToOutbound[ob.pallet_id];
-            if (!obId) continue;
-            if (!hubsByOutbound[obId]) hubsByOutbound[obId] = new Set();
-            if (ob.hub) hubsByOutbound[obId].add(ob.hub);
-          }
-        }
-
-        // Fetch outbound records (no departed_at/prepared_at columns)
-        const { data: outboundData, error: obError } = await supabase
-          .from('outbounds')
-          .select('id, outbound_number, pickup_date, truck_reference, license_plate, status')
-          .in('id', outboundIds)
-          .in('status', ['prepared', 'departed'])
-          .order('pickup_date', { ascending: false });
-
-        if (obError) throw obError;
-
-        const rows: OutboundRow[] = (outboundData || []).map(ob => ({
-          ...ob,
-          hub: hubsByOutbound[ob.id] ? [...hubsByOutbound[ob.id]].join(', ') : null,
-        }));
-
-        setOutbounds(rows);
+        const { data, error: rpcErr } = await supabase.rpc('get_customer_outbounds');
+        if (rpcErr) throw rpcErr;
+        setOutbounds(data || []);
       } catch (err: any) {
         console.error('Outbounds fetch error:', JSON.stringify(err));
         const msg = err?.message || err?.msg || (typeof err === 'string' ? err : 'Failed to load outbounds');
@@ -131,19 +45,17 @@ export default function Outbounds() {
     };
 
     fetchOutbounds();
-  }, [customer?.id, accessibleIds]);
+  }, [customer?.id]);
 
   const handleDownloadCmr = async (outboundId: string) => {
     if (!customer?.id) return;
     setDownloadingId(outboundId);
 
     try {
-      // Look up CMR record for this outbound + accessible customers
       const { data: cmrRecords } = await supabase
         .from('cmr_records')
         .select('file_path, file_name')
-        .eq('outbound_id', outboundId)
-        .in('subclient_id', accessibleIds);
+        .eq('outbound_id', outboundId);
 
       if (!cmrRecords || cmrRecords.length === 0) {
         alert('No CMR file available for this outbound.');
@@ -219,7 +131,7 @@ export default function Outbounds() {
                 return (
                   <tr key={ob.id} className="border-b last:border-0 hover:bg-muted/50 transition-colors">
                     <td className="px-5 py-3 tabular-nums">{displayDate}</td>
-                    <td className="px-5 py-3 font-medium">{ob.hub || '—'}</td>
+                    <td className="px-5 py-3 font-medium">{ob.hub_code || '—'}</td>
                     <td className="px-5 py-3 font-mono">{ob.truck_reference || '—'}</td>
                     <td className="px-5 py-3 font-mono">{ob.license_plate || '—'}</td>
                     
