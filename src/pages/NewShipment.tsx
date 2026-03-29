@@ -628,33 +628,18 @@ async function sendConvertedManifestEmail(
   console.log('[SendEmail] Step 2: Fetching converted_manifest template');
   const { data: template, error: templateError } = await supabase
     .from('email_templates')
-    .select('subject, body, recipients, email_account_id')
+    .select('subject, body, recipients')
     .eq('template_type', 'converted_manifest')
     .maybeSingle();
   
-  console.log('[SendEmail] Step 2 result:', { template: template ? { subject: template.subject, recipients: template.recipients, hasBody: !!template.body, email_account_id: template.email_account_id } : null, error: templateError });
+  console.log('[SendEmail] Step 2 result:', { template: template ? { subject: template.subject, recipients: template.recipients, hasBody: !!template.body } : null, error: templateError });
   
   if (templateError) {
     console.error('[SendEmail] BLOCKED: Failed to load converted_manifest template', templateError);
     return;
   }
 
-  let account = emailAccount;
-  if (template?.email_account_id) {
-    console.log('[SendEmail] Step 2b: Template has linked account, fetching', template.email_account_id);
-    const { data: linkedAccount, error: linkedAccountError } = await supabase
-      .from('email_accounts')
-      .select('id, from_email, from_name, resend_api_key')
-      .eq('id', template.email_account_id)
-      .maybeSingle();
-    if (linkedAccountError) {
-      console.error('[SendEmail] Failed to load template-linked email account', linkedAccountError);
-    }
-    if (linkedAccount?.resend_api_key) {
-      account = linkedAccount;
-      console.log('[SendEmail] Using template-linked account instead:', { id: linkedAccount.id, from_email: linkedAccount.from_email });
-    }
-  }
+  const account = emailAccount;
 
   const recipients = template?.recipients;
   if (!recipients || (Array.isArray(recipients) && recipients.length === 0)) {
