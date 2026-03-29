@@ -657,11 +657,17 @@ export default function WarehouseOutbound() {
             </Table>
 
             <div className="flex justify-end gap-2">
-              {activeOutboundRecord?.status === 'prepared' ? (
-                <Button onClick={() => markDeparted.mutate()} disabled={markDeparted.isPending} variant="default">
-                  <Truck className="h-4 w-4 mr-2" />Truck departed
-                </Button>
-              ) : (
+              {activeOutboundRecord?.status === 'prepared' && (
+                <>
+                  <Button variant="outline" onClick={() => { setCmrOutbound(activeOutboundRecord); setCmrAddressId(''); setCmrSealNumber(''); }}>
+                    <FileText className="h-4 w-4 mr-2" />Create CMR
+                  </Button>
+                  <Button onClick={() => markDeparted.mutate()} disabled={markDeparted.isPending} variant="default">
+                    <Truck className="h-4 w-4 mr-2" />Truck departed
+                  </Button>
+                </>
+              )}
+              {activeOutboundRecord?.status !== 'prepared' && (
                 <Button onClick={() => confirmOutbound.mutate()} disabled={pallets.length === 0 || confirmOutbound.isPending}>
                   Scan finished
                 </Button>
