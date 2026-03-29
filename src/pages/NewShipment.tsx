@@ -43,6 +43,23 @@ export default function NewShipment() {
   const { data: subklanten = [] } = useSubklanten();
   const { data: activeHubCodes = [] } = useHubs();
 
+  // For parent accounts: fetch child customers (sub clients)
+  const isParentAccount = !isStaffUser && !!customer && !customer.parent_id;
+  const [childCustomers, setChildCustomers] = useState<any[]>([]);
+  const [selectedChildId, setSelectedChildId] = useState('');
+
+  useEffect(() => {
+    if (!isParentAccount || !customer?.id) return;
+    supabase
+      .from('customers')
+      .select('id, name')
+      .eq('parent_id', customer.id)
+      .order('name')
+      .then(({ data }) => {
+        setChildCustomers(data || []);
+      });
+  }, [isParentAccount, customer?.id]);
+
   const [step, setStep] = useState<Step>(1);
   const [mawb, setMawb] = useState('');
   const [subklantId, setSubklantId] = useState('');
