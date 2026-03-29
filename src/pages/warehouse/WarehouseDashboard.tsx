@@ -181,6 +181,13 @@ export default function WarehouseDashboard() {
         status: statusNormalizeMap[s.status] || s.status,
       }));
 
+      console.info('[WAREHOUSE-DASHBOARD] Normalized statuses', items.map((s: any) => ({
+        id: s.id,
+        rawStatus: data?.find((d: any) => d.id === s.id)?.status,
+        normalizedStatus: s.status,
+        mawb: s.mawb,
+      })));
+
       // Lookup customer/subklant names via security definer RPC
       const customerIds = [...new Set(items.map((s: any) => s.customer_id).filter(Boolean))];
       const subklantIds = [...new Set(items.map((s: any) => s.subklant_id).filter(Boolean))];
