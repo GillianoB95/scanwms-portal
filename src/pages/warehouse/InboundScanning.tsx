@@ -423,18 +423,48 @@ export default function InboundScanning() {
       const effectiveBoxToParcelMap = freshManifestData.boxToParcelMap.size > 0 ? freshManifestData.boxToParcelMap : boxToParcelMap;
       const effectiveParcelSet = freshManifestData.parcelSet.size > 0 ? freshManifestData.parcelSet : parcelSet;
 
-      const isBoxPreAlerted = effectiveHubMap.has(normalizedCode);
+      let isBoxPreAlerted = effectiveHubMap.has(normalizedCode);
       const isParcelInManifest = effectiveParcelSet.has(code.toUpperCase());
 
-      // Also check manifest_parcels table as fallback
+      // Fallback: check manifest_parcels DB table if not found in parsed manifest
+      let isBoxInDb = false;
       let isParcelInDb = false;
       if (!isBoxPreAlerted && !isParcelInManifest) {
-        const { count } = await supabase
+        // Check outerbox_barcode first (regular box scan)
+        const { count: boxCount } = await supabase
           .from('manifest_parcels')
           .select('id', { count: 'exact', head: true })
           .eq('shipment_id', shipment.id)
-          .ilike('parcel_barcode', code);
-        isParcelInDb = (count ?? 0) > 0;
+          .ilike('outerbox_barcode', code);
+        isBoxInDb = (boxCount ?? 0) > 0;
+
+        if (!isBoxInDb) {
+          // Check parcel_barcode (fyco individual parcel scan)
+          const { count: parcelCount } = await supabase
+            .from('manifest_parcels')
+            .select('id', { count: 'exact', head: true })
+            .eq('shipment_id', shipment.id)
+            .ilike('parcel_barcode', code);
+          isParcelInDb = (parcelCount ?? 0) > 0;
+        }
+      }
+
+      // If found as outerbox in DB, treat as pre-alerted box
+      if (isBoxInDb) {
+        isBoxPreAlerted = true;
+        // Try to get hub from manifest_parcels for this outerbox
+        if (!effectiveHubMap.has(normalizedCode)) {
+          const { data: mpRow } = await supabase
+            .from('manifest_parcels')
+            .select('hub')
+            .eq('shipment_id', shipment.id)
+            .ilike('outerbox_barcode', code)
+            .limit(1)
+            .maybeSingle();
+          if (mpRow?.hub) {
+            effectiveHubMap.set(normalizedCode, mpRow.hub);
+          }
+        }
       }
 
       // If this is a parcel barcode from the manifest → it's a fyco individual parcel scan
@@ -515,13 +545,28 @@ export default function InboundScanning() {
       const effectiveHubMap = freshManifestData.hubMap.size > 0 ? freshManifestData.hubMap : hubMap;
       const effectiveWeightMap = freshManifestData.weightMap.size > 0 ? freshManifestData.weightMap : weightMap;
 
-      const boxHub = effectiveHubMap.get(normalizedCode) || null;
+      let boxHub = effectiveHubMap.get(normalizedCode) || null;
+      let boxWeight = effectiveWeightMap.get(normalizedCode) || null;
+
+      // Fallback: look up hub/weight from manifest_parcels DB if not in parsed manifest
+      if (!boxHub || !boxWeight) {
+        const { data: mpRows } = await supabase
+          .from('manifest_parcels')
+          .select('hub, weight')
+          .eq('shipment_id', shipment.id)
+          .ilike('outerbox_barcode', code);
+        if (mpRows && mpRows.length > 0) {
+          if (!boxHub && mpRows[0].hub) boxHub = mpRows[0].hub;
+          if (!boxWeight) {
+            const totalWeight = mpRows.reduce((sum: number, r: any) => sum + (parseFloat(r.weight) || 0), 0);
+            if (totalWeight > 0) boxWeight = totalWeight;
+          }
+        }
+      }
 
       if (boxHub && currentHub && boxHub !== currentHub) {
         throw new Error(`Cannot mix hubs on one pallet. Hub "${currentHub}" is active. Print the pallet label first to close this pallet, then you can scan "${boxHub}" boxes.`);
       }
-
-      const boxWeight = effectiveWeightMap.get(normalizedCode) || null;
 
       const insertData: any = {
         shipment_id: shipment.id,
