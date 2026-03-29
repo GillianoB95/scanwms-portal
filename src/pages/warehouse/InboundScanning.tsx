@@ -451,7 +451,8 @@ export default function InboundScanning() {
           .from('manifest_parcels')
           .select('id, outerbox_barcode, hub, waybill')
           .eq('shipment_id', shipment.id)
-          .eq('outerbox_barcode', normalizedCode);
+          .eq('outerbox_barcode', normalizedCode)
+          .maybeSingle();
 
         console.log('[SCAN] manifest_parcels outerbox lookup', {
           shipmentId: shipment.id,
