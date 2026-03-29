@@ -49,13 +49,17 @@ export default function NewShipment() {
   const [selectedChildId, setSelectedChildId] = useState('');
 
   useEffect(() => {
-    if (!isParentAccount || !customer?.id) return;
+    if (!customer?.id) return;
+    // Fetch child customers for any non-staff user without a parent_id
+    console.log('[NewShipment] Checking for child customers', { customerId: customer.id, parentId: customer.parent_id, isParentAccount });
+    if (!isParentAccount) return;
     supabase
       .from('customers')
       .select('id, name')
       .eq('parent_id', customer.id)
       .order('name')
-      .then(({ data }) => {
+      .then(({ data, error }) => {
+        console.log('[NewShipment] Child customers result', { data, error });
         setChildCustomers(data || []);
       });
   }, [isParentAccount, customer?.id]);
