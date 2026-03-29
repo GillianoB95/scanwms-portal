@@ -414,7 +414,7 @@ export default function InboundScanning() {
       }
 
       const normalizedCode = normalizeBoxBarcode(code);
-      console.log('[InboundScanning] Starting barcode validation', {
+      console.log('[SCAN] Starting barcode validation', {
         shipmentId: shipment.id,
         shipmentMawb: shipment.mawb,
         scannedBarcode: code,
@@ -429,7 +429,7 @@ export default function InboundScanning() {
       let isBoxPreAlerted = effectiveHubMap.has(normalizedCode);
       const isParcelInManifest = effectiveParcelSet.has(normalizedCode);
 
-      console.log('[InboundScanning] Manifest cache lookup', {
+      console.log('[SCAN] Manifest cache lookup', {
         shipmentId: shipment.id,
         barcode: normalizedCode,
         isBoxPreAlerted,
@@ -442,62 +442,57 @@ export default function InboundScanning() {
       let isBoxInDb = false;
       let isParcelInDb = false;
       if (!isBoxPreAlerted && !isParcelInManifest) {
-        // Check outerbox_barcode first (regular box scan)
-        const { data: boxRows, count: boxCount, error: boxLookupError } = await supabase
-          .from('manifest_parcels')
-          .select('id', { count: 'exact', head: true })
-          .eq('shipment_id', shipment.id)
-          .eq('outerbox_barcode', normalizedCode);
-
-        console.log('[InboundScanning] manifest_parcels outerbox lookup', {
+        console.log('[SCAN] Manifest cache miss, querying manifest_parcels.outerbox_barcode', {
           shipmentId: shipment.id,
           barcode: normalizedCode,
-          matched: (boxCount ?? 0) > 0,
-          count: boxCount ?? 0,
+        });
+
+        const { data: mpData, error: boxLookupError } = await supabase
+          .from('manifest_parcels')
+          .select('id, outerbox_barcode, hub, waybill')
+          .eq('shipment_id', shipment.id)
+          .eq('outerbox_barcode', normalizedCode)
+          .maybeSingle();
+
+        console.log('[SCAN] manifest_parcels outerbox lookup', {
+          shipmentId: shipment.id,
+          barcode: normalizedCode,
+          matched: !!mpData,
+          row: mpData ?? null,
           error: boxLookupError?.message ?? null,
-          query: 'SELECT id FROM manifest_parcels WHERE shipment_id = <current_shipment_id> AND outerbox_barcode = <barcode>',
+          query: 'SELECT id, outerbox_barcode, hub, waybill FROM manifest_parcels WHERE shipment_id = <current_shipment_id> AND outerbox_barcode = <barcode>',
         });
 
         if (boxLookupError) throw boxLookupError;
-        isBoxInDb = (boxCount ?? 0) > 0;
+        isBoxInDb = !!mpData;
+        if (mpData?.hub && !effectiveHubMap.has(normalizedCode)) {
+          effectiveHubMap.set(normalizedCode, mpData.hub);
+        }
 
         if (!isBoxInDb) {
           // Check parcel_barcode (fyco individual parcel scan)
-          const { count: parcelCount, error: parcelLookupError } = await supabase
+          const { data: parcelData, error: parcelLookupError } = await supabase
             .from('manifest_parcels')
-            .select('id', { count: 'exact', head: true })
+            .select('id, parcel_barcode')
             .eq('shipment_id', shipment.id)
-            .eq('parcel_barcode', normalizedCode);
+            .eq('parcel_barcode', normalizedCode)
+            .maybeSingle();
 
-          console.log('[InboundScanning] manifest_parcels parcel lookup', {
+          console.log('[SCAN] manifest_parcels parcel lookup', {
             shipmentId: shipment.id,
             barcode: normalizedCode,
-            matched: (parcelCount ?? 0) > 0,
-            count: parcelCount ?? 0,
+            matched: !!parcelData,
+            row: parcelData ?? null,
             error: parcelLookupError?.message ?? null,
           });
 
           if (parcelLookupError) throw parcelLookupError;
-          isParcelInDb = (parcelCount ?? 0) > 0;
+          isParcelInDb = !!parcelData;
         }
       }
 
-      // If found as outerbox in DB, treat as pre-alerted box
       if (isBoxInDb) {
         isBoxPreAlerted = true;
-        // Try to get hub from manifest_parcels for this outerbox
-        if (!effectiveHubMap.has(normalizedCode)) {
-          const { data: mpRow } = await supabase
-            .from('manifest_parcels')
-            .select('hub')
-            .eq('shipment_id', shipment.id)
-            .eq('outerbox_barcode', normalizedCode)
-            .limit(1)
-            .maybeSingle();
-          if (mpRow?.hub) {
-            effectiveHubMap.set(normalizedCode, mpRow.hub);
-          }
-        }
       }
 
       // If this is a parcel barcode from the manifest → it's a fyco individual parcel scan
@@ -547,7 +542,7 @@ export default function InboundScanning() {
         }
       }
 
-      console.log('[InboundScanning] Validation result', {
+      console.log('[SCAN] Validation result', {
         shipmentId: shipment.id,
         barcode: normalizedCode,
         isBoxPreAlerted,
@@ -591,11 +586,19 @@ export default function InboundScanning() {
 
       // Fallback: look up hub/weight from manifest_parcels DB if not in parsed manifest
       if (!boxHub || !boxWeight) {
-        const { data: mpRows } = await supabase
+        const { data: mpRows, error: manifestLookupError } = await supabase
           .from('manifest_parcels')
-          .select('hub, weight')
+          .select('id, outerbox_barcode, hub, waybill, weight')
           .eq('shipment_id', shipment.id)
-          .ilike('outerbox_barcode', code);
+          .eq('outerbox_barcode', normalizedCode);
+        if (manifestLookupError) throw manifestLookupError;
+
+        console.log('[SCAN] scanMutation manifest_parcels fallback', {
+          shipmentId: shipment.id,
+          barcode: normalizedCode,
+          matchedRows: mpRows?.length ?? 0,
+        });
+
         if (mpRows && mpRows.length > 0) {
           if (!boxHub && mpRows[0].hub) boxHub = mpRows[0].hub;
           if (!boxWeight) {
