@@ -279,7 +279,7 @@ export default function WarehouseOutbound() {
         throw new Error('Shipment not customs cleared — cannot add to outbound');
       }
 
-      const { count } = await supabase
+      const { count: inspCount } = await supabase
         .from('inspections')
         .select('*', { count: 'exact', head: true })
         .eq('shipment_id', pallet.shipment_id)
