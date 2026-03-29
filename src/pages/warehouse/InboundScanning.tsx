@@ -528,6 +528,7 @@ export default function InboundScanning() {
 
       // Fyco detection: check if any parcel under this outerbox is an inspection parcel without scan_time
       if (isBoxPreAlerted) {
+        // First try local manifest map
         const parcelsForBox = effectiveBoxToParcelMap.get(normalizedCode) || [];
         if (parcelsForBox.length > 0) {
           const { data: fycoInspections } = await supabase
@@ -537,8 +538,43 @@ export default function InboundScanning() {
             .in('parcel_barcode', parcelsForBox)
             .is('scan_time', null);
           if (fycoInspections && fycoInspections.length > 0) {
+            console.log('[SCAN] Fyco blocked (local map)', { barcode: normalizedCode, unscanned: fycoInspections.map(f => f.parcel_barcode) });
             return { isPreAlerted: true, fycoBlocked: true, isParcelScan: false };
           }
+        }
+
+        // DB fallback: query inspections joined via manifest_parcels.outerbox_barcode
+        // This catches cases where the local manifest wasn't parsed or the box-to-parcel map is empty
+        const { data: dbFyco } = await supabase
+          .rpc('check_fyco_for_outerbox', {
+            p_shipment_id: shipment.id,
+            p_outerbox_barcode: normalizedCode,
+          });
+
+        // If RPC doesn't exist, do a manual two-step query
+        if (dbFyco === null || dbFyco === undefined) {
+          const { data: mpRows } = await supabase
+            .from('manifest_parcels')
+            .select('id, parcel_barcode')
+            .eq('shipment_id', shipment.id)
+            .eq('outerbox_barcode', normalizedCode);
+
+          if (mpRows && mpRows.length > 0) {
+            const mpIds = mpRows.map(r => r.id);
+            const { data: unscannedInsp } = await supabase
+              .from('inspections')
+              .select('id, parcel_barcode')
+              .eq('shipment_id', shipment.id)
+              .in('manifest_parcel_id', mpIds)
+              .is('scan_time', null);
+            if (unscannedInsp && unscannedInsp.length > 0) {
+              console.log('[SCAN] Fyco blocked (DB fallback)', { barcode: normalizedCode, unscanned: unscannedInsp.map(f => f.parcel_barcode) });
+              return { isPreAlerted: true, fycoBlocked: true, isParcelScan: false };
+            }
+          }
+        } else if (Array.isArray(dbFyco) && dbFyco.length > 0) {
+          console.log('[SCAN] Fyco blocked (RPC)', { barcode: normalizedCode, unscanned: dbFyco });
+          return { isPreAlerted: true, fycoBlocked: true, isParcelScan: false };
         }
       }
 
