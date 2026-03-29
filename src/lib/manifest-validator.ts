@@ -10,6 +10,7 @@ const ALLOWED_COUNTRIES = new Set([
 ]);
 
 const BARCODE_FORBIDDEN = /[!@#$%^&*()\\_+{}\[\]\\|?\/><\*\-\+]/g;
+const BOX_BARCODE_FORBIDDEN = /[!@#$%^&*()_+{}\[\]\\|?><\*\+]/g; // allows - and /
 
 export interface ManifestValidationResult {
   errors: string[];
@@ -112,11 +113,11 @@ export function validateManifestForCustoms(
       }
     }
 
-    // C - BoxBagbarcode: required, no forbidden chars
+    // C - BoxBagbarcode: required, no forbidden chars (allows - and /)
     const box = val(COL.BOXBAG);
     if (!box) {
       errors.push(`Row ${rowNum}, Column C (BoxBagbarcode): Required field is empty`);
-    } else if (BARCODE_FORBIDDEN.test(box)) {
+    } else if (BOX_BARCODE_FORBIDDEN.test(box)) {
       errors.push(`Row ${rowNum}, Column C (BoxBagbarcode): BoxBagbarcode contains forbidden characters — cannot auto-fix barcodes`);
     }
 
