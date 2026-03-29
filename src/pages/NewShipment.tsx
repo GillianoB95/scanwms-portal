@@ -43,6 +43,23 @@ export default function NewShipment() {
   const { data: subklanten = [] } = useSubklanten();
   const { data: activeHubCodes = [] } = useHubs();
 
+  // For parent accounts: fetch child customers (sub clients)
+  const isParentAccount = !isStaffUser && !!customer && !customer.parent_id;
+  const [childCustomers, setChildCustomers] = useState<any[]>([]);
+  const [selectedChildId, setSelectedChildId] = useState('');
+
+  useEffect(() => {
+    if (!isParentAccount || !customer?.id) return;
+    supabase
+      .from('customers')
+      .select('id, name')
+      .eq('parent_id', customer.id)
+      .order('name')
+      .then(({ data }) => {
+        setChildCustomers(data || []);
+      });
+  }, [isParentAccount, customer?.id]);
+
   const [step, setStep] = useState<Step>(1);
   const [mawb, setMawb] = useState('');
   const [subklantId, setSubklantId] = useState('');
@@ -242,6 +259,7 @@ export default function NewShipment() {
     awbFile &&
     manifestFile &&
     (!!subklantId || (!isStaffUser && subklanten.length === 0)) &&
+    (!isParentAccount || childCustomers.length === 0 || !!selectedChildId) &&
     manualColli !== '' && manualGrossWeight !== '' && manualChargeableWeight !== '' &&
     manifestReady &&
     !duplicateMawb &&
@@ -257,10 +275,12 @@ export default function NewShipment() {
         .eq('customer_id', customer.id).eq('mawb', mawb).maybeSingle();
       if (existing) { setSubmitError(`A shipment with MAWB ${mawb} already exists.`); setSubmitting(false); return; }
 
+      const effectiveCustomerId = (isParentAccount && selectedChildId) ? selectedChildId : customer.id;
+
       const effectiveWeight = Math.max(grossWeight, chargeableWeight);
 
       const { data: shipment, error: shipErr } = await supabase.from('shipments').insert({
-        customer_id: customer.id,
+        customer_id: effectiveCustomerId,
         subklant_id: subklantId || null,
         mawb,
         transport_type: 'AIR',
@@ -391,6 +411,17 @@ export default function NewShipment() {
                 className="w-full h-10 px-3 rounded-lg border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring">
                 <option value="">Select sub client...</option>
                 {subklanten.map((s: any) => <option key={s.id} value={s.id}>{s.name}</option>)}
+              </select>
+            </div>
+          )}
+
+          {isParentAccount && childCustomers.length > 0 && (
+            <div>
+              <label className="block text-sm font-medium mb-1.5">Sub Client</label>
+              <select value={selectedChildId} onChange={e => setSelectedChildId(e.target.value)}
+                className="w-full h-10 px-3 rounded-lg border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring">
+                <option value="">Select sub client...</option>
+                {childCustomers.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
             </div>
           )}
