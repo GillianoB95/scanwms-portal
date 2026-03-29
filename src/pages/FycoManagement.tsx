@@ -139,7 +139,7 @@ function useFycoData() {
       // Batch-fetch customer names, subklant names, and warehouse names
       const customerIds = [...new Set(inspections.map(i => (i as any).shipments?.customer_id).filter(Boolean))];
       const subklantIds = [...new Set(inspections.map(i => (i as any).shipments?.subklant_id).filter(Boolean))];
-      const warehouseCodes = [...new Set(inspections.map(i => (i as any).shipments?.warehouse_id).filter(Boolean))];
+      const warehouseIds = [...new Set(inspections.map(i => (i as any).shipments?.warehouse_id).filter(Boolean))];
 
       const [customersRes, subklantenRes, warehousesRes] = await Promise.all([
         customerIds.length > 0
@@ -148,14 +148,14 @@ function useFycoData() {
         subklantIds.length > 0
           ? supabase.from('subklanten').select('id, name').in('id', subklantIds)
           : Promise.resolve({ data: [] }),
-        warehouseCodes.length > 0
-          ? supabase.from('warehouses').select('code, name').in('code', warehouseCodes)
+        warehouseIds.length > 0
+          ? supabase.from('warehouses').select('id, code, name').in('id', warehouseIds)
           : Promise.resolve({ data: [] }),
       ]);
 
       const customerMap = new Map((customersRes.data ?? []).map((c: any) => [c.id, c.name]));
       const subklantMap = new Map((subklantenRes.data ?? []).map((s: any) => [s.id, s.name]));
-      const warehouseMap = new Map((warehousesRes.data ?? []).map((w: any) => [w.code, w.name]));
+      const warehouseMap = new Map((warehousesRes.data ?? []).map((w: any) => [w.id, w.name]));
 
       const barcodes = inspections.map(i => i.barcode ?? i.parcel_barcode).filter(Boolean);
       let outboundStatusMap = new Map<string, string>();
