@@ -13,8 +13,6 @@ interface OutboundRow {
   license_plate: string | null;
   
   status: string;
-  departed_at: string | null;
-  prepared_at: string | null;
   hub: string | null;
 }
 
@@ -83,20 +81,16 @@ export default function Outbounds() {
 
         const outboundIds = [...new Set(pallets.map(p => p.outbound_id))];
 
-        // Build hub lookup per outbound from outerboxes (hub is on outerboxes, not pallets)
+        // Build hub lookup per outbound from outerboxes using palletIds from step 2
         const hubsByOutbound: Record<string, Set<string>> = {};
-        for (const p of pallets) {
-          const matchingObs = outerboxes!.filter(o => o.pallet_id === p.id);
-          // We need hub from outerboxes - re-fetch with hub
-        }
         const { data: obsWithHub } = await supabase
           .from('outerboxes')
           .select('pallet_id, hub')
-          .in('pallet_id', pallets.map(p => p.id))
+          .in('pallet_id', palletIds)
           .not('hub', 'is', null);
 
         if (obsWithHub) {
-          // Map pallet_id → outbound_id
+          // Map pallet_id → outbound_id using RPC results
           const palletToOutbound: Record<string, string> = {};
           for (const p of pallets) palletToOutbound[p.id] = p.outbound_id;
 
@@ -108,10 +102,10 @@ export default function Outbounds() {
           }
         }
 
-        // Fetch outbound records
+        // Fetch outbound records (no departed_at/prepared_at columns)
         const { data: outboundData, error: obError } = await supabase
           .from('outbounds')
-          .select('id, outbound_number, pickup_date, truck_reference, license_plate, status, departed_at, prepared_at')
+          .select('id, outbound_number, pickup_date, truck_reference, license_plate, status')
           .in('id', outboundIds)
           .in('status', ['prepared', 'departed'])
           .order('pickup_date', { ascending: false });
@@ -214,9 +208,7 @@ export default function Outbounds() {
             </thead>
             <tbody>
               {outbounds.map(ob => {
-                const displayDate = ob.status === 'departed' && ob.departed_at
-                  ? new Date(ob.departed_at).toLocaleString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
-                  : ob.pickup_date
+                const displayDate = ob.pickup_date
                     ? new Date(ob.pickup_date).toLocaleDateString('en-GB')
                     : '—';
 
