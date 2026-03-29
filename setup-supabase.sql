@@ -223,6 +223,27 @@ drop policy if exists "Users can view own files" on shipment_files;
 create policy "Users can view own files" on shipment_files for select to authenticated
   using (shipment_id in (select public.get_my_shipment_ids()));
 
+drop policy if exists "Customers can insert shipment files" on shipment_files;
+create policy "Customers can insert shipment files" on shipment_files for insert to authenticated
+  with check (shipment_id in (select public.get_my_shipment_ids()));
+
+do $$
+begin
+  if exists (
+    select 1
+    from information_schema.tables
+    where table_schema = 'public'
+      and table_name = 'manifest_parcels'
+  ) then
+    execute 'alter table public.manifest_parcels enable row level security';
+    execute 'drop policy if exists "Customers can insert manifest parcels" on public.manifest_parcels';
+    execute '' ||
+      'create policy "Customers can insert manifest parcels" on public.manifest_parcels ' ||
+      'for insert to authenticated with check (shipment_id in (select public.get_my_shipment_ids()))';
+  end if;
+end
+$$;
+
 drop policy if exists "Users can view own clearances" on clearances;
 create policy "Users can view own clearances" on clearances for select to authenticated
   using (shipment_id in (select public.get_my_shipment_ids()));
