@@ -526,10 +526,6 @@ export default function NewShipment() {
               <div><span className="text-muted-foreground text-xs block">Colli</span><span className="font-bold tabular-nums">{colli || '—'}</span></div>
               <div><span className="text-muted-foreground text-xs block">Chargeable Weight</span><span className="font-bold tabular-nums">{chargeableWeight ? `${chargeableWeight.toLocaleString()} kg` : '—'}</span></div>
             </div>
-            <div className="text-xs text-muted-foreground flex items-center gap-1.5 pt-2 border-t">
-              <Mail className="h-3.5 w-3.5" />
-              Converted manifest will be auto-sent to customs after creation
-            </div>
           </div>
 
           {submitError && (
