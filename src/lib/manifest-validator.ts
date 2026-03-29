@@ -125,7 +125,7 @@ export function validateManifestForCustoms(
     const waybill = val(COL.WAYBILL);
     if (!waybill) {
       errors.push(`Row ${rowNum}, Column D (Waybill): Required field is empty`);
-    } else if (BARCODE_FORBIDDEN.test(waybill)) {
+    } else if (BOX_BARCODE_FORBIDDEN.test(waybill)) {
       errors.push(`Row ${rowNum}, Column D (Waybill): Waybill contains forbidden characters`);
     }
 
