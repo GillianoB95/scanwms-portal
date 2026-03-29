@@ -68,8 +68,10 @@ export default function Outbounds() {
         const palletIds = [...new Set(outerboxes.map(o => o.pallet_id))];
 
         // Get pallets with outbound_id via RPC (bypasses RLS on pallets)
-        const { data: pallets, error: palErr } = await supabase
+        const { data: rpcData, error: palErr } = await supabase
           .rpc('get_outbound_ids_for_pallets', { pallet_ids: palletIds });
+
+        const pallets = rpcData?.get_outbound_ids_for_pallets || rpcData || [];
 
         console.log('[OUTBOUNDS] Step 3 - pallets via RPC', { palletIds, pallets: pallets?.length, palErr });
 
@@ -109,7 +111,7 @@ export default function Outbounds() {
         // Fetch outbound records
         const { data: outboundData, error: obError } = await supabase
           .from('outbounds')
-          .select('id, outbound_number, pickup_date, truck_reference, license_plate, seal_number, status, departed_at, prepared_at')
+          .select('id, outbound_number, pickup_date, truck_reference, license_plate, status, departed_at, prepared_at')
           .in('id', outboundIds)
           .in('status', ['prepared', 'departed'])
           .order('pickup_date', { ascending: false });
