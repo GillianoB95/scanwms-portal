@@ -308,11 +308,13 @@ export default function WarehouseOutbound() {
       }
 
       console.log('[OUTBOUND-SCAN] Updating pallet', pallet.id, 'with outbound_id', activeOutbound);
-      const { error, count } = await supabase
+      const { error, data: updateData } = await supabase
         .from('pallets')
-        .update({ outbound_id: activeOutbound })
-        .eq('id', pallet.id);
-      console.log('[OUTBOUND-SCAN] Update result:', { error, count });
+        .update({ outbound_id: activeOutbound, status: 'Outbound' })
+        .eq('id', pallet.id)
+        .select('id');
+      console.log('[OUTBOUND-SCAN] Update result:', { error, updateData });
+      console.log('[OUTBOUND-SCAN] Update result:', { error, updateData });
       if (error) throw error;
 
       // If outbound was already prepared, reset to preparing
