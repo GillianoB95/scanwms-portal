@@ -70,7 +70,7 @@ export default function Outbounds() {
         // Get pallets with outbound_id
         const { data: pallets, error: palErr } = await supabase
           .from('pallets')
-          .select('id, outbound_id, hub')
+          .select('id, outbound_id')
           .in('id', palletIds)
           .not('outbound_id', 'is', null);
 
@@ -84,11 +84,29 @@ export default function Outbounds() {
 
         const outboundIds = [...new Set(pallets.map(p => p.outbound_id))];
 
-        // Build hub lookup per outbound
+        // Build hub lookup per outbound from outerboxes (hub is on outerboxes, not pallets)
         const hubsByOutbound: Record<string, Set<string>> = {};
         for (const p of pallets) {
-          if (!hubsByOutbound[p.outbound_id]) hubsByOutbound[p.outbound_id] = new Set();
-          if (p.hub) hubsByOutbound[p.outbound_id].add(p.hub);
+          const matchingObs = outerboxes!.filter(o => o.pallet_id === p.id);
+          // We need hub from outerboxes - re-fetch with hub
+        }
+        const { data: obsWithHub } = await supabase
+          .from('outerboxes')
+          .select('pallet_id, hub')
+          .in('pallet_id', pallets.map(p => p.id))
+          .not('hub', 'is', null);
+
+        if (obsWithHub) {
+          // Map pallet_id → outbound_id
+          const palletToOutbound: Record<string, string> = {};
+          for (const p of pallets) palletToOutbound[p.id] = p.outbound_id;
+
+          for (const ob of obsWithHub) {
+            const obId = palletToOutbound[ob.pallet_id];
+            if (!obId) continue;
+            if (!hubsByOutbound[obId]) hubsByOutbound[obId] = new Set();
+            if (ob.hub) hubsByOutbound[obId].add(ob.hub);
+          }
         }
 
         // Fetch outbound records
