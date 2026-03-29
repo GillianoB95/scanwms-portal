@@ -209,6 +209,7 @@ export default function Outbounds() {
                 <th className="text-left px-5 py-3 font-medium">Truck Ref</th>
                 <th className="text-left px-5 py-3 font-medium">License Plate</th>
                 <th className="text-left px-5 py-3 font-medium">Status</th>
+                <th className="text-center px-5 py-3 font-medium">CMR</th>
               </tr>
             </thead>
             <tbody>
@@ -248,7 +249,7 @@ export default function Outbounds() {
               })}
               {outbounds.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="px-5 py-12 text-center text-muted-foreground">
+                  <td colSpan={6} className="px-5 py-12 text-center text-muted-foreground">
                     <Truck className="h-8 w-8 mx-auto mb-2 opacity-40" />
                     No outbounds found
                   </td>
