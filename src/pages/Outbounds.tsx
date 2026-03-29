@@ -208,9 +208,7 @@ export default function Outbounds() {
                 <th className="text-left px-5 py-3 font-medium">Hub</th>
                 <th className="text-left px-5 py-3 font-medium">Truck Ref</th>
                 <th className="text-left px-5 py-3 font-medium">License Plate</th>
-                <th className="text-left px-5 py-3 font-medium">Seal Nr</th>
                 <th className="text-left px-5 py-3 font-medium">Status</th>
-                <th className="text-center px-5 py-3 font-medium">CMR</th>
               </tr>
             </thead>
             <tbody>
@@ -227,7 +225,7 @@ export default function Outbounds() {
                     <td className="px-5 py-3 font-medium">{ob.hub || '—'}</td>
                     <td className="px-5 py-3 font-mono">{ob.truck_reference || '—'}</td>
                     <td className="px-5 py-3 font-mono">{ob.license_plate || '—'}</td>
-                    <td className="px-5 py-3 font-mono">{ob.seal_number || '—'}</td>
+                    
                     <td className="px-5 py-3">
                       <StatusBadge status={ob.status === 'departed' ? 'Departed' : 'Prepared'} />
                     </td>
