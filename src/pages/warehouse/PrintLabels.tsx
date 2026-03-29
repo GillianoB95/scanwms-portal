@@ -92,11 +92,12 @@ export default function PrintLabels() {
 
     try {
       // Call RPC to get next pallet number
-      const { data: palletNumber, error: rpcError } = await supabase.rpc('generate_pallet_number', {
+      const { data: rawPalletNumber, error: rpcError } = await supabase.rpc('generate_pallet_number', {
         p_warehouse_code: warehouse.code,
       });
       if (rpcError) throw rpcError;
-      if (!palletNumber) throw new Error('No pallet number returned');
+      if (!rawPalletNumber) throw new Error('No pallet number returned');
+      const palletNumber = rawPalletNumber.replace(/^[A-Z]+/, 'PLT');
 
       const shipment = selectedShipmentData;
       const subklant = (shipment?.customers as any)?.short_name || (shipment?.customers as any)?.name || '—';

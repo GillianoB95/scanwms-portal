@@ -769,11 +769,13 @@ export default function InboundScanning() {
       const colli = unassigned.length;
       const weightKg = unassigned.reduce((sum: number, b: any) => sum + (b.weight || weightMap.get(b.barcode) || 0), 0);
 
-      const { data: palletNumber, error: rpcError } = await supabase.rpc('generate_pallet_number', {
+      const { data: rawPalletNumber, error: rpcError } = await supabase.rpc('generate_pallet_number', {
         p_warehouse_code: effectiveWarehouseCode,
       });
       if (rpcError) throw rpcError;
-      if (!palletNumber) throw new Error('No pallet number returned');
+      if (!rawPalletNumber) throw new Error('No pallet number returned');
+      // Replace warehouse prefix with PLT
+      const palletNumber = rawPalletNumber.replace(/^[A-Z]+/, 'PLT');
 
       const { data: palletRow, error: insertError } = await supabase.from('pallets').insert({
         shipment_id: shipment.id,

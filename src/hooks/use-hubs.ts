@@ -13,7 +13,7 @@ export function useHubs() {
         console.warn('Hubs query failed:', error.message);
         return [];
       }
-      return (data ?? []).map((h: any) => h.code as string);
+      return (data ?? []).map((h: any) => h.code as string).filter(Boolean);
     },
     staleTime: 5 * 60 * 1000,
   });
