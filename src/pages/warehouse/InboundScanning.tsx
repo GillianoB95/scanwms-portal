@@ -423,18 +423,48 @@ export default function InboundScanning() {
       const effectiveBoxToParcelMap = freshManifestData.boxToParcelMap.size > 0 ? freshManifestData.boxToParcelMap : boxToParcelMap;
       const effectiveParcelSet = freshManifestData.parcelSet.size > 0 ? freshManifestData.parcelSet : parcelSet;
 
-      const isBoxPreAlerted = effectiveHubMap.has(normalizedCode);
+      let isBoxPreAlerted = effectiveHubMap.has(normalizedCode);
       const isParcelInManifest = effectiveParcelSet.has(code.toUpperCase());
 
-      // Also check manifest_parcels table as fallback
+      // Fallback: check manifest_parcels DB table if not found in parsed manifest
+      let isBoxInDb = false;
       let isParcelInDb = false;
       if (!isBoxPreAlerted && !isParcelInManifest) {
-        const { count } = await supabase
+        // Check outerbox_barcode first (regular box scan)
+        const { count: boxCount } = await supabase
           .from('manifest_parcels')
           .select('id', { count: 'exact', head: true })
           .eq('shipment_id', shipment.id)
-          .ilike('parcel_barcode', code);
-        isParcelInDb = (count ?? 0) > 0;
+          .ilike('outerbox_barcode', code);
+        isBoxInDb = (boxCount ?? 0) > 0;
+
+        if (!isBoxInDb) {
+          // Check parcel_barcode (fyco individual parcel scan)
+          const { count: parcelCount } = await supabase
+            .from('manifest_parcels')
+            .select('id', { count: 'exact', head: true })
+            .eq('shipment_id', shipment.id)
+            .ilike('parcel_barcode', code);
+          isParcelInDb = (parcelCount ?? 0) > 0;
+        }
+      }
+
+      // If found as outerbox in DB, treat as pre-alerted box
+      if (isBoxInDb) {
+        isBoxPreAlerted = true;
+        // Try to get hub from manifest_parcels for this outerbox
+        if (!effectiveHubMap.has(normalizedCode)) {
+          const { data: mpRow } = await supabase
+            .from('manifest_parcels')
+            .select('hub')
+            .eq('shipment_id', shipment.id)
+            .ilike('outerbox_barcode', code)
+            .limit(1)
+            .maybeSingle();
+          if (mpRow?.hub) {
+            effectiveHubMap.set(normalizedCode, mpRow.hub);
+          }
+        }
       }
 
       // If this is a parcel barcode from the manifest → it's a fyco individual parcel scan
