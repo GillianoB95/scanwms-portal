@@ -284,7 +284,7 @@ export default function WarehouseOutbound() {
         .select('*', { count: 'exact', head: true })
         .eq('shipment_id', pallet.shipment_id)
         .eq('status', 'Under Inspection');
-      if (count && count > 0) {
+      if (inspCount && inspCount > 0) {
         throw new Error('Shipment has open inspections — cannot add to outbound');
       }
 
