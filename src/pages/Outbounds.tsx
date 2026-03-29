@@ -25,9 +25,12 @@ export default function Outbounds() {
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!customer?.id || accessibleIds.length === 0) return;
+    if (!customer?.id || accessibleIds.length === 0) {
+      setLoading(false);
+      return;
+    }
 
-    const fetch = async () => {
+    const fetchOutbounds = async () => {
       setLoading(true);
       setError(null);
 
