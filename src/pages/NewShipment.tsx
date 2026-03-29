@@ -610,13 +610,19 @@ async function sendConvertedManifestEmail(
   let emailAccount: { id: string; from_email: string; from_name: string | null; resend_api_key: string } | null = null;
 
   if (warehouseId) {
-    const { data: warehouseAccount } = await supabase
+    const { data: warehouseAccounts, error: warehouseAccountError } = await supabase
       .from('email_accounts')
       .select('id, from_email, from_name, resend_api_key')
       .eq('warehouse_id', warehouseId)
       .eq('is_default', true)
-      .maybeSingle();
+      .limit(1);
 
+    if (warehouseAccountError) {
+      console.error('[SendEmail] BLOCKED: Failed to fetch warehouse email account', warehouseAccountError);
+      return;
+    }
+
+    const warehouseAccount = warehouseAccounts?.[0];
     if (warehouseAccount?.resend_api_key) {
       emailAccount = warehouseAccount;
     }
@@ -630,14 +636,15 @@ async function sendConvertedManifestEmail(
   }
 
   console.log('[SendEmail] Step 2: Fetching converted_manifest template');
-  const { data: template, error: templateError } = await supabase
+  const { data: templates, error: templateError } = await supabase
     .from('email_templates')
     .select('subject, body, recipients')
     .eq('template_type', 'converted_manifest')
-    .maybeSingle();
-  
+    .limit(1);
+
+  const template = templates?.[0] || null;
   console.log('[SendEmail] Step 2 result:', { template: template ? { subject: template.subject, recipients: template.recipients, hasBody: !!template.body } : null, error: templateError });
-  
+
   if (templateError) {
     console.error('[SendEmail] BLOCKED: Failed to load converted_manifest template', templateError);
     return;
