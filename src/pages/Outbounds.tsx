@@ -35,10 +35,12 @@ export default function Outbounds() {
 
       try {
         // Get shipment IDs for accessible customers
-        const { data: shipments } = await supabase
+        const { data: shipments, error: shipErr } = await supabase
           .from('shipments')
           .select('id')
           .in('customer_id', accessibleIds);
+
+        console.log('[OUTBOUNDS] Step 1 - shipments for accessibleIds', { accessibleIds, shipments: shipments?.length, shipErr });
 
         if (!shipments || shipments.length === 0) {
           setOutbounds([]);
@@ -48,12 +50,14 @@ export default function Outbounds() {
 
         const shipmentIds = shipments.map(s => s.id);
 
-        // Get pallets linked to these shipments' outerboxes
-        const { data: outerboxes } = await supabase
+        // Get outerboxes linked to these shipments that have a pallet
+        const { data: outerboxes, error: obErr } = await supabase
           .from('outerboxes')
           .select('pallet_id')
           .in('shipment_id', shipmentIds)
           .not('pallet_id', 'is', null);
+
+        console.log('[OUTBOUNDS] Step 2 - outerboxes with pallet_id', { shipmentIds, outerboxes: outerboxes?.length, obErr });
 
         if (!outerboxes || outerboxes.length === 0) {
           setOutbounds([]);
@@ -64,11 +68,13 @@ export default function Outbounds() {
         const palletIds = [...new Set(outerboxes.map(o => o.pallet_id))];
 
         // Get pallets with outbound_id
-        const { data: pallets } = await supabase
+        const { data: pallets, error: palErr } = await supabase
           .from('pallets')
           .select('id, outbound_id, hub')
           .in('id', palletIds)
           .not('outbound_id', 'is', null);
+
+        console.log('[OUTBOUNDS] Step 3 - pallets with outbound_id', { palletIds, pallets: pallets?.length, palErr });
 
         if (!pallets || pallets.length === 0) {
           setOutbounds([]);
