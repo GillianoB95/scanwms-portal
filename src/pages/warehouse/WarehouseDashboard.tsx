@@ -157,12 +157,25 @@ export default function WarehouseDashboard() {
   const { data: shipments = [] } = useQuery({
     queryKey: ['warehouse-shipments', warehouseId],
     queryFn: async () => {
+      console.info('[WAREHOUSE-DASHBOARD] Fetching shipments', {
+        warehouseId,
+        filterColumn: warehouseId ? 'warehouse_id' : null,
+      });
+
       const query = supabase
         .from('shipments')
         .select('*')
         .order('created_at', { ascending: false });
       if (warehouseId) query.eq('warehouse_id', warehouseId);
-      const { data } = await query;
+      const { data, error } = await query;
+
+      console.info('[WAREHOUSE-DASHBOARD] Shipments raw response', {
+        warehouseId,
+        error,
+        rowCount: data?.length ?? 0,
+        data,
+      });
+
       const items = (data ?? []).map((s: any) => ({
         ...s,
         status: statusNormalizeMap[s.status] || s.status,
