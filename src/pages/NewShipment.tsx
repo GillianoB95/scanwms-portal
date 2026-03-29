@@ -588,60 +588,73 @@ async function sendConvertedManifestEmail(
   convertedStoragePath: string,
   userEmail: string,
 ) {
-  // Fetch default email account for this customer
-  const { data: emailAccount } = await supabase
+  console.log('[SendEmail] Step 1: Fetching email account for customer', customerId);
+  const { data: emailAccount, error: accErr } = await supabase
     .from('email_accounts')
     .select('id, from_email, from_name, resend_api_key')
     .eq('customer_id', customerId)
     .eq('is_default', true)
     .maybeSingle();
 
+  console.log('[SendEmail] Step 1 result:', { emailAccount: emailAccount ? { id: emailAccount.id, from_email: emailAccount.from_email, hasKey: !!emailAccount.resend_api_key, keyPrefix: emailAccount.resend_api_key?.substring(0, 10) } : null, error: accErr });
+
   if (!emailAccount?.resend_api_key) {
-    console.error('[NewShipment] No default email account with Resend API key found for customer', { customerId });
+    console.error('[SendEmail] BLOCKED: No default email account with Resend API key found for customer', { customerId });
     return;
   }
 
+  console.log('[SendEmail] Step 2: Fetching converted_manifest template');
   const { data: template, error: templateError } = await supabase
     .from('email_templates')
     .select('subject, body, recipients, email_account_id')
     .eq('template_type', 'converted_manifest')
     .maybeSingle();
+  
+  console.log('[SendEmail] Step 2 result:', { template: template ? { subject: template.subject, recipients: template.recipients, hasBody: !!template.body, email_account_id: template.email_account_id } : null, error: templateError });
+  
   if (templateError) {
-    console.error('[NewShipment] Failed to load converted_manifest template', templateError);
+    console.error('[SendEmail] BLOCKED: Failed to load converted_manifest template', templateError);
     return;
   }
 
   let account = emailAccount;
   if (template?.email_account_id) {
+    console.log('[SendEmail] Step 2b: Template has linked account, fetching', template.email_account_id);
     const { data: linkedAccount, error: linkedAccountError } = await supabase
       .from('email_accounts')
       .select('id, from_email, from_name, resend_api_key')
       .eq('id', template.email_account_id)
       .maybeSingle();
     if (linkedAccountError) {
-      console.error('[NewShipment] Failed to load template-linked email account', linkedAccountError);
+      console.error('[SendEmail] Failed to load template-linked email account', linkedAccountError);
     }
-    if (linkedAccount?.resend_api_key) account = linkedAccount;
+    if (linkedAccount?.resend_api_key) {
+      account = linkedAccount;
+      console.log('[SendEmail] Using template-linked account instead:', { id: linkedAccount.id, from_email: linkedAccount.from_email });
+    }
   }
 
   const recipients = template?.recipients;
-  if (!recipients) {
-    console.error('[NewShipment] No recipients configured for converted_manifest template');
+  if (!recipients || (Array.isArray(recipients) && recipients.length === 0)) {
+    console.error('[SendEmail] BLOCKED: No recipients configured for converted_manifest template');
     return;
   }
+  console.log('[SendEmail] Step 3: Recipients:', recipients);
 
+  console.log('[SendEmail] Step 4: Creating signed URL for', convertedStoragePath);
   const { data: signedUrlData, error: signedUrlError } = await supabase.storage
     .from('shipment-files')
     .createSignedUrl(convertedStoragePath, 3600);
   if (signedUrlError) {
-    console.error('[NewShipment] Failed to generate signed URL for converted manifest', signedUrlError);
+    console.error('[SendEmail] BLOCKED: Failed to generate signed URL', signedUrlError);
     return;
   }
 
   if (!signedUrlData?.signedUrl) {
-    console.error('[NewShipment] Signed URL missing for converted manifest', { convertedStoragePath });
+    console.error('[SendEmail] BLOCKED: Signed URL missing', { convertedStoragePath });
     return;
   }
+  console.log('[SendEmail] Step 4 result: Signed URL obtained');
 
   const subject = (template?.subject || 'Converted manifest ({{mawb}})')
     .replace(/\{\{mawb\}\}/g, mawb);
@@ -650,7 +663,8 @@ async function sendConvertedManifestEmail(
 
   const htmlBody = body.split('\n').map(line => `<p>${line || '&nbsp;'}</p>`).join('');
 
-  const { error } = await supabase.functions.invoke('send-email', {
+  console.log('[SendEmail] Step 5: Invoking send-email edge function', { accountId: account.id, to: recipients, subject });
+  const { data: invokeData, error } = await supabase.functions.invoke('send-email', {
     body: {
       email_account_id: account.id,
       to: recipients,
@@ -663,10 +677,13 @@ async function sendConvertedManifestEmail(
     },
   });
 
+  console.log('[SendEmail] Step 5 result:', { invokeData, error });
+
   if (error) {
-    console.error('[NewShipment] Send email error', error);
+    console.error('[SendEmail] Send email error', error);
     return;
   }
+  console.log('[SendEmail] ✅ Email sent successfully');
 
   // Update shipment_files record with email sent info
   await supabase
