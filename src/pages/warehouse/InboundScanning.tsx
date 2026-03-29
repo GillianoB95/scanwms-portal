@@ -138,31 +138,22 @@ export default function InboundScanning() {
   const [pendingPalletNumber, setPendingPalletNumber] = useState('');
   const { data: hubs = [] } = useHubs();
 
-  // Warehouse details for PrintNode — use customer.warehouse_id or fall back to shipment.warehouse_id (which is a code like 'DSC')
+  // Warehouse details for PrintNode — use customer.warehouse_id or fall back to shipment.warehouse_id (both are UUIDs)
   const warehouseIdFromCustomer = customer?.warehouse_id || null;
-  const warehouseCodeFromShipment = shipment?.warehouse_id || null;
+  const warehouseIdFromShipment = shipment?.warehouse_id || null;
+  const resolvedWarehouseId = warehouseIdFromCustomer || warehouseIdFromShipment;
   const { data: warehouse } = useQuery({
-    queryKey: ['warehouse-detail', warehouseIdFromCustomer, warehouseCodeFromShipment],
+    queryKey: ['warehouse-detail', resolvedWarehouseId],
     queryFn: async () => {
-      if (warehouseIdFromCustomer) {
-        const { data } = await supabase
-          .from('warehouses')
-          .select('id, code, name, printnode_id, printnode_key, printnode_name')
-          .eq('id', warehouseIdFromCustomer)
-          .single();
-        if (data) return data;
-      }
-      if (warehouseCodeFromShipment) {
-        const { data } = await supabase
-          .from('warehouses')
-          .select('id, code, name, printnode_id, printnode_key, printnode_name')
-          .eq('code', warehouseCodeFromShipment)
-          .single();
-        if (data) return data;
-      }
-      return null;
+      if (!resolvedWarehouseId) return null;
+      const { data } = await supabase
+        .from('warehouses')
+        .select('id, code, name, printnode_id, printnode_key, printnode_name')
+        .eq('id', resolvedWarehouseId)
+        .single();
+      return data ?? null;
     },
-    enabled: !!warehouseIdFromCustomer || !!warehouseCodeFromShipment,
+    enabled: !!resolvedWarehouseId,
   });
 
   const fetchManifestDataForShipment = useCallback(async (shipmentId: string) => {
