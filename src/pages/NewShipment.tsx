@@ -55,7 +55,7 @@ export default function NewShipment() {
     if (!isParentAccount) return;
     supabase
       .from('customers')
-      .select('id, name')
+      .select('id, name, warehouse_id')
       .eq('parent_id', customer.id)
       .order('name')
       .then(({ data, error }) => {
@@ -287,6 +287,10 @@ export default function NewShipment() {
       const effectiveCustomerId = (isParentAccount && selectedChildId) ? selectedChildId : customer.id;
       const effectiveSubklantId = (isParentAccount && selectedChildId) ? selectedChildId : (subklantId || null);
       const effectiveWeight = Math.max(grossWeight, chargeableWeight);
+      const selectedChild = (isParentAccount && selectedChildId)
+        ? childCustomers.find((c: any) => c.id === selectedChildId)
+        : null;
+      const effectiveWarehouseId = selectedChild?.warehouse_id || customer.warehouse_id || null;
 
       const { data: shipment, error: shipErr } = await supabase.from('shipments').insert({
         customer_id: effectiveCustomerId,
@@ -296,7 +300,7 @@ export default function NewShipment() {
         colli_expected: colli,
         gross_weight: grossWeight,
         chargeable_weight: effectiveWeight,
-        warehouse_id: customer.warehouse_id || null,
+        warehouse_id: effectiveWarehouseId,
         status: 'Awaiting NOA',
         parcels: manifestResult?.totalParcels || 0,
       }).select('id').single();
@@ -380,7 +384,7 @@ export default function NewShipment() {
           if (convertedPath) {
             setManifestProgress('Sending converted manifest to customs...');
             try {
-              await sendConvertedManifestEmail(shipmentId, effectiveCustomerId, mawb, convertedPath, user.email, customer.warehouse_id || null);
+              await sendConvertedManifestEmail(shipmentId, effectiveCustomerId, mawb, convertedPath, user.email, effectiveWarehouseId);
             } catch (emailErr) {
               console.error('[NewShipment] Converted manifest email step failed', emailErr);
             }
