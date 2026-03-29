@@ -412,6 +412,17 @@ export default function NewShipment() {
             </div>
           )}
 
+          {isParentAccount && childCustomers.length > 0 && (
+            <div>
+              <label className="block text-sm font-medium mb-1.5">Sub Client</label>
+              <select value={selectedChildId} onChange={e => setSelectedChildId(e.target.value)}
+                className="w-full h-10 px-3 rounded-lg border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring">
+                <option value="">Select sub client...</option>
+                {childCustomers.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </select>
+            </div>
+          )}
+
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <UploadZone label="Air Waybill (PDF)" accept=".pdf" file={awbFile} onFile={setAwbFile} />
             <UploadZone label="Manifest (XLS/XLSX)" accept=".xls,.xlsx" file={manifestFile} onFile={setManifestFile} />
