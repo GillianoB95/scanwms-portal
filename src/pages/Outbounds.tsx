@@ -11,7 +11,7 @@ interface OutboundRow {
   pickup_date: string | null;
   truck_reference: string | null;
   license_plate: string | null;
-  seal_number: string | null;
+  
   status: string;
   departed_at: string | null;
   prepared_at: string | null;
@@ -68,8 +68,10 @@ export default function Outbounds() {
         const palletIds = [...new Set(outerboxes.map(o => o.pallet_id))];
 
         // Get pallets with outbound_id via RPC (bypasses RLS on pallets)
-        const { data: pallets, error: palErr } = await supabase
+        const { data: rpcData, error: palErr } = await supabase
           .rpc('get_outbound_ids_for_pallets', { pallet_ids: palletIds });
+
+        const pallets = rpcData?.get_outbound_ids_for_pallets || rpcData || [];
 
         console.log('[OUTBOUNDS] Step 3 - pallets via RPC', { palletIds, pallets: pallets?.length, palErr });
 
@@ -109,7 +111,7 @@ export default function Outbounds() {
         // Fetch outbound records
         const { data: outboundData, error: obError } = await supabase
           .from('outbounds')
-          .select('id, outbound_number, pickup_date, truck_reference, license_plate, seal_number, status, departed_at, prepared_at')
+          .select('id, outbound_number, pickup_date, truck_reference, license_plate, status, departed_at, prepared_at')
           .in('id', outboundIds)
           .in('status', ['prepared', 'departed'])
           .order('pickup_date', { ascending: false });
@@ -206,7 +208,6 @@ export default function Outbounds() {
                 <th className="text-left px-5 py-3 font-medium">Hub</th>
                 <th className="text-left px-5 py-3 font-medium">Truck Ref</th>
                 <th className="text-left px-5 py-3 font-medium">License Plate</th>
-                <th className="text-left px-5 py-3 font-medium">Seal Nr</th>
                 <th className="text-left px-5 py-3 font-medium">Status</th>
                 <th className="text-center px-5 py-3 font-medium">CMR</th>
               </tr>
@@ -225,7 +226,7 @@ export default function Outbounds() {
                     <td className="px-5 py-3 font-medium">{ob.hub || '—'}</td>
                     <td className="px-5 py-3 font-mono">{ob.truck_reference || '—'}</td>
                     <td className="px-5 py-3 font-mono">{ob.license_plate || '—'}</td>
-                    <td className="px-5 py-3 font-mono">{ob.seal_number || '—'}</td>
+                    
                     <td className="px-5 py-3">
                       <StatusBadge status={ob.status === 'departed' ? 'Departed' : 'Prepared'} />
                     </td>
@@ -248,7 +249,7 @@ export default function Outbounds() {
               })}
               {outbounds.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="px-5 py-12 text-center text-muted-foreground">
+                  <td colSpan={6} className="px-5 py-12 text-center text-muted-foreground">
                     <Truck className="h-8 w-8 mx-auto mb-2 opacity-40" />
                     No outbounds found
                   </td>
