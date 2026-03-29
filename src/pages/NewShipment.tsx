@@ -259,6 +259,7 @@ export default function NewShipment() {
     awbFile &&
     manifestFile &&
     (!!subklantId || (!isStaffUser && subklanten.length === 0)) &&
+    (!isParentAccount || childCustomers.length === 0 || !!selectedChildId) &&
     manualColli !== '' && manualGrossWeight !== '' && manualChargeableWeight !== '' &&
     manifestReady &&
     !duplicateMawb &&
@@ -274,10 +275,10 @@ export default function NewShipment() {
         .eq('customer_id', customer.id).eq('mawb', mawb).maybeSingle();
       if (existing) { setSubmitError(`A shipment with MAWB ${mawb} already exists.`); setSubmitting(false); return; }
 
-      const effectiveWeight = Math.max(grossWeight, chargeableWeight);
+      const effectiveCustomerId = (isParentAccount && selectedChildId) ? selectedChildId : customer.id;
 
       const { data: shipment, error: shipErr } = await supabase.from('shipments').insert({
-        customer_id: customer.id,
+        customer_id: effectiveCustomerId,
         subklant_id: subklantId || null,
         mawb,
         transport_type: 'AIR',
