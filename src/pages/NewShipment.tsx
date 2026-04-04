@@ -375,19 +375,26 @@ export default function NewShipment() {
         setManifestProgress('Processing manifest (validate → clean → convert)...');
         try {
           // Call the process-manifest Edge Function (v3) for full pipeline
-          const { data: processed, error: processErr } = await supabase.functions.invoke('process-manifest', {
-            body: { rows: [manifestResult.rawHeader, ...manifestResult.rawRows] },
+          const inputRows = [manifestResult.rawHeader, ...manifestResult.rawRows];
+          console.log('[process-manifest] Sending rows:', inputRows.length);
+          const { data: rawResponse, error: processErr } = await supabase.functions.invoke('process-manifest', {
+            body: { rows: inputRows },
           });
+
+          // Handle case where response is a string (not auto-parsed)
+          const processed = typeof rawResponse === 'string' ? JSON.parse(rawResponse) : rawResponse;
+
+          console.log('[process-manifest] Response type:', typeof rawResponse, 'rows:', processed?.rows?.length, 'stats:', processed?.stats);
 
           if (processErr || !processed?.success) {
             throw new Error(processed?.error || processErr?.message || 'Manifest processing failed');
           }
 
-          console.log('[NewShipment] process-manifest stats:', processed.stats);
-
           // processed.rows = array of arrays (first row is header, rest is data)
           const [convertedHeader, ...convertedDataRows] = processed.rows;
+          console.log('[process-manifest] Header cols:', convertedHeader?.length, 'Data rows:', convertedDataRows?.length);
           const convertedBlob = convertedRowsToXlsx(convertedHeader, convertedDataRows);
+          console.log('[process-manifest] XLSX blob size:', convertedBlob.size);
           const convertedFilename = `${mawb.replace(/\D/g, '')}_customs_converted.xlsx`;
           const convertedPath = await uploadFile(convertedBlob, 'manifest_converted', convertedFilename);
 
