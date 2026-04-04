@@ -547,12 +547,61 @@ export default function ShipmentDetail() {
             <div><span className="text-muted-foreground block text-xs mb-0.5">Unloaded</span>{new Date(shipment.unloaded_at).toLocaleDateString('en-GB')}</div>
           )}
         </div>
-        <div className="flex gap-2 mt-4 pt-4 border-t">
+        <div className="flex gap-2 mt-4 pt-4 border-t flex-wrap">
           {['Air Waybill', 'Original Manifest'].map(f => (
             <button key={f} className="inline-flex items-center gap-1.5 text-xs font-medium text-accent hover:underline">
               <Download className="h-3.5 w-3.5" /> {f}
             </button>
           ))}
+          <button
+            disabled={resending}
+            onClick={async () => {
+              setResending(true);
+              try {
+                // Fetch shipment's converted manifest file path & warehouse_id
+                const { data: files } = await supabase
+                  .from('shipment_files')
+                  .select('storage_path')
+                  .eq('shipment_id', shipment.id)
+                  .eq('file_type', 'manifest_converted')
+                  .limit(1);
+                const convertedPath = files?.[0]?.storage_path;
+                if (!convertedPath) {
+                  toast.error('No converted manifest found for this shipment');
+                  setResending(false);
+                  return;
+                }
+                console.log('[ResendEmail] Invoking send-email', { shipmentId: shipment.id, warehouseId: shipment.warehouse_id, mawb: shipment.mawb, convertedPath });
+                const { data, error } = await supabase.functions.invoke('send-email', {
+                  body: {
+                    mode: 'send_converted_manifest',
+                    warehouse_id: shipment.warehouse_id,
+                    mawb: shipment.mawb,
+                    shipment_id: shipment.id,
+                    converted_storage_path: convertedPath,
+                  },
+                });
+                if (error) {
+                  console.error('[ResendEmail] Error', error);
+                  toast.error(`Email failed: ${error.message}`);
+                } else if (data?.error) {
+                  console.error('[ResendEmail] Server error', data);
+                  toast.error(`Email failed: ${data.error}`);
+                } else {
+                  console.log('[ResendEmail] ✅ Success', data);
+                  toast.success(`Converted manifest email sent! (ID: ${data?.id})`);
+                }
+              } catch (err: any) {
+                console.error('[ResendEmail] Exception', err);
+                toast.error(`Email failed: ${err.message}`);
+              }
+              setResending(false);
+            }}
+            className="inline-flex items-center gap-1.5 text-xs font-medium text-accent hover:underline disabled:opacity-50"
+          >
+            {resending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
+            {resending ? 'Sending...' : 'Resend Manifest Email'}
+          </button>
         </div>
       </div>
 
