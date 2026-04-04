@@ -53,21 +53,32 @@ export async function sendConvertedManifestEmail(params: {
     return { success: false, error: 'No valid recipients after parsing template.recipients' };
   }
 
-  // 4. Generate signed URL for attachment
-  const { data: signedUrlData, error: signedUrlError } = await supabase.storage
+  // 4. Download attachment file as base64
+  const { data: fileBlob, error: downloadError } = await supabase.storage
     .from('shipment-files')
-    .createSignedUrl(convertedStoragePath, 3600);
+    .download(convertedStoragePath);
 
-  if (signedUrlError || !signedUrlData?.signedUrl) {
-    return { success: false, error: `Failed to generate signed URL: ${signedUrlError?.message || 'unknown'}` };
+  if (downloadError || !fileBlob) {
+    return { success: false, error: `Failed to download attachment: ${downloadError?.message || 'unknown'}` };
   }
+
+  // Convert blob to base64
+  const arrayBuffer = await fileBlob.arrayBuffer();
+  const uint8Array = new Uint8Array(arrayBuffer);
+  let binary = '';
+  for (let i = 0; i < uint8Array.length; i++) {
+    binary += String.fromCharCode(uint8Array[i]);
+  }
+  const base64Content = btoa(binary);
+
+  console.log('[ResendEmail] Attachment downloaded, base64 length:', base64Content.length);
 
   // 5. Build email content
   const subject = String(template.subject || 'Converted manifest ({{mawb}})').replace(/\{\{mawb\}\}/g, mawb);
   const bodyText = String(template.body || 'Dear customs team,\n\nPlease find attached the converted manifest for shipment {{mawb}}.\n\nKind regards').replace(/\{\{mawb\}\}/g, mawb);
   const htmlBody = bodyText.split('\n').map((line: string) => `<p>${line || '&nbsp;'}</p>`).join('');
 
-  // 6. Call Edge Function with explicit fields (generic path, no mode)
+  // 6. Call Edge Function with explicit fields and base64 attachment
   const { data, error } = await supabase.functions.invoke('send-email', {
     body: {
       email_account_id: account.id,
@@ -78,7 +89,7 @@ export async function sendConvertedManifestEmail(params: {
       html: htmlBody,
       attachments: [{
         filename: `${mawb.replace(/\D/g, '')}_customs_converted.xlsx`,
-        path: signedUrlData.signedUrl,
+        content: base64Content,
       }],
     },
   });
