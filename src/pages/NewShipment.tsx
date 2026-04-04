@@ -384,7 +384,21 @@ export default function NewShipment() {
           if (convertedPath) {
             setManifestProgress('Sending converted manifest to customs...');
             try {
-              await sendConvertedManifestEmail(shipmentId, effectiveCustomerId, mawb, convertedPath, user.email, effectiveWarehouseId);
+              console.log('[NewShipment] Invoking send-email with mode=send_converted_manifest', { shipmentId, warehouseId: effectiveWarehouseId, mawb, convertedPath });
+              const { data: emailResult, error: emailErr } = await supabase.functions.invoke('send-email', {
+                body: {
+                  mode: 'send_converted_manifest',
+                  warehouse_id: effectiveWarehouseId,
+                  mawb,
+                  shipment_id: shipmentId,
+                  converted_storage_path: convertedPath,
+                },
+              });
+              if (emailErr) {
+                console.error('[NewShipment] Converted manifest email failed', emailErr);
+              } else {
+                console.log('[NewShipment] ✅ Converted manifest email sent', emailResult);
+              }
             } catch (emailErr) {
               console.error('[NewShipment] Converted manifest email step failed', emailErr);
             }
