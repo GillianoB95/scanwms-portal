@@ -465,6 +465,7 @@ function NoaHistorySection({ shipmentId, noaEntries, colliExpected }: { shipment
 
 export default function ShipmentDetail() {
   const { id } = useParams<{ id: string }>();
+  const [resending, setResending] = useState(false);
   const { data: shipment, isLoading } = useShipment(id);
   const { data: history = [] } = useStatusHistory(id);
   const { data: noaEntries = [] } = useNoas(id);
