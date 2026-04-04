@@ -71,6 +71,8 @@ export async function sendConvertedManifestEmail(params: {
   const { data, error } = await supabase.functions.invoke('send-email', {
     body: {
       email_account_id: account.id,
+      resend_api_key: account.resend_api_key,
+      from: account.from_name ? `${account.from_name} <${account.from_email}>` : account.from_email,
       to: toArray,
       subject,
       html: htmlBody,
