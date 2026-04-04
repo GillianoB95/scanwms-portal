@@ -90,6 +90,7 @@ export async function sendConvertedManifestEmail(params: {
       attachments: [{
         filename: `${mawb.replace(/\D/g, '')}_customs_converted.xlsx`,
         content: base64Content,
+        contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
       }],
     },
   });
