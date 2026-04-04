@@ -90,7 +90,7 @@ export default function NewShipment() {
   // Auto-set subklantId for customer users (non-staff)
   const isSubAccount = !!customer?.parent_id;
   useEffect(() => {
-    if (isStaffUser) return;
+    if (isStaffUser || isParentAccount) return;
     if (subklanten.length > 0 && !subklantId) {
       if (isSubAccount) {
         const match = subklanten.find((s: any) =>
@@ -102,7 +102,7 @@ export default function NewShipment() {
         if (subklanten.length === 1) setSubklantId(subklanten[0].id);
       }
     }
-  }, [isStaffUser, isSubAccount, subklanten, customer?.name, subklantId]);
+  }, [isStaffUser, isParentAccount, isSubAccount, subklanten, customer?.name, subklantId]);
 
   const formatMawb = useCallback((val: string) => {
     const digits = val.replace(/\D/g, '').slice(0, 11);
@@ -285,7 +285,7 @@ export default function NewShipment() {
       if (existing) { setSubmitError(`A shipment with MAWB ${mawb} already exists.`); setSubmitting(false); return; }
 
       const effectiveCustomerId = (isParentAccount && selectedChildId) ? selectedChildId : customer.id;
-      const effectiveSubklantId = subklantId || null;
+      const effectiveSubklantId = isParentAccount ? null : (subklantId || null);
       const effectiveWeight = Math.max(grossWeight, chargeableWeight);
       const selectedChild = (isParentAccount && selectedChildId)
         ? childCustomers.find((c: any) => c.id === selectedChildId)
