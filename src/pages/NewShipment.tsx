@@ -372,13 +372,22 @@ export default function NewShipment() {
       }
 
       if (manifestResult.rawHeader && manifestResult.rawRows) {
-        setManifestProgress('Converting manifest to customs format...');
+        setManifestProgress('Processing manifest (validate → clean → convert)...');
         try {
-          const { convertedHeader, convertedRows } = convertManifestToCustoms(
-            manifestResult.rawHeader,
-            manifestResult.rawRows,
-          );
-          const convertedBlob = convertedRowsToXlsx(convertedHeader, convertedRows);
+          // Call the process-manifest Edge Function (v3) for full pipeline
+          const { data: processed, error: processErr } = await supabase.functions.invoke('process-manifest', {
+            body: { rows: [manifestResult.rawHeader, ...manifestResult.rawRows] },
+          });
+
+          if (processErr || !processed?.success) {
+            throw new Error(processed?.error || processErr?.message || 'Manifest processing failed');
+          }
+
+          console.log('[NewShipment] process-manifest stats:', processed.stats);
+
+          // processed.rows = array of arrays (first row is header, rest is data)
+          const [convertedHeader, ...convertedDataRows] = processed.rows;
+          const convertedBlob = convertedRowsToXlsx(convertedHeader, convertedDataRows);
           const convertedFilename = `${mawb.replace(/\D/g, '')}_customs_converted.xlsx`;
           const convertedPath = await uploadFile(convertedBlob, 'manifest_converted', convertedFilename);
 
@@ -402,7 +411,7 @@ export default function NewShipment() {
             }
           }
         } catch (convErr) {
-          console.error('[NewShipment] Manifest conversion step failed', convErr);
+          console.error('[NewShipment] Manifest processing step failed', convErr);
         }
       }
 
