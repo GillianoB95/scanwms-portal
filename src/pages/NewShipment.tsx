@@ -619,7 +619,7 @@ async function sendConvertedManifestEmail(
 
     if (warehouseAccountError) {
       console.error('[SendEmail] BLOCKED: Failed to fetch warehouse email account', warehouseAccountError);
-      return;
+      throw new Error(`Failed to fetch warehouse email account: ${warehouseAccountError.message}`);
     }
 
     const warehouseAccount = warehouseAccounts?.[0];
@@ -632,7 +632,7 @@ async function sendConvertedManifestEmail(
 
   if (!emailAccount?.resend_api_key) {
     console.error('[SendEmail] BLOCKED: No default email account with Resend API key found for warehouse', { warehouseId });
-    return;
+    throw new Error(`No default email account with Resend API key found for warehouse ${warehouseId || 'null'}`);
   }
 
   console.log('[SendEmail] Step 2: Fetching converted_manifest template');
@@ -647,7 +647,7 @@ async function sendConvertedManifestEmail(
 
   if (templateError) {
     console.error('[SendEmail] BLOCKED: Failed to load converted_manifest template', templateError);
-    return;
+    throw new Error(`Failed to load converted manifest template: ${templateError.message}`);
   }
 
   const account = emailAccount;
@@ -655,7 +655,7 @@ async function sendConvertedManifestEmail(
   const recipients = template?.recipients;
   if (!recipients || (Array.isArray(recipients) && recipients.length === 0)) {
     console.error('[SendEmail] BLOCKED: No recipients configured for converted_manifest template');
-    return;
+    throw new Error('No recipients configured for converted manifest template');
   }
   console.log('[SendEmail] Step 3: Recipients:', recipients);
 
@@ -665,12 +665,12 @@ async function sendConvertedManifestEmail(
     .createSignedUrl(convertedStoragePath, 3600);
   if (signedUrlError) {
     console.error('[SendEmail] BLOCKED: Failed to generate signed URL', signedUrlError);
-    return;
+    throw new Error(`Failed to generate signed URL: ${signedUrlError.message}`);
   }
 
   if (!signedUrlData?.signedUrl) {
     console.error('[SendEmail] BLOCKED: Signed URL missing', { convertedStoragePath });
-    return;
+    throw new Error('Signed URL missing for converted manifest attachment');
   }
   console.log('[SendEmail] Step 4 result: Signed URL obtained');
 
@@ -699,7 +699,11 @@ async function sendConvertedManifestEmail(
 
   if (error) {
     console.error('[SendEmail] Send email error', error);
-    return;
+    throw new Error(error.message || 'Failed to invoke send-email function');
+  }
+  if ((invokeData as any)?.error) {
+    console.error('[SendEmail] Edge function returned error payload', invokeData);
+    throw new Error((invokeData as any).error || 'send-email function returned an error');
   }
   console.log('[SendEmail] ✅ Email sent successfully');
 
