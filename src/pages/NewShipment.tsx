@@ -8,6 +8,7 @@ import { useHubs } from '@/hooks/use-hubs';
 import { parseAwbPdf, type AwbParsedData } from '@/lib/parse-awb';
 import { validateManifestForCustoms } from '@/lib/manifest-validator';
 import { convertManifestToCustoms, convertedRowsToXlsx } from '@/lib/manifest-converter';
+import { sendConvertedManifestEmail } from '@/lib/send-email';
 
 import * as XLSX from 'xlsx';
 import { Progress } from '@/components/ui/progress';
@@ -384,20 +385,17 @@ export default function NewShipment() {
           if (convertedPath) {
             setManifestProgress('Sending converted manifest to customs...');
             try {
-              console.log('[NewShipment] Invoking send-email with mode=send_converted_manifest', { shipmentId, warehouseId: effectiveWarehouseId, mawb, convertedPath });
-              const { data: emailResult, error: emailErr } = await supabase.functions.invoke('send-email', {
-                body: {
-                  mode: 'send_converted_manifest',
-                  warehouse_id: effectiveWarehouseId,
-                  mawb,
-                  shipment_id: shipmentId,
-                  converted_storage_path: convertedPath,
-                },
+              console.log('[NewShipment] Sending converted manifest email via Resend', { shipmentId, warehouseId: effectiveWarehouseId, mawb, convertedPath });
+              const emailResult = await sendConvertedManifestEmail({
+                warehouseId: effectiveWarehouseId,
+                mawb,
+                shipmentId,
+                convertedStoragePath: convertedPath,
               });
-              if (emailErr) {
-                console.error('[NewShipment] Converted manifest email failed', emailErr);
+              if (!emailResult.success) {
+                console.error('[NewShipment] Converted manifest email failed', emailResult.error);
               } else {
-                console.log('[NewShipment] ✅ Converted manifest email sent', emailResult);
+                console.log('[NewShipment] ✅ Converted manifest email sent', emailResult.id);
               }
             } catch (emailErr) {
               console.error('[NewShipment] Converted manifest email step failed', emailErr);
