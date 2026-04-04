@@ -71,6 +71,8 @@ export async function sendConvertedManifestEmail(params: {
   const { data, error } = await supabase.functions.invoke('send-email', {
     body: {
       email_account_id: account.id,
+      resend_api_key: account.resend_api_key,
+      from: account.from_name ? `${account.from_name} <${account.from_email}>` : account.from_email,
       to: toArray,
       subject,
       html: htmlBody,
@@ -125,6 +127,7 @@ export async function sendEmailViaResend(params: {
       html,
       inspection_ids: inspectionIds,
       attachments,
+      // Note: resend_api_key should be passed by caller if the deployed function requires it
     },
   });
 
