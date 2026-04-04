@@ -1,85 +1,98 @@
+import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1';
+
+const DEPLOY_VERSION = '2026-04-04T13:45Z';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
-Deno.serve(async (req) => {
+serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    // Verify JWT
+    console.log(`[send-email] deploy version ${DEPLOY_VERSION}`);
+
     const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
-      return new Response(JSON.stringify({ error: 'No authorization header' }), {
+    if (!authHeader?.startsWith('Bearer ')) {
+      return new Response(JSON.stringify({ error: 'Unauthorized', debug_version: DEPLOY_VERSION }), {
         status: 401,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 
-    // Verify the user token
+    console.log('[send-email] env check', {
+      hasSupabaseUrl: !!supabaseUrl,
+      hasServiceRoleKey: !!serviceRoleKey,
+    });
+
+    if (!supabaseUrl || !serviceRoleKey) {
+      return new Response(JSON.stringify({ error: 'Missing required server environment variables', debug_version: DEPLOY_VERSION }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    const supabase = createClient(supabaseUrl, serviceRoleKey, {
+      global: { headers: { Authorization: authHeader } },
+    });
+
     const token = authHeader.replace('Bearer ', '');
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-    if (authError || !user) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+    const { data: claimsData, error: claimsError } = await supabase.auth.getClaims(token);
+    if (claimsError || !claimsData?.claims) {
+      console.error('[send-email] getClaims failed', claimsError);
+      return new Response(JSON.stringify({ error: 'Unauthorized', debug_version: DEPLOY_VERSION }), {
         status: 401,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
+    const userEmail = typeof claimsData.claims.email === 'string' ? claimsData.claims.email : null;
     const body = await req.json();
+    console.log('[send-email] body mode', body?.mode || 'legacy');
 
-    // Mode: send_converted_manifest — server-side lookup of email account + template
-    if (body.mode === 'send_converted_manifest') {
-      return await handleConvertedManifest(supabase, body, user, corsHeaders);
+    if (body?.mode === 'send_converted_manifest') {
+      return await handleConvertedManifest(supabase, body, userEmail);
     }
 
-    // Legacy mode: direct email send
-    const { email_account_id, to, subject, html, inspection_ids, attachments } = body;
-
+    const { email_account_id, to, subject, html, inspection_ids, attachments } = body ?? {};
     if (!email_account_id || !to || !subject || !html) {
-      return new Response(JSON.stringify({ error: 'Missing required fields: email_account_id, to, subject, html' }), {
+      return new Response(JSON.stringify({ error: 'Missing required fields: email_account_id, to, subject, html', debug_version: DEPLOY_VERSION }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    // Fetch the email account to get Resend API key
-    const { data: account, error: accError } = await supabase
+    const { data: account, error: accountError } = await supabase
       .from('email_accounts')
       .select('from_email, from_name, resend_api_key')
       .eq('id', email_account_id)
       .single();
 
-    if (accError || !account) {
-      return new Response(JSON.stringify({ error: 'Email account not found' }), {
+    if (accountError || !account) {
+      return new Response(JSON.stringify({ error: 'Email account not found', details: accountError?.message, debug_version: DEPLOY_VERSION }), {
         status: 404,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
     if (!account.resend_api_key) {
-      return new Response(JSON.stringify({ error: 'No Resend API key configured for this email account' }), {
+      return new Response(JSON.stringify({ error: 'No Resend API key configured for this email account', debug_version: DEPLOY_VERSION }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    // Send via Resend API
-    const fromStr = account.from_name
-      ? `${account.from_name} <${account.from_email}>`
-      : account.from_email;
-
-    const emailPayload: any = {
+    const fromStr = account.from_name ? `${account.from_name} <${account.from_email}>` : account.from_email;
+    const emailPayload: Record<string, unknown> = {
       from: fromStr,
-      to: Array.isArray(to) ? to : to.split(',').map((e: string) => e.trim()),
+      to: Array.isArray(to) ? to : String(to).split(',').map((e: string) => e.trim()),
       subject,
       html,
     };
@@ -91,44 +104,39 @@ Deno.serve(async (req) => {
     const resendResponse = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${account.resend_api_key}`,
+        Authorization: `Bearer ${account.resend_api_key}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(emailPayload),
     });
 
     const resendData = await resendResponse.json();
-
     if (!resendResponse.ok) {
-      console.error('Resend API error:', resendData);
-      return new Response(JSON.stringify({ error: 'Resend API error', details: resendData }), {
+      console.error('[send-email] Resend API error', resendData);
+      return new Response(JSON.stringify({ error: 'Resend API error', details: resendData, debug_version: DEPLOY_VERSION }), {
         status: resendResponse.status,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    // If inspection_ids provided, mark them as email sent
-    if (inspection_ids && Array.isArray(inspection_ids) && inspection_ids.length > 0) {
+    if (inspection_ids && Array.isArray(inspection_ids) && inspection_ids.length > 0 && userEmail) {
       const { error: updateError } = await supabase
         .from('inspections')
-        .update({
-          email_sent_at: new Date().toISOString(),
-          email_sent_by: user.email,
-        })
+        .update({ email_sent_at: new Date().toISOString(), email_sent_by: userEmail })
         .in('id', inspection_ids);
-
       if (updateError) {
-        console.error('Failed to update inspection records:', updateError);
+        console.error('[send-email] Failed to update inspection records', updateError);
       }
     }
 
-    return new Response(JSON.stringify({ success: true, id: resendData.id }), {
+    return new Response(JSON.stringify({ success: true, id: resendData.id, debug_version: DEPLOY_VERSION }), {
       status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (err) {
-    console.error('send-email error:', err);
-    return new Response(JSON.stringify({ error: err instanceof Error ? err.message : 'Unknown error' }), {
+    const message = err instanceof Error ? err.message : 'Unknown error';
+    console.error('[send-email] fatal error', message);
+    return new Response(JSON.stringify({ error: message, debug_version: DEPLOY_VERSION }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
@@ -136,125 +144,116 @@ Deno.serve(async (req) => {
 });
 
 async function handleConvertedManifest(
-  supabase: any,
-  body: any,
-  user: any,
-  corsHeaders: Record<string, string>,
+  supabase: ReturnType<typeof createClient>,
+  body: Record<string, unknown>,
+  userEmail: string | null,
 ) {
-  const { warehouse_id, mawb, shipment_id, converted_storage_path } = body;
+  const warehouseId = typeof body.warehouse_id === 'string' ? body.warehouse_id : null;
+  const mawb = typeof body.mawb === 'string' ? body.mawb : null;
+  const shipmentId = typeof body.shipment_id === 'string' ? body.shipment_id : null;
+  const convertedStoragePath = typeof body.converted_storage_path === 'string' ? body.converted_storage_path : null;
 
-  console.log('[ConvertedManifest] Start', { warehouse_id, mawb, shipment_id, converted_storage_path });
+  console.log('[ConvertedManifest] Start', { warehouseId, mawb, shipmentId, convertedStoragePath });
 
-  if (!warehouse_id || !mawb || !shipment_id || !converted_storage_path) {
-    return new Response(JSON.stringify({ error: 'Missing required fields: warehouse_id, mawb, shipment_id, converted_storage_path' }), {
+  if (!warehouseId || !mawb || !shipmentId || !convertedStoragePath) {
+    return new Response(JSON.stringify({ error: 'Missing required fields: warehouse_id, mawb, shipment_id, converted_storage_path', debug_version: DEPLOY_VERSION }), {
       status: 400,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
 
-  // 1. Find email account by warehouse
-  const { data: accounts, error: accErr } = await supabase
+  const { data: accounts, error: accountError } = await supabase
     .from('email_accounts')
     .select('id, from_email, from_name, resend_api_key')
-    .eq('warehouse_id', warehouse_id)
+    .eq('warehouse_id', warehouseId)
     .eq('is_default', true)
     .limit(1);
 
-  console.log('[ConvertedManifest] Email account lookup', { found: accounts?.length, error: accErr?.message });
+  console.log('[ConvertedManifest] Email account lookup', { found: accounts?.length ?? 0, error: accountError?.message ?? null });
 
   const account = accounts?.[0];
-  if (!account?.resend_api_key) {
-    return new Response(JSON.stringify({ error: `No default email account with Resend API key for warehouse ${warehouse_id}` }), {
+  if (accountError || !account?.resend_api_key) {
+    return new Response(JSON.stringify({ error: `No default email account with Resend API key found for warehouse ${warehouseId}`, details: accountError?.message, debug_version: DEPLOY_VERSION }), {
       status: 404,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
 
-  // 2. Find converted_manifest template
-  const { data: templates, error: tplErr } = await supabase
+  const { data: templates, error: templateError } = await supabase
     .from('email_templates')
     .select('subject, body, recipients')
     .eq('template_type', 'converted_manifest')
     .limit(1);
 
-  console.log('[ConvertedManifest] Template lookup', { found: templates?.length, error: tplErr?.message });
+  console.log('[ConvertedManifest] Template lookup', { found: templates?.length ?? 0, error: templateError?.message ?? null });
 
   const template = templates?.[0];
   const recipients = template?.recipients;
-  if (!recipients || (Array.isArray(recipients) && recipients.length === 0)) {
-    return new Response(JSON.stringify({ error: 'No recipients configured for converted_manifest template' }), {
+  if (templateError || !recipients || (Array.isArray(recipients) && recipients.length === 0)) {
+    return new Response(JSON.stringify({ error: 'No recipients configured for converted_manifest template', details: templateError?.message, debug_version: DEPLOY_VERSION }), {
       status: 400,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
 
-  // 3. Generate signed URL for attachment
   const { data: signedUrlData, error: signedUrlError } = await supabase.storage
     .from('shipment-files')
-    .createSignedUrl(converted_storage_path, 3600);
+    .createSignedUrl(convertedStoragePath, 3600);
 
   if (signedUrlError || !signedUrlData?.signedUrl) {
     console.error('[ConvertedManifest] Signed URL error', signedUrlError);
-    return new Response(JSON.stringify({ error: `Failed to generate signed URL: ${signedUrlError?.message || 'unknown'}` }), {
+    return new Response(JSON.stringify({ error: `Failed to generate signed URL: ${signedUrlError?.message || 'unknown'}`, debug_version: DEPLOY_VERSION }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
 
-  // 4. Build email
-  const subject = (template?.subject || 'Converted manifest ({{mawb}})')
-    .replace(/\{\{mawb\}\}/g, mawb);
-  const bodyText = (template?.body || 'Dear customs team,\n\nPlease find attached the converted manifest for shipment {{mawb}}.\n\nKind regards')
-    .replace(/\{\{mawb\}\}/g, mawb);
-  const htmlBody = bodyText.split('\n').map((line: string) => `<p>${line || '&nbsp;'}</p>`).join('');
+  const subject = String(template?.subject || 'Converted manifest ({{mawb}})').replace(/\{\{mawb\}\}/g, mawb);
+  const bodyText = String(template?.body || 'Dear customs team,\n\nPlease find attached the converted manifest for shipment {{mawb}}.\n\nKind regards').replace(/\{\{mawb\}\}/g, mawb);
+  const htmlBody = bodyText.split('\n').map((line) => `<p>${line || '&nbsp;'}</p>`).join('');
+  const fromStr = account.from_name ? `${account.from_name} <${account.from_email}>` : account.from_email;
 
-  const fromStr = account.from_name
-    ? `${account.from_name} <${account.from_email}>`
-    : account.from_email;
-
-  const emailPayload = {
-    from: fromStr,
-    to: Array.isArray(recipients) ? recipients : [recipients],
-    subject,
-    html: htmlBody,
-    attachments: [{
-      filename: `${mawb.replace(/\D/g, '')}_customs_converted.xlsx`,
-      path: signedUrlData.signedUrl,
-    }],
-  };
-
-  console.log('[ConvertedManifest] Sending via Resend', { from: fromStr, to: recipients, subject });
-
-  // 5. Send via Resend
   const resendResponse = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: {
-      'Authorization': `Bearer ${account.resend_api_key}`,
+      Authorization: `Bearer ${account.resend_api_key}`,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify(emailPayload),
+    body: JSON.stringify({
+      from: fromStr,
+      to: Array.isArray(recipients) ? recipients : [recipients],
+      subject,
+      html: htmlBody,
+      attachments: [{
+        filename: `${mawb.replace(/\D/g, '')}_customs_converted.xlsx`,
+        path: signedUrlData.signedUrl,
+      }],
+    }),
   });
 
   const resendData = await resendResponse.json();
-
   if (!resendResponse.ok) {
-    console.error('[ConvertedManifest] Resend API error:', resendData);
-    return new Response(JSON.stringify({ error: 'Resend API error', details: resendData }), {
+    console.error('[ConvertedManifest] Resend API error', resendData);
+    return new Response(JSON.stringify({ error: 'Resend API error', details: resendData, debug_version: DEPLOY_VERSION }), {
       status: resendResponse.status,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
 
-  console.log('[ConvertedManifest] ✅ Email sent', { id: resendData.id });
+  console.log('[ConvertedManifest] Email sent', { id: resendData.id });
 
-  // 6. Update shipment_files record
-  await supabase
-    .from('shipment_files')
-    .update({ email_sent_at: new Date().toISOString(), email_sent_by: user.email })
-    .eq('shipment_id', shipment_id)
-    .eq('file_type', 'manifest_converted');
+  if (userEmail) {
+    const { error: updateError } = await supabase
+      .from('shipment_files')
+      .update({ email_sent_at: new Date().toISOString(), email_sent_by: userEmail })
+      .eq('shipment_id', shipmentId)
+      .eq('file_type', 'manifest_converted');
+    if (updateError) {
+      console.error('[ConvertedManifest] Failed to update shipment_files', updateError);
+    }
+  }
 
-  return new Response(JSON.stringify({ success: true, id: resendData.id }), {
+  return new Response(JSON.stringify({ success: true, id: resendData.id, debug_version: DEPLOY_VERSION }), {
     status: 200,
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
   });
