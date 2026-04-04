@@ -127,6 +127,7 @@ export async function sendEmailViaResend(params: {
       html,
       inspection_ids: inspectionIds,
       attachments,
+      // Note: resend_api_key should be passed by caller if the deployed function requires it
     },
   });
 
