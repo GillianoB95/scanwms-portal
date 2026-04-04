@@ -285,7 +285,7 @@ export default function NewShipment() {
       if (existing) { setSubmitError(`A shipment with MAWB ${mawb} already exists.`); setSubmitting(false); return; }
 
       const effectiveCustomerId = (isParentAccount && selectedChildId) ? selectedChildId : customer.id;
-      const effectiveSubklantId = (isParentAccount && selectedChildId) ? selectedChildId : (subklantId || null);
+      const effectiveSubklantId = subklantId || null;
       const effectiveWeight = Math.max(grossWeight, chargeableWeight);
       const selectedChild = (isParentAccount && selectedChildId)
         ? childCustomers.find((c: any) => c.id === selectedChildId)
