@@ -127,7 +127,7 @@ export async function sendEmailViaResend(params: {
   html: string;
   inspectionIds?: string[];
   userEmail?: string | null;
-  attachments?: Array<{ filename: string; content?: string; path?: string }>;
+  attachments?: Array<{ filename: string; content?: string; path?: string; contentType?: string }>;
 }): Promise<{ success: boolean; id?: string; error?: string }> {
   const { emailAccountId, to, subject, html, inspectionIds, userEmail, attachments } = params;
 
