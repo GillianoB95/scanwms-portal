@@ -283,17 +283,15 @@ function SendToCustomsModal({ open, onOpenChange, parcels, isStaff: _isStaff, us
       setSending(true);
       try {
         const htmlBody = bodyStr.replace(/\n/g, '<br/>');
-        const { data, error } = await supabase.functions.invoke('send-email', {
-          body: {
-            email_account_id: emailAccount.id,
-            to: recipients,
-            subject: subjectStr,
-            html: htmlBody,
-            inspection_ids: ids,
-          },
+        const result = await sendEmailViaResend({
+          emailAccountId: emailAccount.id,
+          to: recipients,
+          subject: subjectStr,
+          html: htmlBody,
+          inspectionIds: ids,
+          userEmail,
         });
-        if (error) throw error;
-        if (data?.error) throw new Error(data.error);
+        if (!result.success) throw new Error(result.error || 'Email failed');
         toast.success(`Email sent to ${recipients} for ${ids.length} parcel(s)`);
         onSent();
       } catch (err: any) {

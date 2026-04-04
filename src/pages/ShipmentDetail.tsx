@@ -571,25 +571,19 @@ export default function ShipmentDetail() {
                   setResending(false);
                   return;
                 }
-                console.log('[ResendEmail] Invoking send-email', { shipmentId: shipment.id, warehouseId: shipment.warehouse_id, mawb: shipment.mawb, convertedPath });
-                const { data, error } = await supabase.functions.invoke('send-email', {
-                  body: {
-                    mode: 'send_converted_manifest',
-                    warehouse_id: shipment.warehouse_id,
-                    mawb: shipment.mawb,
-                    shipment_id: shipment.id,
-                    converted_storage_path: convertedPath,
-                  },
+                console.log('[ResendEmail] Sending via Resend API', { shipmentId: shipment.id, warehouseId: shipment.warehouse_id, mawb: shipment.mawb, convertedPath });
+                const result = await sendConvertedManifestEmail({
+                  warehouseId: shipment.warehouse_id,
+                  mawb: shipment.mawb,
+                  shipmentId: shipment.id,
+                  convertedStoragePath: convertedPath,
                 });
-                if (error) {
-                  console.error('[ResendEmail] Error', error);
-                  toast.error(`Email failed: ${error.message}`);
-                } else if (data?.error) {
-                  console.error('[ResendEmail] Server error', data);
-                  toast.error(`Email failed: ${data.error}`);
+                if (!result.success) {
+                  console.error('[ResendEmail] Error', result.error);
+                  toast.error(`Email failed: ${result.error}`);
                 } else {
-                  console.log('[ResendEmail] ✅ Success', data);
-                  toast.success(`Converted manifest email sent! (ID: ${data?.id})`);
+                  console.log('[ResendEmail] ✅ Success', result.id);
+                  toast.success(`Converted manifest email sent! (ID: ${result.id})`);
                 }
               } catch (err: any) {
                 console.error('[ResendEmail] Exception', err);
