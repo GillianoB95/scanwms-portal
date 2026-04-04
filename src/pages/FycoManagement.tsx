@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
+import { sendEmailViaResend } from '@/lib/send-email';
 import { useAuth } from '@/lib/auth-context';
 import { useLocation } from 'react-router-dom';
 import { Loader2, ShieldCheck, Clock, Search, Mail, Send, AlertTriangle } from 'lucide-react';

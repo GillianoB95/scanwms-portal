@@ -8,6 +8,7 @@ import { useHubs } from '@/hooks/use-hubs';
 import { parseAwbPdf, type AwbParsedData } from '@/lib/parse-awb';
 import { validateManifestForCustoms } from '@/lib/manifest-validator';
 import { convertManifestToCustoms, convertedRowsToXlsx } from '@/lib/manifest-converter';
+import { sendConvertedManifestEmail } from '@/lib/send-email';
 
 import * as XLSX from 'xlsx';
 import { Progress } from '@/components/ui/progress';

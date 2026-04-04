@@ -8,6 +8,7 @@ import { useAccessibleCustomerIds } from '@/hooks/use-accessible-customers';
 import { supabase } from '@/lib/supabase';
 import { StatusBadge } from '@/components/StatusBadge';
 import { getStatusClass } from '@/lib/mock-data';
+import { sendConvertedManifestEmail } from '@/lib/send-email';
 import { useState } from 'react';
 
 const statusOrder = ['Created', 'Awaiting NOA', 'Partial NOA', 'NOA Complete', 'In Transit', 'In Stock', 'Outbound'];
