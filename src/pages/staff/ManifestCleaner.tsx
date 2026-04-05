@@ -68,19 +68,31 @@ export default function ManifestCleaner() {
 
   const handleDownload = useCallback(async () => {
     if (!storagePath) return;
-    const { data, error: dlError } = await supabase.storage
-      .from('shipments')
-      .createSignedUrl(storagePath.replace(/^shipments\//, ''), 300);
+    setError(null);
 
-    if (dlError || !data?.signedUrl) {
-      setError('Failed to create download URL');
-      return;
+    // Try multiple bucket/path combinations
+    const attempts = [
+      { bucket: 'shipments', path: storagePath.replace(/^shipments\//, '') },
+      { bucket: 'manifests', path: storagePath.replace(/^manifests\//, '') },
+      { bucket: storagePath.split('/')[0], path: storagePath.split('/').slice(1).join('/') },
+    ];
+
+    for (const { bucket, path } of attempts) {
+      const { data, error: dlError } = await supabase.storage
+        .from(bucket)
+        .createSignedUrl(path, 300);
+
+      if (!dlError && data?.signedUrl) {
+        const a = document.createElement('a');
+        a.href = data.signedUrl;
+        a.download = file?.name ? `cleaned_${file.name}` : 'manifest_cleaned.xlsx';
+        a.click();
+        return;
+      }
+      console.log(`[Download] Bucket "${bucket}" path "${path}" failed:`, dlError?.message);
     }
 
-    const a = document.createElement('a');
-    a.href = data.signedUrl;
-    a.download = file?.name ? `cleaned_${file.name}` : 'manifest_cleaned.xlsx';
-    a.click();
+    setError(`Failed to create download URL. Storage path: ${storagePath}`);
   }, [storagePath, file]);
 
   return (
