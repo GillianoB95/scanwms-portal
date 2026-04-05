@@ -16,7 +16,7 @@ const navItems = [
   { to: '/staff/customers', label: 'Customer Management', icon: Users },
   { to: '/staff/fyco', label: 'Fyco Management', icon: ShieldCheck },
   { to: '/staff/staff-users', label: 'Staff Management', icon: UserCog },
-  { to: '/staff/manifest-cleaner', label: 'Manifest Cleaner', icon: FileSpreadsheet },
+  { to: '/staff/manifest-cleaner', label: 'Manifest Cleaner', icon: FileCheck },
   { to: '/staff/settings', label: 'Settings', icon: Settings },
 ];
 
