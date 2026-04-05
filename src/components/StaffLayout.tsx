@@ -3,7 +3,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '@/lib/auth-context';
 import {
   LayoutDashboard, Package, ArrowDownToLine, ArrowUpFromLine,
-  MapPin, Users, UserCog, Settings, LogOut, Menu, X, Shield, Warehouse, ShieldCheck
+  MapPin, Users, UserCog, Settings, LogOut, Menu, X, Shield, Warehouse, ShieldCheck, FileSpreadsheet
 } from 'lucide-react';
 import { ActionRequiredPanel } from '@/components/staff/ActionRequiredPanel';
 
@@ -16,6 +16,7 @@ const navItems = [
   { to: '/staff/customers', label: 'Customer Management', icon: Users },
   { to: '/staff/fyco', label: 'Fyco Management', icon: ShieldCheck },
   { to: '/staff/staff-users', label: 'Staff Management', icon: UserCog },
+  { to: '/staff/manifest-cleaner', label: 'Manifest Cleaner', icon: FileSpreadsheet },
   { to: '/staff/settings', label: 'Settings', icon: Settings },
 ];
 
