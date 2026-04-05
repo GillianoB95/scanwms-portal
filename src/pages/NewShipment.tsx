@@ -1,3 +1,4 @@
+// Build trigger: force bundle regeneration v2
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Upload, ArrowLeft, ArrowRight, Plane, Truck, AlertTriangle, XCircle, CheckCircle2, Loader2, Mail } from 'lucide-react';
