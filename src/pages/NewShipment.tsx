@@ -381,10 +381,15 @@ export default function NewShipment() {
             body: { rows: inputRows },
           });
 
+          console.log('[process-manifest] Error:', processErr);
+          console.log('[process-manifest] rawResponse type:', typeof rawResponse);
+          console.log('[process-manifest] rawResponse keys:', rawResponse ? Object.keys(rawResponse) : 'null');
+          console.log('[process-manifest] rows length:', rawResponse?.rows?.length);
+
           // Handle case where response is a string (not auto-parsed)
           const processed = typeof rawResponse === 'string' ? JSON.parse(rawResponse) : rawResponse;
 
-          console.log('[process-manifest] Response type:', typeof rawResponse, 'rows:', processed?.rows?.length, 'stats:', processed?.stats);
+          console.log('[process-manifest] Processed rows length:', processed?.rows?.length, 'stats:', processed?.stats);
 
           if (processErr || !processed?.success) {
             throw new Error(processed?.error || processErr?.message || 'Manifest processing failed');
