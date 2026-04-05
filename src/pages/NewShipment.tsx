@@ -381,10 +381,11 @@ export default function NewShipment() {
             body: { rows: inputRows },
           });
 
-          console.log('[process-manifest] Error:', processErr);
-          console.log('[process-manifest] rawResponse type:', typeof rawResponse);
-          console.log('[process-manifest] rawResponse keys:', rawResponse ? Object.keys(rawResponse) : 'null');
-          console.log('[process-manifest] rows length:', rawResponse?.rows?.length);
+          console.log('[process-manifest] raw data:', rawResponse === null ? 'null' : typeof rawResponse,
+            rawResponse instanceof Blob ? 'is Blob size:'+rawResponse.size : '',
+            Array.isArray(rawResponse) ? 'is Array len:'+rawResponse.length : '',
+            rawResponse?.rows ? 'has rows:'+rawResponse.rows.length : 'NO ROWS KEY');
+          console.log('[process-manifest] error:', processErr);
 
           // Handle case where response is a string (not auto-parsed)
           const processed = typeof rawResponse === 'string' ? JSON.parse(rawResponse) : rawResponse;
