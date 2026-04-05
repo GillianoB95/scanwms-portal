@@ -87,9 +87,9 @@ export function validateManifestForCustoms(
     const val = (col: number) => String(row[col] ?? '').trim();
 
     // A - OrderNumber: must match MAWB
-    if (mawbDigits) {
+    if (mawbDigits && mawbDigits.length >= 8) {
       const orderVal = val(COL.ORDER).replace(/\D/g, '');
-      if (orderVal && orderVal !== mawbDigits) {
+      if (orderVal && orderVal !== mawbDigits && !orderVal.includes(mawbDigits) && !mawbDigits.includes(orderVal)) {
         errors.push(`Row ${rowNum}: Wrong manifest: order number ${val(COL.ORDER)} does not match shipment MAWB ${mawb}. Please upload the correct manifest file.`);
       }
     }
