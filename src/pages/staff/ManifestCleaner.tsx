@@ -70,26 +70,48 @@ export default function ManifestCleaner() {
     if (!storagePath) return;
     setError(null);
 
-    // Try multiple bucket/path combinations
+    const downloadName = file?.name ? `cleaned_${file.name}` : 'manifest_cleaned.xlsx';
+    const triggerDownload = (url: string) => {
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = downloadName;
+      a.rel = 'noopener noreferrer';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    };
+
     const attempts = [
-      { bucket: 'shipments', path: storagePath.replace(/^shipments\//, '') },
-      { bucket: 'manifests', path: storagePath.replace(/^manifests\//, '') },
-      { bucket: storagePath.split('/')[0], path: storagePath.split('/').slice(1).join('/') },
-    ];
+      { bucket: 'manifests', path: storagePath.replace(/^manifests\//, '').replace(/^\/+/, '') },
+      { bucket: 'shipments', path: storagePath.replace(/^shipments\//, '').replace(/^\/+/, '') },
+      {
+        bucket: storagePath.split('/')[0],
+        path: storagePath.split('/').slice(1).join('/').replace(/^\/+/, ''),
+      },
+    ].filter((attempt, index, all) => {
+      return attempt.bucket && attempt.path && all.findIndex((item) => item.bucket === attempt.bucket && item.path === attempt.path) === index;
+    });
 
     for (const { bucket, path } of attempts) {
-      const { data, error: dlError } = await supabase.storage
-        .from(bucket)
-        .createSignedUrl(path, 300);
+      const storage = supabase.storage.from(bucket);
 
-      if (!dlError && data?.signedUrl) {
-        const a = document.createElement('a');
-        a.href = data.signedUrl;
-        a.download = file?.name ? `cleaned_${file.name}` : 'manifest_cleaned.xlsx';
-        a.click();
+      const { data: signedData, error: signedError } = await storage.createSignedUrl(path, 300);
+      if (!signedError && signedData?.signedUrl) {
+        triggerDownload(signedData.signedUrl);
         return;
       }
-      console.log(`[Download] Bucket "${bucket}" path "${path}" failed:`, dlError?.message);
+
+      console.log(`[Download] Signed URL failed for bucket "${bucket}" path "${path}":`, signedError?.message);
+
+      const { data: fileData, error: fileError } = await storage.download(path);
+      if (!fileError && fileData) {
+        const objectUrl = URL.createObjectURL(fileData);
+        triggerDownload(objectUrl);
+        setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+        return;
+      }
+
+      console.log(`[Download] Direct download failed for bucket "${bucket}" path "${path}":`, fileError?.message);
     }
 
     setError(`Failed to create download URL. Storage path: ${storagePath}`);
