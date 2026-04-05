@@ -21,6 +21,7 @@ import StaffManagement from "./pages/staff/StaffManagement";
 import WarehouseManagement from "./pages/staff/WarehouseManagement";
 import SettingsPage from "./pages/staff/Settings";
 import StaffPlaceholder from "./pages/staff/StaffPlaceholder";
+import ManifestCleaner from "./pages/staff/ManifestCleaner";
 import StaffShipmentDetail from "./pages/staff/StaffShipmentDetail";
 import WarehouseDashboard from "./pages/warehouse/WarehouseDashboard";
 import InboundScanning from "./pages/warehouse/InboundScanning";
