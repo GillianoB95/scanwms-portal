@@ -2,7 +2,7 @@ import { useState, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Upload, Download, FileSpreadsheet, Loader2, CheckCircle, AlertCircle } from 'lucide-react';
+import { Upload, Download, FileCheck, Loader2, CheckCircle, AlertCircle } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
 interface ProcessStats {
@@ -46,7 +46,8 @@ export default function ManifestCleaner() {
         body: {
           rows,
           shipmentId: 'preview-' + Date.now(),
-          mawb: 'PREVIEW',
+          mawb: file.name.replace('.xlsx', ''),
+          mode: 'clean',
         },
       });
 
@@ -78,24 +79,29 @@ export default function ManifestCleaner() {
 
     const a = document.createElement('a');
     a.href = data.signedUrl;
-    a.download = 'manifest_cleaned.xlsx';
+    a.download = file?.name ? `cleaned_${file.name}` : 'manifest_cleaned.xlsx';
     a.click();
-  }, [storagePath]);
+  }, [storagePath, file]);
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold">Manifest Cleaner</h1>
+      <div>
+        <h1 className="text-2xl font-bold">Manifest Cleaner</h1>
+        <p className="text-muted-foreground mt-1">
+          Upload an original manifest to clean it (names, addresses, prices, weights, HS codes)
+        </p>
+      </div>
 
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <FileSpreadsheet className="h-5 w-5" />
-            Upload & Process
+            <Upload className="h-5 w-5" />
+            Upload Manifest
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div>
-            <label className="block text-sm font-medium mb-1.5">Upload original manifest</label>
+            <label className="block text-sm font-medium mb-1.5">Select .xlsx file</label>
             <input
               type="file"
               accept=".xlsx"
@@ -109,10 +115,13 @@ export default function ManifestCleaner() {
             {processing ? (
               <>
                 <Loader2 className="h-4 w-4 animate-spin" />
-                Processing…
+                Cleaning manifest…
               </>
             ) : (
-              'Clean & Convert'
+              <>
+                <FileCheck className="h-4 w-4" />
+                Clean Manifest
+              </>
             )}
           </Button>
 
