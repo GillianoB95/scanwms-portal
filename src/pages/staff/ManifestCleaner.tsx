@@ -82,6 +82,7 @@ export default function ManifestCleaner() {
     };
 
     const attempts = [
+      { bucket: 'shipment-files', path: storagePath.replace(/^\/+/, '') },
       { bucket: 'manifests', path: storagePath.replace(/^manifests\//, '').replace(/^\/+/, '') },
       { bucket: 'shipments', path: storagePath.replace(/^shipments\//, '').replace(/^\/+/, '') },
       {
