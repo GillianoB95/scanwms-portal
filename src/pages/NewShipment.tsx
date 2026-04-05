@@ -7,7 +7,7 @@ import { useSubklanten } from '@/hooks/use-shipment-data';
 import { useHubs } from '@/hooks/use-hubs';
 import { parseAwbPdf, type AwbParsedData } from '@/lib/parse-awb';
 import { validateManifestForCustoms } from '@/lib/manifest-validator';
-import { convertedRowsToXlsx } from '@/lib/manifest-converter';
+
 import { sendConvertedManifestEmail } from '@/lib/send-email';
 
 import * as XLSX from 'xlsx';
@@ -375,36 +375,31 @@ export default function NewShipment() {
         setManifestProgress('Processing manifest (validate → clean → convert)...');
         try {
           // Call the process-manifest Edge Function (v3) for full pipeline
+          // The function saves the XLSX directly to Supabase Storage and returns the path
           const inputRows = [manifestResult.rawHeader, ...manifestResult.rawRows];
           console.log('[process-manifest] Sending rows:', inputRows.length);
           const { data: rawResponse, error: processErr } = await supabase.functions.invoke('process-manifest', {
-            body: { rows: inputRows },
+            body: { rows: inputRows, shipmentId, mawb },
           });
 
-          console.log('[process-manifest] raw data:', rawResponse === null ? 'null' : typeof rawResponse,
-            rawResponse instanceof Blob ? 'is Blob size:'+rawResponse.size : '',
-            Array.isArray(rawResponse) ? 'is Array len:'+rawResponse.length : '',
-            rawResponse?.rows ? 'has rows:'+rawResponse.rows.length : 'NO ROWS KEY');
-          console.log('[process-manifest] error:', processErr);
-
-          // Handle case where response is a string (not auto-parsed)
           const processed = typeof rawResponse === 'string' ? JSON.parse(rawResponse) : rawResponse;
-
-          console.log('[process-manifest] Processed rows length:', processed?.rows?.length, 'stats:', processed?.stats);
+          console.log('[process-manifest] Response:', { success: processed?.success, storagePath: processed?.storagePath, stats: processed?.stats, error: processErr?.message });
 
           if (processErr || !processed?.success) {
             throw new Error(processed?.error || processErr?.message || 'Manifest processing failed');
           }
 
-          // processed.rows = array of arrays (first row is header, rest is data)
-          const [convertedHeader, ...convertedDataRows] = processed.rows;
-          console.log('[process-manifest] Header cols:', convertedHeader?.length, 'Data rows:', convertedDataRows?.length);
-          const convertedBlob = convertedRowsToXlsx(convertedHeader, convertedDataRows);
-          console.log('[process-manifest] XLSX blob size:', convertedBlob.size);
-          const convertedFilename = `${mawb.replace(/\D/g, '')}_customs_converted.xlsx`;
-          const convertedPath = await uploadFile(convertedBlob, 'manifest_converted', convertedFilename);
+          const convertedPath = processed.storagePath;
 
           if (convertedPath) {
+            // Register the file in shipment_files table
+            const { error: insertErr } = await supabase
+              .from('shipment_files')
+              .insert({ shipment_id: shipmentId, file_type: 'manifest_converted', storage_path: convertedPath });
+            if (insertErr) {
+              console.error('[NewShipment] shipment_files insert failed (manifest_converted)', insertErr);
+            }
+
             setManifestProgress('Sending converted manifest to customs...');
             try {
               console.log('[NewShipment] Sending converted manifest email via Resend', { shipmentId, warehouseId: effectiveWarehouseId, mawb, convertedPath });
