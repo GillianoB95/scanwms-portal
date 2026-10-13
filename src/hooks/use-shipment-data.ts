@@ -191,6 +191,48 @@ export function useAllClearances(shipmentIds: string[]) {
   });
 }
 
+export function useT1Records(shipmentId: string | undefined) {
+  return useQuery({
+    queryKey: ['t1-records', shipmentId],
+    queryFn: async () => {
+      if (!shipmentId) return [];
+      const { data, error } = await supabase
+        .from('t1_records')
+        .select('*')
+        .eq('shipment_id', shipmentId)
+        .order('created_at', { ascending: true });
+      if (error) {
+        console.warn('T1 records query failed:', error.message);
+        return [];
+      }
+      return data ?? [];
+    },
+    enabled: !!shipmentId,
+    retry: false,
+  });
+}
+
+export function useUitslagbonnen(shipmentId: string | undefined) {
+  return useQuery({
+    queryKey: ['uitslagbonnen', shipmentId],
+    queryFn: async () => {
+      if (!shipmentId) return [];
+      const { data, error } = await supabase
+        .from('uitslagbonnen')
+        .select('*')
+        .eq('shipment_id', shipmentId)
+        .order('received_at', { ascending: true });
+      if (error) {
+        console.warn('Uitslagbonnen query failed:', error.message);
+        return [];
+      }
+      return data ?? [];
+    },
+    enabled: !!shipmentId,
+    retry: false,
+  });
+}
+
 export function useAllInspections(shipmentIds: string[]) {
   return useQuery({
     queryKey: ['all-inspections', shipmentIds],

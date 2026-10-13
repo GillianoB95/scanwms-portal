@@ -2,7 +2,7 @@ import { useParams, Link } from 'react-router-dom';
 import { ArrowLeft, Download, CheckCircle2, Circle, Truck, Loader2, Shield, AlertTriangle, Search as SearchIcon, ChevronDown, ChevronRight, Package, Send } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { useShipment, useStatusHistory, useNoas, useOutbounds, useOuterboxes, useClearances, useInspections } from '@/hooks/use-shipment-data';
+import { useShipment, useStatusHistory, useNoas, useOutbounds, useOuterboxes, useClearances, useInspections, useT1Records, useUitslagbonnen } from '@/hooks/use-shipment-data';
 import { useAuth } from '@/lib/auth-context';
 import { useAccessibleCustomerIds } from '@/hooks/use-accessible-customers';
 import { supabase } from '@/lib/supabase';
@@ -73,6 +73,77 @@ function getMilestoneStatus(shipment: any, history: any[], noaEntries: any[], ou
   results.push({ key: 'departed', label: 'Departed', reached: hasDeparted });
 
   return results;
+}
+
+/* ─── T1 Records Section ─── */
+function T1Section({ shipmentId }: { shipmentId: string }) {
+  const { data: t1Records = [], isLoading } = useT1Records(shipmentId);
+  if (isLoading) return null;
+  if (t1Records.length === 0) return null;
+
+  return (
+    <div className="bg-card rounded-xl border p-5 animate-fade-in" style={{ animationDelay: '300ms' }}>
+      <div className="flex items-center gap-2 mb-4">
+        <Shield className="h-4.5 w-4.5 text-muted-foreground" />
+        <h2 className="font-semibold">T1 Transit Documents</h2>
+      </div>
+      <div className="space-y-3">
+        {t1Records.map((t1: any) => (
+          <div key={t1.id} className="bg-muted/50 rounded-lg p-4 space-y-2">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="font-medium text-sm">MRN: {t1.mrn}</p>
+                <p className="text-xs text-muted-foreground">Created by {t1.created_by} on {t1.created_at ? new Date(t1.created_at).toLocaleString() : '—'}</p>
+              </div>
+              <Badge variant={t1.ttl_status === 'approved' ? 'default' : 'secondary'}>
+                TTL: {t1.ttl_status}
+              </Badge>
+            </div>
+            <div className="grid grid-cols-3 gap-2 text-xs">
+              <div><span className="text-muted-foreground">TTL Requested:</span> {t1.ttl_requested_at ? new Date(t1.ttl_requested_at).toLocaleString() : '—'}</div>
+              <div><span className="text-muted-foreground">TTL Approved:</span> {t1.ttl_approved_at ? new Date(t1.ttl_approved_at).toLocaleString() : '—'}</div>
+              <div><span className="text-muted-foreground">Limit Date:</span> {t1.limit_date || '—'}</div>
+            </div>
+            {t1.nallian_uploaded_at && (
+              <div className="text-xs"><span className="text-muted-foreground">Nallian uploaded:</span> {new Date(t1.nallian_uploaded_at).toLocaleString()}</div>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ─── Uitslagbon Section ─── */
+function UitslagbonSection({ shipmentId }: { shipmentId: string }) {
+  const { data: uitslagbonnen = [], isLoading } = useUitslagbonnen(shipmentId);
+  if (isLoading) return null;
+  if (uitslagbonnen.length === 0) return null;
+
+  return (
+    <div className="bg-card rounded-xl border p-5 animate-fade-in" style={{ animationDelay: '320ms' }}>
+      <div className="flex items-center gap-2 mb-4">
+        <Package className="h-4.5 w-4.5 text-muted-foreground" />
+        <h2 className="font-semibold">Uitslagbonnen (Receipt Notes)</h2>
+      </div>
+      <div className="space-y-2">
+        {uitslagbonnen.map((u: any) => (
+          <div key={u.id} className="flex items-center justify-between bg-muted/50 rounded-lg px-4 py-3">
+            <div>
+              <p className="text-sm font-medium">{u.received_from || '—'}</p>
+              <p className="text-xs text-muted-foreground">{u.ground_handler_code ? `Handler: ${u.ground_handler_code}` : ''}</p>
+            </div>
+            <div className="flex items-center gap-3">
+              <span className="text-xs text-muted-foreground">{u.received_at ? new Date(u.received_at).toLocaleString() : '—'}</span>
+              <Badge variant={u.status === 'received' ? 'default' : 'destructive'}>
+                {u.status}
+              </Badge>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 function ClearanceSection({ shipmentId, colliExpected }: { shipmentId: string; colliExpected: number }) {
@@ -605,6 +676,12 @@ export default function ShipmentDetail() {
 
       {/* Customs Clearance */}
       <ClearanceSection shipmentId={shipment.id} colliExpected={shipment.colli_expected || 0} />
+
+      {/* T1 Records */}
+      <T1Section shipmentId={shipment.id} />
+
+      {/* Uitslagbonnen */}
+      <UitslagbonSection shipmentId={shipment.id} />
 
       {/* Scan Details (collapsible) */}
       <ScanDetailsSection shipmentId={shipment.id} outerboxes={outerboxes} colliExpected={shipment.colli_expected || 0} />
