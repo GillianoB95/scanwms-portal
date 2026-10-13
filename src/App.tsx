@@ -23,6 +23,7 @@ import SettingsPage from "./pages/staff/Settings";
 import StaffPlaceholder from "./pages/staff/StaffPlaceholder";
 import ManifestCleaner from "./pages/staff/ManifestCleaner";
 import StaffShipmentDetail from "./pages/staff/StaffShipmentDetail";
+import KpiDashboard from "./pages/staff/KpiDashboard";
 import WarehouseDashboard from "./pages/warehouse/WarehouseDashboard";
 import InboundScanning from "./pages/warehouse/InboundScanning";
 import WarehouseOutbound from "./pages/warehouse/WarehouseOutbound";
@@ -106,6 +107,7 @@ const App = () => (
             <Route path="/staff/shipments/:id" element={<StaffRoute><StaffShipmentDetail /></StaffRoute>} />
             <Route path="/staff/fyco" element={<StaffRoute><FycoManagement /></StaffRoute>} />
             <Route path="/staff/manifest-cleaner" element={<StaffRoute><ManifestCleaner /></StaffRoute>} />
+            <Route path="/staff/kpi-dashboard" element={<StaffRoute><KpiDashboard /></StaffRoute>} />
 
             {/* Warehouse Portal */}
             <Route path="/warehouse" element={<WarehouseRoute><WarehouseDashboard /></WarehouseRoute>} />
