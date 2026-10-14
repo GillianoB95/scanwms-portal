@@ -445,7 +445,7 @@ export default function StaffShipmentDetail() {
         <ArrowLeft className="h-4 w-4" /> Back to MAWB Overview
       </Link>
 
-      <div className="flex items-center gap-3 animate-fade-in">
+      <div className="flex flex-wrap items-center gap-3 animate-fade-in">
         <h1 className="text-2xl font-bold font-mono">{shipment.mawb}</h1>
         <StatusBadge status={shipment.status} />
       </div>
@@ -453,7 +453,7 @@ export default function StaffShipmentDetail() {
       {/* Shipment Info */}
       <div className="bg-card rounded-xl border p-5 animate-fade-in" style={{ animationDelay: '80ms' }}>
         <h2 className="font-semibold mb-4">Shipment Info</h2>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 text-sm">
           <div><span className="text-muted-foreground block text-xs mb-0.5">MAWB</span><span className="font-mono font-medium">{shipment.mawb}</span></div>
           <div><span className="text-muted-foreground block text-xs mb-0.5">Customer</span>{(shipment as any).customers?.name || '—'}</div>
           <div><span className="text-muted-foreground block text-xs mb-0.5">Transport</span>{shipment.transport_type}</div>

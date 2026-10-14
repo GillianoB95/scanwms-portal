@@ -301,7 +301,7 @@ export default function MawbOverview() {
       </div>
 
       <div className="bg-card rounded-xl border p-4">
-        <div className="flex flex-wrap gap-3">
+        <div className="portal-filters flex flex-wrap gap-3">
           <div className="relative flex-1 min-w-[200px]">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input placeholder="Search MAWB..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9" />

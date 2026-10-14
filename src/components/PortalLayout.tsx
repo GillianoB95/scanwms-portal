@@ -61,13 +61,13 @@ export function PortalLayout({ children, items, home, brand, title, icon: BrandI
 
   return (
     <div className="portal-shell flex min-h-dvh w-full min-w-0">
-      <aside className="sticky top-0 hidden h-dvh w-64 shrink-0 flex-col bg-sidebar-background text-sidebar-foreground lg:flex">{navigation(false)}</aside>
+      <aside className="sticky top-0 hidden h-dvh w-64 shrink-0 flex-col bg-sidebar text-sidebar-foreground lg:flex">{navigation(false)}</aside>
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="portal-header sticky top-0 z-30 flex min-h-16 items-center justify-between gap-3 border-b bg-card px-3 sm:px-6 lg:px-8">
           <div className="flex min-w-0 items-center gap-2">
             <Sheet>
               <SheetTrigger asChild><Button variant="ghost" size="icon" className="h-11 w-11 shrink-0 lg:hidden" aria-label="Open navigation"><Menu className="h-5 w-5" /></Button></SheetTrigger>
-              <SheetContent side="left" aria-describedby={undefined} className="flex h-dvh w-[min(20rem,90vw)] max-w-none flex-col gap-0 bg-sidebar-background p-0 text-sidebar-foreground sm:max-w-none [&>button]:text-sidebar-foreground">
+              <SheetContent side="left" aria-describedby={undefined} className="flex h-dvh w-[min(20rem,90vw)] max-w-none flex-col gap-0 bg-sidebar p-0 text-sidebar-foreground sm:max-w-none [&>button]:text-sidebar-foreground">
                 <SheetTitle className="sr-only">{title} navigation</SheetTitle>
                 {navigation(true)}
               </SheetContent>

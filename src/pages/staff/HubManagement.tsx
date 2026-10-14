@@ -160,7 +160,7 @@ export default function HubManagement() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="portal-toolbar flex items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold">Hub Management</h1>
           <p className="text-muted-foreground text-sm mt-1">Manage warehouse hubs and carriers</p>
@@ -243,7 +243,7 @@ export default function HubManagement() {
             <Separator />
 
             <div className="space-y-3">
-              <div className="flex items-center justify-between">
+              <div className="portal-toolbar flex items-center justify-between gap-3">
                 <p className="text-sm font-medium">Addresses</p>
                 <Button type="button" variant="outline" size="sm" onClick={addAddress}>
                   <Plus className="h-3.5 w-3.5 mr-1" /> Add Address
@@ -256,7 +256,7 @@ export default function HubManagement() {
 
               {addresses.map((addr, idx) => (
                 <div key={idx} className="border rounded-lg p-3 space-y-2">
-                  <div className="flex items-center justify-between">
+                  <div className="portal-toolbar flex items-center justify-between gap-3">
                     <p className="text-xs font-medium text-muted-foreground">Address {idx + 1}</p>
                     <Button type="button" variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={() => removeAddress(idx)}>
                       <Trash2 className="h-3 w-3" />
@@ -271,7 +271,7 @@ export default function HubManagement() {
                     <Input placeholder="Company Name" value={addr.name} onChange={e => updateAddress(idx, 'name', e.target.value)} />
                   </div>
                   <div className="grid grid-cols-3 gap-2">
-                    <Input placeholder="Street" value={addr.street} onChange={e => updateAddress(idx, 'street', e.target.value)} className="col-span-2" />
+                    <Input placeholder="Street" value={addr.street} onChange={e => updateAddress(idx, 'street', e.target.value)} className="sm:col-span-2" />
                     <Input placeholder="Nr" value={addr.house_number} onChange={e => updateAddress(idx, 'house_number', e.target.value)} />
                   </div>
                   <div className="grid grid-cols-3 gap-2">

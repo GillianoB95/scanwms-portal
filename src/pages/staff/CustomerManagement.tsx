@@ -325,7 +325,7 @@ function NotificationSettingsDialog({ customer, open, onOpenChange }: {
         </DialogHeader>
         <div className="space-y-6 py-4">
           <div className="space-y-3">
-            <div className="flex items-center justify-between">
+            <div className="portal-toolbar flex items-center justify-between gap-3">
               <div>
                 <p className="font-medium text-sm">CC Cleared</p>
                 <p className="text-xs text-muted-foreground">Notify when customs clearance is complete</p>
@@ -340,7 +340,7 @@ function NotificationSettingsDialog({ customer, open, onOpenChange }: {
             )}
           </div>
           <div className="space-y-3">
-            <div className="flex items-center justify-between">
+            <div className="portal-toolbar flex items-center justify-between gap-3">
               <div>
                 <p className="font-medium text-sm">Inspection</p>
                 <p className="text-xs text-muted-foreground">Notify when an inspection is opened</p>
@@ -467,7 +467,7 @@ function LoginManagementDialog({ customer, open, onOpenChange }: {
             ) : (
               <div className="space-y-2">
                 {logins.map((login: any) => (
-                  <div key={login.id} className="flex items-center justify-between bg-muted/50 rounded-lg px-3 py-2">
+                  <div key={login.id} className="flex items-center justify-between gap-2 break-all bg-muted/50 rounded-lg px-3 py-2">
                     <div>
                       <p className="text-sm font-medium">{login.email}</p>
                       <p className="text-xs text-muted-foreground">
@@ -587,7 +587,7 @@ export default function CustomerManagement() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="portal-toolbar flex items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold">Customer Management</h1>
           <p className="text-muted-foreground text-sm mt-1">Manage customer accounts and sub-accounts</p>
