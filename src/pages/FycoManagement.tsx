@@ -602,8 +602,8 @@ export default function FycoManagement() {
       </div>
 
       {/* Filters */}
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="relative max-w-xs flex-1">
+      <div className="portal-filters flex flex-wrap items-center gap-3">
+        <div className="relative sm:max-w-xs flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             value={search}
@@ -640,7 +640,7 @@ export default function FycoManagement() {
         </Select>
 
         {selected.size > 0 && (
-          <div className="flex items-center gap-2 ml-auto">
+          <div className="flex flex-wrap items-center gap-2 ml-auto">
             <span className="text-sm text-muted-foreground">{selected.size} selected</span>
             <Button size="sm" variant="outline" onClick={handleBulkChecked} disabled={updateMutation.isPending}>
               Mark Checked

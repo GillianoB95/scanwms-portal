@@ -252,7 +252,7 @@ export default function OutboundShipment() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="portal-toolbar flex items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold">Outbound Shipments</h1>
           <p className="text-muted-foreground text-sm mt-1">Manage outbound pickups grouped by date</p>
@@ -264,7 +264,7 @@ export default function OutboundShipment() {
       </div>
 
       <div className="bg-card rounded-xl border p-4">
-        <div className="flex flex-wrap gap-3">
+        <div className="portal-filters flex flex-wrap gap-3">
           <div className="relative flex-1 min-w-[200px]">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input placeholder="Search truck ref or outbound ID..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9" />
@@ -320,8 +320,8 @@ export default function OutboundShipment() {
 
             return (
               <div key={dateKey} className="bg-card rounded-xl border overflow-hidden">
-                <button onClick={() => toggleDate(dateKey)} className="w-full flex items-center justify-between p-4 hover:bg-muted/50 transition-colors">
-                  <div className="flex items-center gap-3">
+                <button onClick={() => toggleDate(dateKey)} className="w-full flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:justify-between p-4 hover:bg-muted/50 transition-colors">
+                  <div className="flex flex-wrap items-center gap-3">
                     {expanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
                     <span className="font-semibold">{displayDate}</span>
                     <Badge variant="secondary">{items.length} outbound{items.length !== 1 ? 's' : ''}</Badge>

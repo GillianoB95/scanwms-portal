@@ -893,7 +893,7 @@ export default function InboundScanning() {
               placeholder="Enter full or last digits of MAWB (e.g. 2772)"
               className="font-mono"
             />
-            <Button onClick={handleMawbSearch} disabled={searching}>
+            <Button onClick={handleMawbSearch} aria-label="Find shipment" className="shrink-0" disabled={searching}>
               {searching ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
             </Button>
           </div>
@@ -905,7 +905,7 @@ export default function InboundScanning() {
               {mawbResults.map((s: any) => (
                 <button
                   key={s.id}
-                  className="w-full text-left px-4 py-3 hover:bg-muted transition-colors flex items-center justify-between"
+                  className="w-full text-left px-4 py-3 hover:bg-muted transition-colors flex flex-wrap items-center justify-between gap-2"
                   onClick={() => selectShipment(s)}
                 >
                   <div>
@@ -957,7 +957,7 @@ export default function InboundScanning() {
                       autoFocus
                       disabled={!!scanningBlocked}
                     />
-                    <Button type="submit" size="lg" className="h-14" disabled={scanMutation.isPending || !!scanningBlocked}>
+                    <Button type="submit" size="lg" className="h-14 shrink-0" aria-label="Scan barcode" disabled={scanMutation.isPending || !!scanningBlocked}>
                       <ScanBarcode className="h-5 w-5" />
                     </Button>
                   </div>
@@ -978,7 +978,7 @@ export default function InboundScanning() {
                     style={{ width: `${totalExpected > 0 ? Math.min((totalScanned / totalExpected) * 100, 100) : 0}%` }}
                   />
                 </div>
-                <div className="flex gap-2 mt-4">
+                <div className="portal-actions flex flex-wrap gap-2 mt-4">
                   <Button
                     variant="outline"
                     onClick={() => unloadMutation.mutate()}

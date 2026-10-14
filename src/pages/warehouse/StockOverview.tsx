@@ -253,10 +253,10 @@ export default function StockOverview() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="portal-toolbar flex items-center justify-between gap-3">
         <h1 className="text-2xl font-bold">Stock Overview</h1>
         <Select value={hubFilter} onValueChange={setHubFilter}>
-          <SelectTrigger className="w-48">
+          <SelectTrigger className="w-full sm:w-48">
             <SelectValue placeholder="Filter by hub" />
           </SelectTrigger>
           <SelectContent>
@@ -319,8 +319,8 @@ export default function StockOverview() {
                 <CardContent className="pt-5 pb-4 space-y-4">
                   {/* Header */}
                   <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
+                    <div className="portal-toolbar flex items-center justify-between gap-3">
+                      <div className="flex flex-wrap items-center gap-3">
                         <span className="font-mono font-bold text-lg">{s.mawb}</span>
                         {subklantName && (
                           <Badge variant="secondary" className="text-xs">{subklantName}</Badge>

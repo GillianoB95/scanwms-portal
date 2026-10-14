@@ -295,8 +295,8 @@ export default function WarehouseDashboard() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
+      <div className="portal-toolbar flex items-center justify-between gap-3">
+        <div className="flex flex-col items-start gap-3 xl:flex-row xl:items-center xl:gap-4">
           <h1 className="text-2xl font-bold">Warehouse Dashboard</h1>
           <div className="flex items-center gap-1 bg-muted rounded-lg p-1">
             {(['today', 'week', 'month'] as const).map(p => (
@@ -314,7 +314,7 @@ export default function WarehouseDashboard() {
             ))}
           </div>
         </div>
-        <div className="flex gap-2">
+        <div className="portal-actions flex flex-wrap gap-2">
           <Button asChild>
             <Link to="/warehouse/inbound"><ScanBarcode className="mr-2 h-4 w-4" />Start Scanning</Link>
           </Button>
@@ -324,16 +324,16 @@ export default function WarehouseDashboard() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-5 gap-4">
         {stats.map(s => (
           <Card key={s.label}>
-            <CardContent className="p-6 flex items-center gap-4">
+            <CardContent className="p-4 sm:p-6 flex items-center gap-3">
               <div className={`p-3 rounded-xl bg-muted ${s.color}`}>
                 <s.icon className="h-6 w-6" />
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">{s.label}</p>
-                <p className="text-2xl font-bold">{s.value}</p>
+                <p className="text-xl font-bold break-words">{s.value}</p>
                 {s.sub && <p className="text-xs text-muted-foreground">{s.sub}</p>}
               </div>
             </CardContent>
@@ -342,7 +342,7 @@ export default function WarehouseDashboard() {
       </div>
 
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+        <CardHeader className="flex flex-col items-start gap-3 space-y-0 pb-4 xl:flex-row xl:items-center xl:justify-between">
           <CardTitle className="text-lg">Shipments</CardTitle>
           <div className="flex flex-wrap gap-1.5">
             {allStatuses.map(status => (

@@ -212,21 +212,21 @@ export function ActionRequiredPanel() {
 
   return (
     <>
-      <button
+      <Button aria-label="Open action required alerts"
         onClick={() => setOpen(true)}
-        className="fixed bottom-6 right-6 z-50 h-14 w-14 rounded-full bg-destructive text-destructive-foreground shadow-lg flex items-center justify-center hover:bg-destructive/90 transition-colors"
+        className="fixed bottom-[max(1rem,env(safe-area-inset-bottom))] right-4 sm:bottom-6 sm:right-6 z-40 h-14 w-14 rounded-full bg-destructive text-destructive-foreground shadow-lg flex items-center justify-center hover:bg-destructive/90 transition-colors"
       >
         <Bell className="h-6 w-6" />
         <span className="absolute -top-1 -right-1 h-6 min-w-6 px-1 rounded-full bg-foreground text-background text-xs font-bold flex items-center justify-center">
           {totalCount}
         </span>
-      </button>
+      </Button>
 
       {open && (
         <div className="fixed inset-0 z-50" onClick={() => setOpen(false)}>
           <div className="absolute inset-0 bg-foreground/20" />
           <div
-            className="absolute bottom-0 right-0 w-full max-w-md h-[70vh] bg-card border-t border-l rounded-tl-xl shadow-2xl flex flex-col animate-in slide-in-from-bottom duration-300"
+            className="absolute bottom-0 right-0 w-full max-w-md h-[80dvh] sm:h-[70dvh] bg-card border-t border-l rounded-tl-xl shadow-2xl flex flex-col animate-in slide-in-from-bottom duration-300"
             onClick={e => e.stopPropagation()}
           >
             <div className="flex items-center justify-between px-5 py-4 border-b">
@@ -235,7 +235,7 @@ export function ActionRequiredPanel() {
                 <h2 className="font-semibold text-lg">Action Required</h2>
                 <Badge variant="destructive" className="text-xs">{totalCount}</Badge>
               </div>
-              <Button variant="ghost" size="icon" onClick={() => setOpen(false)}>
+              <Button variant="ghost" size="icon" aria-label="Close alerts" onClick={() => setOpen(false)}>
                 <X className="h-4 w-4" />
               </Button>
             </div>

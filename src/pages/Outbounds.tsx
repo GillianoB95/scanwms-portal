@@ -3,6 +3,7 @@ import { Loader2, Download, Truck } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth-context';
 import { StatusBadge } from '@/components/StatusBadge';
+import { Button } from '@/components/ui/button';
 
 interface OutboundRow {
   id: string;
@@ -116,7 +117,26 @@ export default function Outbounds() {
       </div>
 
       <div className="bg-card rounded-xl border animate-fade-in">
-        <div className="overflow-x-auto">
+        <div className="divide-y md:hidden">
+          {outbounds.map(ob => <article key={ob.id} className="space-y-3 p-4">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span className="font-semibold">{ob.hub_code || '—'}</span>
+              <StatusBadge status={ob.status === 'departed' ? 'Departed' : 'Prepared'} />
+            </div>
+            <dl className="grid grid-cols-2 gap-3 text-sm">
+              <div><dt className="text-xs text-muted-foreground">Truck Ref</dt><dd className="break-all font-mono">{ob.truck_reference || '—'}</dd></div>
+              <div><dt className="text-xs text-muted-foreground">License Plate</dt><dd className="break-all font-mono">{ob.license_plate || '—'}</dd></div>
+            </dl>
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-xs text-muted-foreground">{ob.pickup_date ? new Date(ob.pickup_date).toLocaleDateString('en-GB') : '—'}</span>
+              <Button variant="outline" size="sm" onClick={() => handleDownloadCmr(ob.id)} disabled={downloadingId === ob.id}>
+                {downloadingId === ob.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}CMR
+              </Button>
+            </div>
+          </article>)}
+          {outbounds.length === 0 && <p className="p-8 text-center text-sm text-muted-foreground">No outbounds found</p>}
+        </div>
+        <div className="hidden overflow-x-auto md:block">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b text-muted-foreground">

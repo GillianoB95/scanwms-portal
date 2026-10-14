@@ -619,7 +619,7 @@ function AlarmSettingsTab() {
       </p>
       <div className="bg-card rounded-xl border p-6 space-y-5">
         {ALARM_FIELDS.map(field => (
-          <div key={field.key} className="flex items-center gap-4">
+          <div key={field.key} className="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:gap-4">
             <div className="flex-1 min-w-0">
               <Label className="text-sm font-medium">{field.label}</Label>
               <p className="text-xs text-muted-foreground">{field.description}</p>

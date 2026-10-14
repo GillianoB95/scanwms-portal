@@ -4,6 +4,7 @@ import { Search, ChevronLeft, ChevronRight, Loader2, Package } from 'lucide-reac
 import { supabase } from '@/lib/supabase';
 import { StatusBadge } from '@/components/StatusBadge';
 import { Progress } from '@/components/ui/progress';
+import { Button } from '@/components/ui/button';
 
 type Tab = 'active' | 'archive';
 type SubFilter = 'all' | 'awaiting-noa' | 'partial-noa' | 'noa-complete' | 'in-transit' | 'in-stock' | 'outbound';
@@ -230,7 +231,33 @@ export default function Shipments() {
       )}
 
       <div className="bg-card rounded-xl border animate-fade-in" style={{ animationDelay: '180ms' }}>
-        <div className="overflow-x-auto">
+        <div className="divide-y md:hidden">
+          {paginated.map((s: any) => {
+            const sp = scanProgress[s.id];
+            return (
+              <Link key={s.id} to={`/shipments/${s.id}`} className="block space-y-3 p-4 hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="font-mono font-semibold text-accent">{s.mawb}</span>
+                  <StatusBadge status={s.status} />
+                </div>
+                <div className="flex flex-wrap justify-between gap-2 text-xs text-muted-foreground">
+                  <span>{s.pieces ?? '—'} pieces · {s.weight != null ? `${s.weight} kg` : '—'}</span>
+                  <span>{new Date(s.created_at).toLocaleDateString('en-GB')}</span>
+                </div>
+                {sp && sp.expected > 0 && <div className="space-y-2">
+                  <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                    <span>Expected: <strong className="text-foreground">{sp.expected}</strong></span>
+                    <span>In warehouse: <strong className="text-foreground">{sp.inWarehouse}</strong></span>
+                    <span>Shipped: <strong className="text-foreground">{sp.shipped}</strong></span>
+                  </div>
+                  <Progress value={Math.round(((sp.inWarehouse + sp.shipped) / sp.expected) * 100)} className="h-1.5" />
+                </div>}
+              </Link>
+            );
+          })}
+          {paginated.length === 0 && <p className="p-8 text-center text-sm text-muted-foreground">No shipments found</p>}
+        </div>
+        <div className="hidden overflow-x-auto md:block">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b text-muted-foreground">
@@ -289,23 +316,23 @@ export default function Shipments() {
         </div>
 
         {totalPages > 1 && (
-          <div className="flex items-center justify-between px-5 py-3 border-t text-sm text-muted-foreground">
+          <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 border-t text-sm text-muted-foreground">
             <span>Page {page} of {totalPages} · {filtered.length} shipments</span>
             <div className="flex gap-1">
-              <button
+              <Button variant="outline" size="icon" aria-label="Previous page"
                 disabled={page <= 1}
                 onClick={() => setPage(p => p - 1)}
                 className="h-8 w-8 flex items-center justify-center rounded-md border hover:bg-muted disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
               >
                 <ChevronLeft className="h-4 w-4" />
-              </button>
-              <button
+              </Button>
+              <Button variant="outline" size="icon" aria-label="Next page"
                 disabled={page >= totalPages}
                 onClick={() => setPage(p => p + 1)}
                 className="h-8 w-8 flex items-center justify-center rounded-md border hover:bg-muted disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
               >
                 <ChevronRight className="h-4 w-4" />
-              </button>
+              </Button>
             </div>
           </div>
         )}

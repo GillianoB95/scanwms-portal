@@ -453,10 +453,10 @@ export default function NewShipment() {
       </div>
 
       {step === 1 && (
-        <div className="bg-card rounded-xl border p-6 space-y-5 animate-fade-in">
+        <div className="bg-card rounded-xl border p-4 sm:p-6 space-y-5 animate-fade-in">
           <div>
             <label className="block text-sm font-medium mb-2">Transport Type</label>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               <button className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-accent text-accent-foreground text-sm font-medium">
                 <Plane className="h-4 w-4" /> AIR
               </button>
@@ -516,7 +516,7 @@ export default function NewShipment() {
                 </p>
                 {awbExtracting && <div className="flex items-center gap-1 text-xs text-muted-foreground"><Loader2 className="h-3 w-3 animate-spin" />Extracting...</div>}
               </div>
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
                   <label className="text-xs text-muted-foreground block mb-1">Colli (pieces)</label>
                   <input type="number" min="0" value={manualColli} onChange={e => { if (!awbData?.pieces) setManualColli(e.target.value); }} readOnly={!!awbData?.pieces} placeholder="0"
@@ -584,7 +584,7 @@ export default function NewShipment() {
 
       {step === 2 && (
         <div className="space-y-5 animate-fade-in">
-          <div className="bg-card rounded-xl border p-6 space-y-4">
+          <div className="bg-card rounded-xl border p-4 sm:p-6 space-y-4">
             <h2 className="font-semibold">Shipment Summary</h2>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 text-sm">
               <div><span className="text-muted-foreground text-xs block">MAWB</span><span className="font-mono font-medium">{mawb}</span></div>
@@ -599,7 +599,7 @@ export default function NewShipment() {
             </div>
           )}
 
-          <div className="flex justify-between pt-2">
+          <div className="portal-actions flex justify-between gap-3 pt-2">
             <button onClick={() => setStep(1)} disabled={submitting}
               className="inline-flex items-center gap-2 px-5 h-10 rounded-lg border text-sm font-medium hover:bg-muted active:scale-[0.98] transition-all disabled:opacity-50">
               <ArrowLeft className="h-4 w-4" /> Back
