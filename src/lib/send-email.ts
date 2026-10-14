@@ -104,13 +104,12 @@ export async function sendConvertedManifestEmail(params: {
     return { success: false, error: data.error };
   }
 
-  // 7. Update shipment_files record
+  // 7. Track email-sent state on inspections (not shipment_files — those columns don't exist there)
   if (userEmail) {
     await supabase
-      .from('shipment_files')
+      .from('inspections')
       .update({ email_sent_at: new Date().toISOString(), email_sent_by: userEmail })
-      .eq('shipment_id', shipmentId)
-      .eq('file_type', 'manifest_converted');
+      .eq('shipment_id', shipmentId);
   }
 
   console.log('[sendConvertedManifestEmail] ✅ Email sent', { id: data?.id });

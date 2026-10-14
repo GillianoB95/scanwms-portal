@@ -283,7 +283,7 @@ export default function WarehouseOutbound() {
         .from('inspections')
         .select('*', { count: 'exact', head: true })
         .eq('shipment_id', pallet.shipment_id)
-        .eq('status', 'Under Inspection');
+        .eq('status', 'under_inspection');
       if (inspCount && inspCount > 0) {
         throw new Error('Shipment has open inspections — cannot add to outbound');
       }
@@ -296,13 +296,13 @@ export default function WarehouseOutbound() {
         .neq('status', 'deleted');
       if (palletBoxes && palletBoxes.length > 0) {
         const boxBarcodes = palletBoxes.map(b => b.barcode);
-        const { data: unscannedFyco } = await supabase
+        const { count: unscannedFyco } = await supabase
           .from('inspections')
           .select('id', { count: 'exact', head: true })
           .eq('shipment_id', pallet.shipment_id)
           .in('parcel_barcode', boxBarcodes)
           .is('scan_time', null);
-        if (unscannedFyco && unscannedFyco.length > 0) {
+        if (unscannedFyco && unscannedFyco > 0) {
           throw new Error('Fyco parcels on this pallet have not been scanned yet.');
         }
       }

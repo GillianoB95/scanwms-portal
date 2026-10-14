@@ -50,7 +50,7 @@ function usePallets(palletIds: string[]) {
       if (palletIds.length === 0) return [];
       const { data, error } = await supabase
         .from('pallets')
-        .select('id, pallet_number, outbound_id, hub, outbounds(status, pickup_date, truck_reference)')
+        .select('id, pallet_number, outbound_id, hub_code, outbounds(status, pickup_date, truck_reference)')
         .in('id', palletIds);
       if (error) throw error;
       return data ?? [];
@@ -284,7 +284,7 @@ export default function WarehouseShipmentDetail() {
                   return (
                     <tr key={p.id} className="border-b last:border-0">
                       <td className="px-5 py-3 font-mono font-medium">{p.pallet_number || p.id.slice(0, 8)}</td>
-                      <td className="px-5 py-3">{p.hub || '—'}</td>
+                      <td className="px-5 py-3">{p.hub_code || '—'}</td>
                       <td className="px-5 py-3 tabular-nums">{boxCount}</td>
                       <td className="px-5 py-3">
                         {obStatus ? <StatusBadge status={obStatus} /> : <span className="text-muted-foreground text-xs">Not assigned</span>}

@@ -86,9 +86,9 @@ export default function StockOverview() {
       if (shipmentIds.length === 0) return [];
       const { data } = await supabase
         .from('shipment_status_history')
-        .select('shipment_id, new_status')
+        .select('shipment_id, status')
         .in('shipment_id', shipmentIds)
-        .eq('new_status', 'Partial NOA');
+        .eq('status', 'Partial NOA');
       return data ?? [];
     },
     enabled: shipmentIds.length > 0,

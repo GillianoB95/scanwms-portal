@@ -25,7 +25,7 @@ const ALL_STATUSES = ['Awaiting NOA', 'Partial NOA', 'NOA Complete', 'In Transit
 function useCreateNoa() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (noa: { shipment_id: string; colli: number; weight: number; source: string; file_path?: string; received_at: string }) => {
+    mutationFn: async (noa: { shipment_id: string; colli: number; weight: number; file_path?: string; received_at: string }) => {
       const { data, error } = await supabase.from('noas').insert(noa).select().single();
       if (error) throw error;
       return data;
@@ -59,7 +59,7 @@ function NoaUploadModal({ shipment, open, onOpenChange }: { shipment: any; open:
       }
       await createNoa.mutateAsync({
         shipment_id: shipment.id, colli: parseInt(colli), weight: parseFloat(weight),
-        source: source || 'Unknown', file_path: filePath, received_at: new Date(receivedAt).toISOString(),
+        file_path: filePath, received_at: new Date(receivedAt).toISOString(),
       });
       const { data: allNoas } = await supabase.from('noas').select('colli').eq('shipment_id', shipment.id);
       const totalReceived = (allNoas ?? []).reduce((sum: number, n: any) => sum + (n.colli ?? 0), 0);
@@ -67,7 +67,7 @@ function NoaUploadModal({ shipment, open, onOpenChange }: { shipment: any; open:
       let newStatus = shipment.status;
       if (expected > 0 && totalReceived >= expected) newStatus = 'NOA Complete';
       else if (totalReceived > 0) newStatus = 'Partial NOA';
-      await updateShipment.mutateAsync({ id: shipment.id, colli_received: totalReceived, status: newStatus, noa_date: new Date().toISOString().split('T')[0] });
+      await updateShipment.mutateAsync({ id: shipment.id, status: newStatus });
       toast.success(`NOA uploaded — ${totalReceived}/${expected} colli received`);
       onOpenChange(false);
     } catch (err: any) {

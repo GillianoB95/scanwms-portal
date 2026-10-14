@@ -12,6 +12,7 @@ interface OutboundRow {
   license_plate: string | null;
   status: string;
   hub_code: string | null;
+  shipment_id?: string;
 }
 
 export default function Outbounds() {
@@ -52,20 +53,25 @@ export default function Outbounds() {
     setDownloadingId(outboundId);
 
     try {
-      const { data: cmrRecords } = await supabase
-        .from('cmr_records')
-        .select('file_path, file_name')
-        .eq('outbound_id', outboundId);
+      const outbound = outbounds.find((o: any) => o.id === outboundId);
+      const shipmentId = outbound?.shipment_id;
+      if (!shipmentId) { alert('No CMR file available.'); return; }
 
-      if (!cmrRecords || cmrRecords.length === 0) {
+      const { data: cmrFiles } = await supabase
+        .from('shipment_files')
+        .select('storage_path')
+        .eq('shipment_id', shipmentId)
+        .eq('file_type', 'cmr');
+
+      if (!cmrFiles || cmrFiles.length === 0) {
         alert('No CMR file available for this outbound.');
         return;
       }
 
-      for (const cmr of cmrRecords) {
+      for (const cmr of cmrFiles) {
         const { data: fileData, error: dlError } = await supabase.storage
-          .from('cmr-files')
-          .download(cmr.file_path);
+          .from('shipment-files')
+          .download(cmr.storage_path);
 
         if (dlError || !fileData) {
           console.error('CMR download error:', dlError);
@@ -76,7 +82,7 @@ export default function Outbounds() {
         const url = URL.createObjectURL(fileData);
         const a = document.createElement('a');
         a.href = url;
-        a.download = cmr.file_name || 'CMR.pdf';
+        a.download = 'CMR.pdf';
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
