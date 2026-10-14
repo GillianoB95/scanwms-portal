@@ -83,9 +83,24 @@ function useAlarmData() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('shipments')
-        .select('id, mawb, status, eta, created_at, noa_received_at, unloaded_at, customers(name)')
+        .select('id, mawb, status, eta, created_at, unloaded_at, customers(name)')
         .not('status', 'eq', 'Outbound');
       if (error) throw error;
+
+      // Derive noa_received_at from noas join (column doesn't exist on shipments)
+      const shipmentIds = (data ?? []).map((s: any) => s.id);
+      const { data: noasData } = await supabase
+        .from('noas')
+        .select('shipment_id, received_at')
+        .in('shipment_id', shipmentIds)
+        .not('received_at', 'is', null);
+      const noaReceivedByShipment = new Map<string, string>();
+      for (const n of noasData ?? []) {
+        const existing = noaReceivedByShipment.get(n.shipment_id);
+        if (!existing || new Date(n.received_at) < new Date(existing)) {
+          noaReceivedByShipment.set(n.shipment_id, n.received_at);
+        }
+      }
 
       const alarms: ShipmentAlarmRow[] = [];
       for (const s of data ?? []) {
@@ -95,7 +110,7 @@ function useAlarmData() {
           status: s.status,
           eta: s.eta,
           created_at: (s as any).created_at,
-          noa_received_at: (s as any).noa_received_at,
+          noa_received_at: noaReceivedByShipment.get(s.id) ?? null,
           unloaded_at: (s as any).unloaded_at,
           customer_name: (s as any).customers?.name ?? null,
         }, settings);
