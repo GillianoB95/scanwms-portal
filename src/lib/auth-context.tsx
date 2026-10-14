@@ -14,6 +14,7 @@ interface AuthContextType {
   customer: Customer | null;
   role: string | null;
   loading: boolean;
+  profileLoaded: boolean;
   login: (email: string, password: string) => Promise<string | null>;
   logout: () => Promise<void>;
 }
@@ -31,38 +32,43 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [customer, setCustomer] = useState<Customer | null>(null);
   const [role, setRole] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [profileLoaded, setProfileLoaded] = useState(false);
 
   const fetchCustomer = async (email: string) => {
-    // Step 1: Get the user's role and customer_id without nested relation
-    const { data, error } = await supabase
-      .from('customer_users')
-      .select('role, customer_id, warehouse_id')
-      .eq('email', email)
-      .maybeSingle();
-
-    if (error) throw error;
-    if (!data) {
-      setRole(null);
-      setCustomer(null);
-      return;
-    }
-
-    setRole(data.role ?? null);
-
-    // Step 2: Only fetch customer details if this is a customer-linked user
-    if (data.customer_id && data.role === 'customer') {
-      const { data: cust, error: custError } = await supabase
-        .from('customers')
-        .select('id, name, warehouse_id, parent_id')
-        .eq('id', data.customer_id)
+    try {
+      // Step 1: Get the user's role and customer_id without nested relation
+      const { data, error } = await supabase
+        .from('customer_users')
+        .select('role, customer_id, warehouse_id')
+        .eq('email', email)
         .maybeSingle();
 
-      if (custError) {
-        console.error('fetchCustomer: customer lookup failed:', custError);
+      if (error) throw error;
+      if (!data) {
+        setRole(null);
+        setCustomer(null);
+        return;
       }
-      setCustomer(cust ? cust as unknown as Customer : null);
-    } else {
-      setCustomer(null);
+
+      setRole(data.role ?? null);
+
+      // Step 2: Only fetch customer details if this is a customer-linked user
+      if (data.customer_id && data.role === 'customer') {
+        const { data: cust, error: custError } = await supabase
+          .from('customers')
+          .select('id, name, warehouse_id, parent_id')
+          .eq('id', data.customer_id)
+          .maybeSingle();
+
+        if (custError) {
+          console.error('fetchCustomer: customer lookup failed:', custError);
+        }
+        setCustomer(cust ? cust as unknown as Customer : null);
+      } else {
+        setCustomer(null);
+      }
+    } finally {
+      setProfileLoaded(true);
     }
   };
 
@@ -113,7 +119,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, customer, role, loading, login, logout }}>
+    <AuthContext.Provider value={{ user, customer, role, loading, profileLoaded, login, logout }}>
       {children}
     </AuthContext.Provider>
   );

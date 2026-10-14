@@ -10,6 +10,12 @@ export interface PalletLabelData {
   printedAt?: Date;
 }
 
+function escapeHtml(value: string): string {
+  return value.replace(/[&<>"']/g, char => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+  })[char]!);
+}
+
 // Minimal Code128B barcode SVG generator
 function generateCode128Svg(text: string, width = 280, height = 70): string {
   const CODE128B_START = 104;
@@ -78,8 +84,7 @@ export function generatePalletLabelHtml(data: PalletLabelData): string {
 <head>
 <style>
   @page { size: 100mm 150mm; margin: 0; }
-  * { box-sizing: border-box; }
-  body { margin: 0; }
+  .label-page, .label-page * { box-sizing: border-box; }
   .label-page {
     font-family: Arial, Helvetica, sans-serif;
     padding: 4mm;
@@ -144,15 +149,15 @@ export function generatePalletLabelHtml(data: PalletLabelData): string {
 </head>
 <body>
 <div class="label-page">
-  <div class="subklant">${data.subklant}</div>
-  <div class="pallet-id">${data.palletId}</div>
+  <div class="subklant">${escapeHtml(data.subklant)}</div>
+  <div class="pallet-id">${escapeHtml(data.palletId)}</div>
   <div class="datetime">${dateStr} ${timeStr}</div>
   <div class="barcode-area">
     ${barcodeSvg}
   </div>
-  <div class="mawb">MAWB: ${data.mawb}</div>
+  <div class="mawb">MAWB: ${escapeHtml(data.mawb)}</div>
   <div class="cargo">${data.colli} CTN | ${data.weight.toFixed(2)} KG</div>
-  <div class="hub">${data.hub}</div>
+  <div class="hub">${escapeHtml(data.hub)}</div>
 </div>
 </body>
 </html>`;

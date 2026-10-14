@@ -1,11 +1,10 @@
-import html2pdf from 'html2pdf.js';
-
 // PrintNode's pdf_base64 content must contain PDF bytes, not encoded HTML.
 export async function htmlToPdfBase64(
   element: HTMLElement,
   format: [number, number] | 'a4',
   margin = 0,
 ): Promise<string> {
+  const { default: html2pdf } = await import('html2pdf.js');
   const dataUri: string = await html2pdf()
     .set({
       margin,
