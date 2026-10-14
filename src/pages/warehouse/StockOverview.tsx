@@ -253,10 +253,10 @@ export default function StockOverview() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <h1 className="text-2xl font-bold">Stock Overview</h1>
         <Select value={hubFilter} onValueChange={setHubFilter}>
-          <SelectTrigger className="w-48">
+          <SelectTrigger className="w-full sm:w-48">
             <SelectValue placeholder="Filter by hub" />
           </SelectTrigger>
           <SelectContent>
@@ -431,12 +431,12 @@ export default function StockOverview() {
 
                       return (
                         <div key={hub} className={`rounded-md px-3 py-2 ${rowBg}`}>
-                          <div className="flex items-center gap-4">
+                          <div className="flex flex-wrap items-center gap-3 sm:gap-4">
                             <span className={`w-20 text-sm font-medium truncate ${complete ? 'text-emerald-700' : notStarted ? 'text-muted-foreground' : 'text-amber-700'}`} title={hub}>
                               {hub}
                             </span>
                             <span className={`w-20 text-sm ${complete ? 'text-emerald-700' : notStarted ? 'text-muted-foreground' : 'text-amber-700'}`}>{counts.total} boxes</span>
-                            <div className="flex-1">
+                            <div className="w-full sm:w-auto sm:flex-1 order-last sm:order-none">
                               <Progress
                                 value={pct}
                                 className={`h-2.5 ${complete ? '[&>div]:bg-emerald-500' : notStarted ? '[&>div]:bg-muted-foreground/30' : '[&>div]:bg-amber-500'}`}

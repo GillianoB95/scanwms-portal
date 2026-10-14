@@ -577,10 +577,10 @@ export default function WarehouseOutbound() {
                 value={palletBarcode}
                 onChange={e => setPalletBarcode(e.target.value)}
                 placeholder="Scan pallet number..."
-                className="font-mono"
+                className="font-mono min-w-0 flex-1 h-14"
                 autoFocus
               />
-              <Button type="submit" disabled={addPallet.isPending}>
+              <Button type="submit" size="icon" className="h-14 w-14 shrink-0" aria-label="Scan pallet" title="Scan pallet" disabled={addPallet.isPending}>
                 <ScanBarcode className="h-4 w-4" />
               </Button>
             </form>
@@ -776,7 +776,7 @@ export default function WarehouseOutbound() {
   // ─── LIST VIEW (staff portal style) ───
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold">Outbound</h1>
           <p className="text-muted-foreground text-sm mt-1">Manage outbound pickups grouped by date</p>
@@ -794,7 +794,7 @@ export default function WarehouseOutbound() {
             <Input placeholder="Search truck ref, outbound # or license plate..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9" />
           </div>
           <Select value={hubFilter} onValueChange={setHubFilter}>
-            <SelectTrigger className="w-[180px]"><SelectValue placeholder="Hub" /></SelectTrigger>
+            <SelectTrigger className="w-full sm:w-[180px]"><SelectValue placeholder="Hub" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Hubs</SelectItem>
               {hubOptions.map(h => <SelectItem key={h} value={h}>{h}</SelectItem>)}
