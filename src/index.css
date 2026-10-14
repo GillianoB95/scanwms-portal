@@ -1,4 +1,7 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+@import '@fontsource/inter/400.css';
+@import '@fontsource/inter/500.css';
+@import '@fontsource/inter/600.css';
+@import '@fontsource/inter/700.css';
 
 @tailwind base;
 @tailwind components;
@@ -68,6 +71,88 @@
 @layer utilities {
   .text-balance {
     text-wrap: balance;
+  }
+}
+
+/* Shared portal sizing keeps scrolling inside operational tables, not the page. */
+.portal-content > *,
+.portal-content .grid > *,
+[role='dialog'] .grid > * {
+  min-width: 0;
+}
+
+.portal-content .overflow-x-auto {
+  max-width: 100%;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+.portal-nav-footer {
+  padding-bottom: max(1rem, env(safe-area-inset-bottom));
+}
+
+.portal-header {
+  padding-top: env(safe-area-inset-top);
+}
+
+@media (max-width: 639px) {
+  .portal-content {
+    padding-bottom: calc(5rem + env(safe-area-inset-bottom));
+  }
+
+  .portal-content input:not([type='checkbox']):not([type='radio']),
+  .portal-content textarea,
+  .portal-content select,
+  [role='dialog'] input:not([type='checkbox']):not([type='radio']),
+  [role='dialog'] textarea {
+    min-width: 0;
+    max-width: 100%;
+    font-size: 16px;
+  }
+
+  .portal-content button:not([role='checkbox']):not([role='switch']),
+  [role='dialog'] button:not([role='checkbox']):not([role='switch']) {
+    min-height: 44px;
+  }
+
+  .portal-content h1,
+  [role='dialog'] h2 {
+    overflow-wrap: anywhere;
+  }
+
+  .portal-content .portal-toolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .portal-content .portal-filters > * {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .portal-content .portal-actions {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    width: 100%;
+  }
+
+  .portal-content table th,
+  .portal-content table td {
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+  }
+
+  [role='dialog'] .grid-cols-2,
+  [role='dialog'] .grid-cols-3 {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .portal-shell *,
+  [role='dialog'] {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
   }
 }
 
