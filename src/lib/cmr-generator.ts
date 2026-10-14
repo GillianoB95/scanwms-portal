@@ -137,7 +137,7 @@ export async function printCmrViaPrintNode(
     const printJob = {
       printerId: parseInt(printerId),
       title,
-      contentType: 'raw_base64',
+      contentType: 'pdf_base64',
       content: xlsxData,
       source: 'SCANWMS-CMR',
       options: { copies },

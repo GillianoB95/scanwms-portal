@@ -228,8 +228,8 @@ export default function PrintLabels() {
                     <TableRow key={p.id}>
                       <TableCell className="font-mono font-medium">{p.pallet_number}</TableCell>
                       <TableCell>{p.hub_code || '—'}</TableCell>
-                      <TableCell>{p.pieces ?? p.colli_count ?? '—'}</TableCell>
-                      <TableCell>{p.weight ?? p.weight_kg ? `${p.weight ?? p.weight_kg} kg` : '—'}</TableCell>
+                      <TableCell>{p.pieces ?? '—'}</TableCell>
+                      <TableCell>{p.weight ? `${p.weight} kg` : '—'}</TableCell>
                       <TableCell>{p.status || '—'}</TableCell>
                     </TableRow>
                   ))}

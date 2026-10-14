@@ -70,7 +70,7 @@ export function useNoas(shipmentId: string | undefined) {
         .from('noas')
         .select(
           'id, shipment_id, noa_number, colli, weight, received_at, file_path, created_by, ' +
-          'noa_part_id, noa_status, scanning_status, finish_method, finished_at, scanned_count, inbound_weight, pick_up_planned'
+          'noa_part_id, noa_status, scanning_status, finish_method, finished_at, scanned_count, inbound_weight, pick_up_planned, created_at'
         )
         .eq('shipment_id', shipmentId)
         .order('noa_number', { ascending: true });

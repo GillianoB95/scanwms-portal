@@ -168,7 +168,7 @@ export async function printPalletLabel(
     const printJob = {
       printerId: parseInt(printnodeId),
       title: `Pallet Label ${data.palletId}`,
-      contentType: 'raw_base64',
+      contentType: 'pdf_base64',
       content: contentBase64,
       source: 'SCANWMS',
       options: {

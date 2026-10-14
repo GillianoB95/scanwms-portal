@@ -42,7 +42,7 @@ function useMarkPickedUp() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from('outbounds').update({ status: 'Picked Up' }).eq('id', id);
+      const { error } = await supabase.from('outbounds').update({ status: 'departed' }).eq('id', id);
       if (error) throw error;
     },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['staff-all-outbounds'] }); toast.success('Outbound marked as picked up'); },
@@ -53,7 +53,7 @@ function useUndoPickedUp() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from('outbounds').update({ status: 'Pending' }).eq('id', id);
+      const { error } = await supabase.from('outbounds').update({ status: 'preparing' }).eq('id', id);
       if (error) throw error;
     },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['staff-all-outbounds'] }); toast.success('Pickup status reverted'); },
@@ -370,7 +370,7 @@ export default function OutboundShipment() {
                               <Button variant="ghost" size="icon" className="h-8 w-8" title="View Pallets">
                                 <Eye className="h-3.5 w-3.5" />
                               </Button>
-                              {o.status === 'Picked Up' ? (
+                              {o.status === 'departed' ? (
                                 <Button variant="ghost" size="icon" className="h-8 w-8" title="Undo Picked Up" onClick={() => undoPickedUp.mutate(o.id)}>
                                   <Undo2 className="h-3.5 w-3.5 text-destructive" />
                                 </Button>

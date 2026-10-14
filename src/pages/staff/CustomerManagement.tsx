@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Search, Loader2, Plus, Pencil, Trash2, ChevronDown, ChevronRight, Users, Bell, KeyRound, X } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -306,10 +306,10 @@ function NotificationSettingsDialog({ customer, open, onOpenChange }: {
   const [inspEmail, setInspEmail] = useState(inspection?.email ?? customer?.email ?? '');
 
   // Sync when settings load
-  useState(() => {
+  useEffect(() => {
     if (ccCleared) { setCcEnabled(ccCleared.enabled); setCcEmail(ccCleared.email); }
     if (inspection) { setInspEnabled(inspection.enabled); setInspEmail(inspection.email); }
-  });
+  }, [ccCleared, inspection]);
 
   const handleSave = async () => {
     await upsert.mutateAsync({ customer_id: customer.id, notification_type: 'cc_cleared', enabled: ccEnabled, email: ccEmail || '' });

@@ -37,7 +37,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .from('customer_users')
       .select('role, customer_id, customers(id, name, warehouse_id, parent_id)')
       .eq('email', email)
-      .single();
+      .maybeSingle();
 
     if (data) {
       setRole(data.role ?? null);

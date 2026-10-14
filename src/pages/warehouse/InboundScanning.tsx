@@ -333,7 +333,7 @@ export default function InboundScanning() {
 
       // Merge and sort by scan time descending
       const all = [...enrichedBoxes, ...fycoScans];
-      all.sort((a, b) => new Date(b.scanned_in_at).getTime() - new Date(a.scanned_in_at).getTime());
+      all.sort((a, b) => (new Date(b.scanned_in_at ?? 0).getTime() || 0) - (new Date(a.scanned_in_at ?? 0).getTime() || 0));
       return all;
     },
     enabled: !!shipment?.id,
@@ -727,7 +727,7 @@ export default function InboundScanning() {
 
   const unloadMutation = useMutation({
     mutationFn: async () => {
-      const scannedCount = scannedBoxes.filter((b: any) => b.status !== 'deleted').length;
+      const scannedCount = scannedBoxes.filter((b: any) => b.status !== 'deleted' && !b.isFyco).length;
       const { data, error } = await supabase
         .from('shipments')
         .update({
@@ -1034,8 +1034,8 @@ export default function InboundScanning() {
                           {p.created_at ? new Date(p.created_at).toLocaleDateString('nl-NL', { day: '2-digit', month: '2-digit', year: '2-digit' }) + ' ' + new Date(p.created_at).toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' }) : '—'}
                         </TableCell>
                         <TableCell className={isDeletedPallet ? 'line-through' : ''}>{p.hub_code || '—'}</TableCell>
-                        <TableCell className={isDeletedPallet ? 'line-through' : ''}>{p.pieces ?? p.colli_count ?? '—'}</TableCell>
-                        <TableCell className={isDeletedPallet ? 'line-through' : ''}>{(p.weight ?? p.weight_kg) != null ? `${Number(p.weight ?? p.weight_kg).toFixed(2)} kg` : '—'}</TableCell>
+                        <TableCell className={isDeletedPallet ? 'line-through' : ''}>{p.pieces ?? '—'}</TableCell>
+                        <TableCell className={isDeletedPallet ? 'line-through' : ''}>{p.weight != null ? `${Number(p.weight).toFixed(2)} kg` : '—'}</TableCell>
                         <TableCell className={statusColor}>{p.displayStatus}</TableCell>
                         <TableCell className="font-mono text-sm text-muted-foreground">{p.outboundLabel || '—'}</TableCell>
                       </TableRow>

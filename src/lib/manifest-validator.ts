@@ -9,8 +9,8 @@ const ALLOWED_COUNTRIES = new Set([
   'FI','IE','AD','EU','VA','MC','CZ','IT','HU','DE','EE','SK',
 ]);
 
-const BARCODE_FORBIDDEN = /[!@#$%^&*()\\_+{}\[\]\\|?\/><\*\-\+]/g;
-const BOX_BARCODE_FORBIDDEN = /[!@#$%^&*()_+{}\[\]\\|?><\*\+]/g; // allows - and /
+const BARCODE_FORBIDDEN = /[!@#$%^&*()\\_+{}\[\]\\|?\/><\*\-\+]/;
+const BOX_BARCODE_FORBIDDEN = /[!@#$%^&*()_+{}\[\]|?><\*\+]/; // allows - and /
 
 export interface ManifestValidationResult {
   errors: string[];
