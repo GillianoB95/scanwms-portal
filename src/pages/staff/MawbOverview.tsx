@@ -500,7 +500,7 @@ function ShipmentRow({ shipment, blocks, inspectionCount, warehouseMap }: { ship
           <Switch checked={!!shipment.customs_cleared} onCheckedChange={() => {}} className="scale-90" disabled />
         </TableCell>
         <TableCell className="text-sm text-muted-foreground">
-          {shipment.unloaded_date ? format(new Date(shipment.unloaded_date), 'dd/MM/yy') : '—'}
+          {shipment.unloaded_at ? format(new Date(shipment.unloaded_at), 'dd/MM/yy') : '—'}
         </TableCell>
         <TableCell>
           <div className="flex items-center justify-end gap-1">

@@ -58,10 +58,11 @@ export default function WarehouseOutbound() {
   const { data: outbounds = [], isLoading } = useQuery({
     queryKey: ['warehouse-outbounds', auth?.isWarehouse],
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('outbounds')
         .select('*, hubs(name, code, carrier)')
         .order('pickup_date', { ascending: false });
+      if (error) throw error;
       const outboundList = (data ?? []).map((o: any) => ({
         ...o,
         hub_name: o.hubs?.name ?? o.hub_code ?? '—',
@@ -72,6 +73,14 @@ export default function WarehouseOutbound() {
       // Fetch pallet totals per outbound
       const outboundIds = outboundList.map((o: any) => o.id);
       if (outboundIds.length > 0) {
+        const { data: cmrRecords, error: cmrError } = await supabase
+          .from('cmr_records')
+          .select('outbound_id')
+          .in('outbound_id', outboundIds);
+        if (cmrError) throw cmrError;
+        const cmrOutboundIds = new Set((cmrRecords ?? []).map(record => record.outbound_id));
+        for (const o of outboundList) o.cmr_uploaded = cmrOutboundIds.has(o.id);
+
         const { data: allPallets } = await supabase
           .from('pallets')
           .select('outbound_id, pieces, weight')
@@ -854,7 +863,7 @@ export default function WarehouseOutbound() {
                           <TableCell className="text-right tabular-nums">{o.pallet_count || 0}</TableCell>
                           <TableCell className="text-right tabular-nums">{o.total_colli || 0}</TableCell>
                           <TableCell className="text-right tabular-nums">{o.total_weight ? `${Number(o.total_weight).toFixed(2)} kg` : '0 kg'}</TableCell>
-                          <TableCell><StatusBadge status={o.status || 'Pending'} /></TableCell>
+                          <TableCell><StatusBadge status={o.status || 'preparing'} /></TableCell>
                           <TableCell className="text-center">
                             {o.cmr_uploaded ? (
                               <Check className="h-4 w-4 text-[hsl(var(--status-delivered))] mx-auto" />
@@ -867,7 +876,7 @@ export default function WarehouseOutbound() {
                               <Button variant="ghost" size="icon" className="h-8 w-8" title="Scan pallets" onClick={() => setActiveOutbound(o.id)}>
                                 <ScanBarcode className="h-3.5 w-3.5" />
                               </Button>
-                              {o.status === 'departed' || o.status === 'Departed' || o.status === 'picked_up' || o.status === 'Picked Up' ? (
+                              {o.status === 'departed' ? (
                                 <Button variant="ghost" size="icon" className="h-8 w-8" title="Undo Departed" onClick={() => undoPickup(o.id)}>
                                   <Undo2 className="h-3.5 w-3.5 text-destructive" />
                                 </Button>

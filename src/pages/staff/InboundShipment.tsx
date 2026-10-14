@@ -332,9 +332,9 @@ export default function InboundShipment() {
             ) : (
               filtered.map((s: any) => {
                 const colliExpected = s.colli_expected ?? s.parcels ?? 0;
-                const colliReceived = s.colli_received ?? 0;
-                const scanned = s.outerboxes_scanned ?? 0;
-                const scanTotal = s.outerboxes_total ?? colliExpected;
+                const colliReceived = (s.noas ?? []).reduce((sum: number, noa: { colli: number | null }) => sum + (Number(noa.colli) || 0), 0);
+                const scanned = (s.outerboxes ?? []).filter((box: { status: string | null }) => box.status !== 'deleted' && box.status !== 'fyco').length;
+                const scanTotal = colliExpected;
                 const scanPercent = scanTotal > 0 ? Math.round((scanned / scanTotal) * 100) : 0;
                 const isUnloaded = !!s.unloaded_at;
                 const isPartiallyUnloaded = s.status === 'Partially Unloaded';

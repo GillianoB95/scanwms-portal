@@ -33,9 +33,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   const fetchCustomer = async (email: string) => {
+    // Step 1: Get the user's role and customer_id without nested relation
     const { data, error } = await supabase
       .from('customer_users')
-      .select('role, customer_id, customers(id, name, warehouse_id, parent_id)')
+      .select('role, customer_id, warehouse_id')
       .eq('email', email)
       .maybeSingle();
 
@@ -47,7 +48,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     setRole(data.role ?? null);
-    setCustomer(data.customers ? data.customers as unknown as Customer : null);
+
+    // Step 2: Only fetch customer details if this is a customer-linked user
+    if (data.customer_id && data.role === 'customer') {
+      const { data: cust, error: custError } = await supabase
+        .from('customers')
+        .select('id, name, warehouse_id, parent_id')
+        .eq('id', data.customer_id)
+        .maybeSingle();
+
+      if (custError) {
+        console.error('fetchCustomer: customer lookup failed:', custError);
+      }
+      setCustomer(cust ? cust as unknown as Customer : null);
+    } else {
+      setCustomer(null);
+    }
   };
 
   useEffect(() => {

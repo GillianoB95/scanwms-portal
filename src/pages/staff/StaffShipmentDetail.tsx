@@ -297,7 +297,6 @@ function NoaHistorySection({ shipmentId, noaEntries, colliExpected }: { shipment
                 <th className="text-right px-5 py-3 font-medium">Colli</th>
                 <th className="text-right px-5 py-3 font-medium">Inbound Scanned</th>
                 <th className="text-right px-5 py-3 font-medium">Weight (kg)</th>
-                <th className="text-left px-5 py-3 font-medium">Source</th>
                 <th className="text-left px-5 py-3 font-medium">Status</th>
                 <th className="text-left px-5 py-3 font-medium">Scanning</th>
                 <th className="text-center px-5 py-3 font-medium">Upload</th>
@@ -323,7 +322,6 @@ function NoaHistorySection({ shipmentId, noaEntries, colliExpected }: { shipment
                       </span>
                     </td>
                     <td className="px-5 py-3 text-right tabular-nums">{Number(n.weight || 0).toLocaleString()}</td>
-                    <td className="px-5 py-3 text-muted-foreground">{n.source || 'Manual'}</td>
                     <td className="px-5 py-3">
                       {n.noa_status ? (
                         <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold ${statusColor}`}>
@@ -499,7 +497,7 @@ export default function StaffShipmentDetail() {
                   <p className={`text-sm font-medium ${reached ? 'text-foreground' : 'text-muted-foreground'}`}>{status}</p>
                   {historyEntry && (
                     <p className="text-xs text-muted-foreground mt-0.5">
-                      {new Date(historyEntry.changed_at).toLocaleString('en-GB')} · {historyEntry.changed_by}
+                      {historyEntry.changed_at ? new Date(historyEntry.changed_at).toLocaleString('en-GB') : '—'} · {historyEntry.changed_by}
                       {historyEntry.notes && <span className="block mt-0.5 italic">{historyEntry.notes}</span>}
                     </p>
                   )}

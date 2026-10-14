@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { Fragment, useState, useMemo, useEffect } from 'react';
 import { Search, Loader2, Plus, Pencil, Trash2, ChevronDown, ChevronRight, Users, Bell, KeyRound, X } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -635,7 +635,7 @@ export default function CustomerManagement() {
                 const expanded = expandedIds.has(customer.id);
 
                 return (
-                  <> 
+                  <Fragment key={customer.id}>
                     <TableRow key={customer.id}>
                       <TableCell>
                         {subs.length > 0 ? (
@@ -712,7 +712,7 @@ export default function CustomerManagement() {
                         </TableCell>
                       </TableRow>
                     ))}
-                  </>
+                  </Fragment>
                 );
               })
             )}

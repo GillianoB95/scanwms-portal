@@ -179,7 +179,7 @@ export default function WarehouseShipmentDetail() {
                   <p className={`text-sm font-medium ${reached ? 'text-foreground' : 'text-muted-foreground'}`}>{status}</p>
                   {historyEntry && (
                     <p className="text-xs text-muted-foreground mt-0.5">
-                      {new Date(historyEntry.changed_at).toLocaleString('en-GB')}
+                      {historyEntry.changed_at ? new Date(historyEntry.changed_at).toLocaleString('en-GB') : '—'}
                     </p>
                   )}
                 </div>

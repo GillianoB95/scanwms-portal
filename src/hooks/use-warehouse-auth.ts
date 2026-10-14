@@ -11,17 +11,15 @@ export function useWarehouseAuth() {
       if (!user?.email) return { isWarehouse: false, role: null, warehouseId: null, warehouseCode: null };
       const { data, error } = await supabase
         .from('customer_users')
-        .select('role, warehouse_id, customers(warehouse_id)')
+        .select('role, warehouse_id')
         .eq('email', user.email)
         .in('role', ['warehouse', 'staff', 'admin'])
         .maybeSingle();
 
       if (error || !data) return { isWarehouse: false, role: null, warehouseId: null, warehouseCode: null };
 
-      // Priority: direct warehouse_id on customer_users, then via customer
-      const directWarehouseId = (data as any).warehouse_id ?? null;
-      const customerWarehouseId = (data.customers as any)?.warehouse_id ?? null;
-      const rawWarehouseId = directWarehouseId || customerWarehouseId;
+      // Use warehouse_id directly from customer_users
+      const rawWarehouseId = (data as any).warehouse_id ?? null;
 
       // The warehouse_id on customer_users may be a code (e.g. 'AMS-01') or a UUID.
       // Resolve to actual UUID by looking up the warehouses table.

@@ -770,6 +770,11 @@ export default function ShipmentDetail() {
                   setResending(false);
                   return;
                 }
+                if (!shipment.warehouse_id) {
+                  toast.error('Converted manifest email not sent: no warehouse is assigned to this shipment.');
+                  setResending(false);
+                  return;
+                }
                 console.log('[ResendEmail] Sending via Resend API', { shipmentId: shipment.id, warehouseId: shipment.warehouse_id, mawb: shipment.mawb, convertedPath });
                 const result = await sendConvertedManifestEmail({
                   warehouseId: shipment.warehouse_id,

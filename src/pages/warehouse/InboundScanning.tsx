@@ -543,38 +543,26 @@ export default function InboundScanning() {
           }
         }
 
-        // DB fallback: query inspections joined via manifest_parcels.outerbox_barcode
+        // Query inspections joined via manifest_parcels.outerbox_barcode as a DB fallback.
         // This catches cases where the local manifest wasn't parsed or the box-to-parcel map is empty
-        const { data: dbFyco } = await supabase
-          .rpc('check_fyco_for_outerbox', {
-            p_shipment_id: shipment.id,
-            p_outerbox_barcode: normalizedCode,
-          });
+        const { data: mpRows } = await supabase
+          .from('manifest_parcels')
+          .select('id, parcel_barcode')
+          .eq('shipment_id', shipment.id)
+          .eq('outerbox_barcode', normalizedCode);
 
-        // If RPC doesn't exist, do a manual two-step query
-        if (dbFyco === null || dbFyco === undefined) {
-          const { data: mpRows } = await supabase
-            .from('manifest_parcels')
+        if (mpRows && mpRows.length > 0) {
+          const mpIds = mpRows.map(r => r.id);
+          const { data: unscannedInsp } = await supabase
+            .from('inspections')
             .select('id, parcel_barcode')
             .eq('shipment_id', shipment.id)
-            .eq('outerbox_barcode', normalizedCode);
-
-          if (mpRows && mpRows.length > 0) {
-            const mpIds = mpRows.map(r => r.id);
-            const { data: unscannedInsp } = await supabase
-              .from('inspections')
-              .select('id, parcel_barcode')
-              .eq('shipment_id', shipment.id)
-              .in('manifest_parcel_id', mpIds)
-              .is('scan_time', null);
-            if (unscannedInsp && unscannedInsp.length > 0) {
-              console.log('[SCAN] Fyco blocked (DB fallback)', { barcode: normalizedCode, unscanned: unscannedInsp.map(f => f.parcel_barcode) });
-              return { isPreAlerted: true, fycoBlocked: true, isParcelScan: false };
-            }
+            .in('manifest_parcel_id', mpIds)
+            .is('scan_time', null);
+          if (unscannedInsp && unscannedInsp.length > 0) {
+            console.log('[SCAN] Fyco blocked (DB fallback)', { barcode: normalizedCode, unscanned: unscannedInsp.map(f => f.parcel_barcode) });
+            return { isPreAlerted: true, fycoBlocked: true, isParcelScan: false };
           }
-        } else if (Array.isArray(dbFyco) && dbFyco.length > 0) {
-          console.log('[SCAN] Fyco blocked (RPC)', { barcode: normalizedCode, unscanned: dbFyco });
-          return { isPreAlerted: true, fycoBlocked: true, isParcelScan: false };
         }
       }
 
@@ -727,7 +715,7 @@ export default function InboundScanning() {
 
   const unloadMutation = useMutation({
     mutationFn: async () => {
-      const scannedCount = scannedBoxes.filter((b: any) => b.status !== 'deleted' && !b.isFyco).length;
+      const scannedCount = scannedBoxes.filter((b: any) => b.status !== 'deleted' && b.status !== 'fyco' && !b.isFyco).length;
       const { data, error } = await supabase
         .from('shipments')
         .update({
@@ -779,7 +767,7 @@ export default function InboundScanning() {
   }, [shipment, scanningBlocked]);
 
   const totalExpected = shipment?.colli_expected ?? 0;
-  const totalScanned = scannedBoxes.filter((b: any) => b.status !== 'deleted' && !b.isFyco).length;
+  const totalScanned = scannedBoxes.filter((b: any) => b.status !== 'deleted' && b.status !== 'fyco' && !b.isFyco).length;
   const subklant = shipment?.subklant_name || shipment?.customer_short || shipment?.customer_name || '—';
 
   // Print Label logic — hub is auto-set from current session hub

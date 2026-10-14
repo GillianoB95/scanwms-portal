@@ -4,6 +4,7 @@ import { Search, ChevronLeft, ChevronRight, Loader2, Package } from 'lucide-reac
 import { supabase } from '@/lib/supabase';
 import { StatusBadge } from '@/components/StatusBadge';
 import { Progress } from '@/components/ui/progress';
+import { useAccessibleCustomerIds } from '@/hooks/use-accessible-customers';
 
 type Tab = 'active' | 'archive';
 type SubFilter = 'all' | 'awaiting-noa' | 'partial-noa' | 'noa-complete' | 'in-transit' | 'in-stock' | 'outbound';
@@ -28,6 +29,7 @@ interface ScanProgress {
 
 export default function Shipments() {
   const navigate = useNavigate();
+  const { data: accessibleIds } = useAccessibleCustomerIds();
   const [shipments, setShipments] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -39,6 +41,13 @@ export default function Shipments() {
   const [page, setPage] = useState(1);
 
   useEffect(() => {
+    if (!accessibleIds) return;
+    if (accessibleIds.length === 0) {
+      setShipments([]);
+      setIsLoading(false);
+      return;
+    }
+
     const fetchShipments = async () => {
       setIsLoading(true);
       setLoadError(null);
@@ -46,6 +55,7 @@ export default function Shipments() {
       const { data, error } = await supabase
         .from('shipments')
         .select('id, mawb, status, created_at, pieces, parcels, weight, colli_expected, subklanten(name)')
+        .in('customer_id', accessibleIds)
         .order('created_at', { ascending: false });
 
       if (error) {
@@ -124,7 +134,7 @@ export default function Shipments() {
       setLoadError(err instanceof Error ? err.message : 'Unknown shipments error');
       setIsLoading(false);
     });
-  }, []);
+  }, [accessibleIds]);
 
 
   const activeShipments = useMemo(
