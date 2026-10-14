@@ -136,6 +136,15 @@
     width: 100%;
   }
 
+  .portal-content .portal-actions > button,
+  .portal-content .portal-actions > a {
+    height: auto;
+    min-height: 44px;
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+    white-space: normal;
+  }
+
   .portal-content table th,
   .portal-content table td {
     padding-left: 0.75rem;
@@ -145,6 +154,11 @@
   [role='dialog'] .grid-cols-2,
   [role='dialog'] .grid-cols-3 {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  [role='dialog'] .grid-cols-2 > *,
+  [role='dialog'] .grid-cols-3 > * {
+    grid-column: auto;
   }
 }
 
