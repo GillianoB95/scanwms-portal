@@ -484,7 +484,7 @@ function ShipmentRow({ shipment, blocks, inspectionCount, warehouseMap }: { ship
           </Popover>
         </TableCell>
         <TableCell className="text-sm text-muted-foreground">
-          {shipment.noa_date ? format(new Date(shipment.noa_date), 'dd/MM/yy') : '—'}
+          {shipment.noa_date ? format(new Date(shipment.noa_date), 'dd/MM/yy') : shipment.noas?.[0]?.received_at ? format(new Date(shipment.noas[0].received_at), 'dd/MM/yy') : '—'}
         </TableCell>
         <TableCell>
           <Switch checked={!!shipment.customs_cleared} onCheckedChange={() => {}} className="scale-90" disabled />

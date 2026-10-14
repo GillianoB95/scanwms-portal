@@ -556,6 +556,9 @@ function NoaHistorySection({ shipmentId, noaEntries, colliExpected }: { shipment
                     <td className="px-5 py-3 text-right tabular-nums">
                       {Number(n.weight || 0).toLocaleString()}
                     </td>
+            <td className="px-5 py-3 text-muted-foreground tabular-nums">
+                      {n.received_at ? new Date(n.received_at).toLocaleString('en-GB') : '—'}
+                    </td>
                     <td className="px-5 py-3 text-muted-foreground">{scanningLabel}</td>
                     <td className="px-5 py-3">
                       {n.noa_status ? (
