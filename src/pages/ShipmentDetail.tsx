@@ -1,6 +1,6 @@
 import { useParams, Link } from 'react-router-dom';
-import { ArrowLeft, Download, CheckCircle2, Circle, Truck, Loader2, Shield, AlertTriangle, Search as SearchIcon, ChevronDown, ChevronRight, Package, Send } from 'lucide-react';
-import { useQuery } from '@tanstack/react-query';
+import { ArrowLeft, Download, Upload, CheckCircle2, Circle, Truck, Loader2, Shield, AlertTriangle, Search as SearchIcon, ChevronDown, ChevronRight, Package, Send } from 'lucide-react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { useShipment, useStatusHistory, useNoas, useOutbounds, useOuterboxes, useClearances, useInspections, useT1Records, useUitslagbonnen } from '@/hooks/use-shipment-data';
 import { useAuth } from '@/lib/auth-context';
@@ -10,7 +10,7 @@ import { StatusBadge } from '@/components/StatusBadge';
 import { Badge } from '@/components/ui/badge';
 import { getStatusClass } from '@/lib/mock-data';
 import { sendConvertedManifestEmail } from '@/lib/send-email';
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 
 const statusOrder = ['Created', 'Awaiting NOA', 'Partial NOA', 'NOA Complete', 'In Transit', 'In Stock', 'Outbound'];
 
@@ -485,6 +485,51 @@ function NoaHistorySection({ shipmentId, noaEntries, colliExpected }: { shipment
     enabled: !!shipmentId,
   });
 
+  const queryClient = useQueryClient();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [pendingNoaId, setPendingNoaId] = useState<string | null>(null);
+  const [uploadingNoaId, setUploadingNoaId] = useState<string | null>(null);
+
+  const triggerUpload = (noaId: string) => {
+    setPendingNoaId(noaId);
+    fileInputRef.current?.click();
+  };
+
+  const handleUploadNoa = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    const noaId = pendingNoaId;
+    if (!file || !noaId) return;
+    setUploadingNoaId(noaId);
+    try {
+      const storagePath = `noas/${shipmentId}/${noaId}.pdf`;
+      const { error: uploadError } = await supabase.storage
+        .from('shipment-files')
+        .upload(storagePath, file, { upsert: true, contentType: 'application/pdf' });
+      if (uploadError) throw uploadError;
+
+      const { error: updateError } = await supabase
+        .from('noas')
+        .update({ file_path: storagePath })
+        .eq('id', noaId);
+      if (updateError) throw updateError;
+
+      const { error: insertError } = await supabase
+        .from('shipment_files')
+        .insert({ shipment_id: shipmentId, file_type: 'noa', storage_path: storagePath });
+      if (insertError) throw insertError;
+
+      await queryClient.invalidateQueries({ queryKey: ['noas', shipmentId] });
+      await queryClient.invalidateQueries({ queryKey: ['noa-files', shipmentId] });
+      toast.success('NOA PDF uploaded successfully');
+    } catch (err: any) {
+      toast.error(`Upload failed: ${err.message}`);
+    } finally {
+      setUploadingNoaId(null);
+      setPendingNoaId(null);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
   const handleDownloadNoa = async (storagePath: string, index: number) => {
     try {
       const { data, error } = await supabase.storage.from('shipment-files').download(storagePath);
@@ -511,6 +556,13 @@ function NoaHistorySection({ shipmentId, noaEntries, colliExpected }: { shipment
           <Badge variant="secondary" className="ml-auto">{noaEntries.length} part{noaEntries.length !== 1 ? 's' : ''}</Badge>
         )}
       </div>
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="application/pdf"
+        onChange={handleUploadNoa}
+        className="hidden"
+      />
       {noaEntries.length === 0 ? (
         <div className="px-5 py-8 text-center">
           <span className="text-muted-foreground text-sm">No NOA parts yet</span>
@@ -527,7 +579,7 @@ function NoaHistorySection({ shipmentId, noaEntries, colliExpected }: { shipment
                 <th className="text-right px-5 py-3 font-medium">NOA Weight</th>
                 <th className="text-left px-5 py-3 font-medium">Scanning</th>
                 <th className="text-left px-5 py-3 font-medium">Status</th>
-                <th className="text-right px-5 py-3 font-medium">PDF</th>
+                <th className="text-right px-5 py-3 font-medium">File</th>
               </tr>
             </thead>
             <tbody>
@@ -570,14 +622,22 @@ function NoaHistorySection({ shipmentId, noaEntries, colliExpected }: { shipment
                       )}
                     </td>
                     <td className="px-5 py-3 text-right">
-                      {noaFile ? (
-                        <button onClick={() => handleDownloadNoa(noaFile.storage_path, idx)}
-                          className="inline-flex items-center gap-1 text-xs text-accent hover:underline">
-                          <Download className="h-3.5 w-3.5" /> PDF
+                      <div className="inline-flex items-center gap-2">
+                        <button
+                          onClick={() => triggerUpload(n.id)}
+                          disabled={uploadingNoaId === n.id}
+                          className="inline-flex items-center gap-1 text-xs text-accent hover:underline disabled:opacity-50"
+                        >
+                          {uploadingNoaId === n.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
+                          {uploadingNoaId === n.id ? '…' : 'Upload'}
                         </button>
-                      ) : (
-                        <span className="text-xs text-muted-foreground">—</span>
-                      )}
+                        {noaFile ? (
+                          <button onClick={() => handleDownloadNoa(noaFile.storage_path, idx)}
+                            className="inline-flex items-center gap-1 text-xs text-accent hover:underline">
+                            <Download className="h-3.5 w-3.5" /> PDF
+                          </button>
+                        ) : null}
+                      </div>
                     </td>
                   </tr>
                 );
@@ -653,7 +713,7 @@ export default function ShipmentDetail() {
                   {m.reached ? <CheckCircle2 className="h-4.5 w-4.5" /> : <Circle className="h-4.5 w-4.5" />}
                 </div>
                 <span className={`text-[11px] mt-1.5 text-center leading-tight ${m.reached ? 'text-foreground font-medium' : 'text-muted-foreground'}`}>{m.label}</span>
-                {m.date && <span className="text-[10px] text-muted-foreground tabular-nums">{new Date(m.date).toLocaleDateString('en-GB')}</span>}
+                {m.date ? <span className="text-[10px] text-muted-foreground tabular-nums">{new Date(m.date).toLocaleDateString('en-GB')}</span> : null}
                 {m.sub && (
                   <div className="mt-1 space-y-0.5">
                     {m.sub.map((s, si) => (
