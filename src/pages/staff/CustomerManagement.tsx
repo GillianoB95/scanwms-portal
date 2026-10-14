@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { Fragment, useState, useMemo, useEffect } from 'react';
 import { Search, Loader2, Plus, Pencil, Trash2, ChevronDown, ChevronRight, Users, Bell, KeyRound, X } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -294,22 +294,24 @@ function CustomerFormDialog({ open, onOpenChange, customer, parentId, isAdmin, a
 function NotificationSettingsDialog({ customer, open, onOpenChange }: {
   customer: any; open: boolean; onOpenChange: (v: boolean) => void;
 }) {
-  const { data: settings = [] } = useNotificationSettings(customer?.id);
+  const { data: settings } = useNotificationSettings(customer?.id);
   const upsert = useUpsertNotificationSetting();
 
-  const ccCleared = settings.find((s: any) => s.notification_type === 'cc_cleared');
-  const inspection = settings.find((s: any) => s.notification_type === 'inspection');
-
-  const [ccEnabled, setCcEnabled] = useState(ccCleared?.enabled ?? false);
-  const [ccEmail, setCcEmail] = useState(ccCleared?.email ?? customer?.email ?? '');
-  const [inspEnabled, setInspEnabled] = useState(inspection?.enabled ?? false);
-  const [inspEmail, setInspEmail] = useState(inspection?.email ?? customer?.email ?? '');
+  const [ccEnabled, setCcEnabled] = useState(false);
+  const [ccEmail, setCcEmail] = useState(customer?.email ?? '');
+  const [inspEnabled, setInspEnabled] = useState(false);
+  const [inspEmail, setInspEmail] = useState(customer?.email ?? '');
 
   // Sync when settings load
-  useState(() => {
-    if (ccCleared) { setCcEnabled(ccCleared.enabled); setCcEmail(ccCleared.email); }
-    if (inspection) { setInspEnabled(inspection.enabled); setInspEmail(inspection.email); }
-  });
+  useEffect(() => {
+    if (!settings) return;
+    const ccCleared = settings.find((s: any) => s.notification_type === 'cc_cleared');
+    const inspection = settings.find((s: any) => s.notification_type === 'inspection');
+    setCcEnabled(ccCleared?.enabled ?? false);
+    setCcEmail(ccCleared?.email ?? customer?.email ?? '');
+    setInspEnabled(inspection?.enabled ?? false);
+    setInspEmail(inspection?.email ?? customer?.email ?? '');
+  }, [settings, customer?.email]);
 
   const handleSave = async () => {
     await upsert.mutateAsync({ customer_id: customer.id, notification_type: 'cc_cleared', enabled: ccEnabled, email: ccEmail || '' });
@@ -633,7 +635,7 @@ export default function CustomerManagement() {
                 const expanded = expandedIds.has(customer.id);
 
                 return (
-                  <> 
+                  <Fragment key={customer.id}>
                     <TableRow key={customer.id}>
                       <TableCell>
                         {subs.length > 0 ? (
@@ -710,7 +712,7 @@ export default function CustomerManagement() {
                         </TableCell>
                       </TableRow>
                     ))}
-                  </>
+                  </Fragment>
                 );
               })
             )}

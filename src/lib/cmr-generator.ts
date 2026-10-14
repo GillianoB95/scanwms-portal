@@ -1,4 +1,5 @@
 import * as XLSX from 'xlsx';
+import { htmlToPdfBase64 } from './html-to-pdf';
 
 export interface CmrData {
   // Warehouse (sender)
@@ -124,6 +125,55 @@ export function downloadCmrWorkbook(wb: XLSX.WorkBook, filename: string) {
   XLSX.writeFile(wb, filename);
 }
 
+// Render the same worksheet used for XLSX downloads as a printable A4 page.
+function renderCmrWorksheet(wb: XLSX.WorkBook): HTMLElement {
+  const ws = wb.Sheets[wb.SheetNames[0]];
+  if (!ws?.['!ref']) throw new Error('CMR workbook is empty');
+
+  const range = XLSX.utils.decode_range(ws['!ref']);
+  const root = document.createElement('div');
+  const style = document.createElement('style');
+  style.textContent = `
+    .cmr-print { width: 190mm; font: 8pt Arial, sans-serif; color: #000; }
+    .cmr-print table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+    .cmr-print td { height: 4.3mm; padding: 0 0.7mm; white-space: nowrap; vertical-align: middle; }
+  `;
+  root.appendChild(style);
+
+  const page = document.createElement('div');
+  page.className = 'cmr-print';
+  const table = document.createElement('table');
+  const cols = document.createElement('colgroup');
+  const widths = Array.from({ length: range.e.c - range.s.c + 1 }, (_, i) =>
+    ws['!cols']?.[range.s.c + i]?.wch ?? 8.43,
+  );
+  const totalWidth = widths.reduce((sum, width) => sum + width, 0);
+  widths.forEach(width => {
+    const col = document.createElement('col');
+    col.style.width = `${(width / totalWidth) * 100}%`;
+    cols.appendChild(col);
+  });
+  table.appendChild(cols);
+
+  const body = document.createElement('tbody');
+  for (let row = range.s.r; row <= range.e.r; row++) {
+    const tr = document.createElement('tr');
+    for (let column = range.s.c; column <= range.e.c; column++) {
+      const cell = ws[XLSX.utils.encode_cell({ r: row, c: column })];
+      const td = document.createElement('td');
+      if (cell?.v != null) td.textContent = String(cell.v);
+      if (cell?.s?.font?.bold) td.style.fontWeight = 'bold';
+      if (cell?.s?.alignment?.horizontal === 'right') td.style.textAlign = 'right';
+      tr.appendChild(td);
+    }
+    body.appendChild(tr);
+  }
+  table.appendChild(body);
+  page.appendChild(table);
+  root.appendChild(page);
+  return root;
+}
+
 export async function printCmrViaPrintNode(
   wb: XLSX.WorkBook,
   printerId: string,
@@ -132,13 +182,13 @@ export async function printCmrViaPrintNode(
   copies: number = 4,
 ): Promise<{ success: boolean; jobId?: number; error?: string }> {
   try {
-    const xlsxData = XLSX.write(wb, { bookType: 'xlsx', type: 'base64' });
+    const pdfBase64 = await htmlToPdfBase64(renderCmrWorksheet(wb), 'a4', 10);
 
     const printJob = {
       printerId: parseInt(printerId),
       title,
-      contentType: 'raw_base64',
-      content: xlsxData,
+      contentType: 'pdf_base64',
+      content: pdfBase64,
       source: 'SCANWMS-CMR',
       options: { copies },
     };

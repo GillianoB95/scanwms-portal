@@ -99,7 +99,7 @@ export default function WarehouseShipmentDetail() {
   const scannedOut = outerboxes.filter((b: any) => b.status === 'scanned_out').length;
 
   // Hub scan progress
-  const hubData = useMemo(() => {
+  const hubData = (() => {
     const map = new Map<string, { total: number; scanned: number }>();
     const distinctKeys = new Set<string>();
     for (const mp of manifestParcels) {
@@ -109,18 +109,20 @@ export default function WarehouseShipmentDetail() {
       if (!distinctKeys.has(key)) {
         distinctKeys.add(key);
         if (!map.has(hub)) map.set(hub, { total: 0, scanned: 0 });
-        map.get(hub)!.total++;
+        const counts = map.get(hub);
+        if (counts) counts.total++;
       }
     }
     for (const box of outerboxes) {
       const hub = (box as any).hub || 'Unknown';
       if (!map.has(hub)) map.set(hub, { total: 0, scanned: 0 });
       if (['scanned_in', 'palletized', 'in_stock', 'scanned_out'].includes(box.status)) {
-        map.get(hub)!.scanned++;
+        const counts = map.get(hub);
+        if (counts) counts.scanned++;
       }
     }
     return Array.from(map.entries()).sort(([a], [b]) => a.localeCompare(b));
-  }, [manifestParcels, outerboxes]);
+  })();
 
   // Outbound groups
   const outboundRows = outboundData.map((ob: any) => ({
@@ -179,7 +181,7 @@ export default function WarehouseShipmentDetail() {
                   <p className={`text-sm font-medium ${reached ? 'text-foreground' : 'text-muted-foreground'}`}>{status}</p>
                   {historyEntry && (
                     <p className="text-xs text-muted-foreground mt-0.5">
-                      {new Date(historyEntry.changed_at).toLocaleString('en-GB')}
+                      {historyEntry.changed_at ? new Date(historyEntry.changed_at).toLocaleString('en-GB') : '—'}
                     </p>
                   )}
                 </div>

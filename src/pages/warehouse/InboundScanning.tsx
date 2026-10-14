@@ -333,7 +333,7 @@ export default function InboundScanning() {
 
       // Merge and sort by scan time descending
       const all = [...enrichedBoxes, ...fycoScans];
-      all.sort((a, b) => new Date(b.scanned_in_at).getTime() - new Date(a.scanned_in_at).getTime());
+      all.sort((a, b) => (new Date(b.scanned_in_at ?? 0).getTime() || 0) - (new Date(a.scanned_in_at ?? 0).getTime() || 0));
       return all;
     },
     enabled: !!shipment?.id,
@@ -543,38 +543,26 @@ export default function InboundScanning() {
           }
         }
 
-        // DB fallback: query inspections joined via manifest_parcels.outerbox_barcode
+        // Query inspections joined via manifest_parcels.outerbox_barcode as a DB fallback.
         // This catches cases where the local manifest wasn't parsed or the box-to-parcel map is empty
-        const { data: dbFyco } = await supabase
-          .rpc('check_fyco_for_outerbox', {
-            p_shipment_id: shipment.id,
-            p_outerbox_barcode: normalizedCode,
-          });
+        const { data: mpRows } = await supabase
+          .from('manifest_parcels')
+          .select('id, parcel_barcode')
+          .eq('shipment_id', shipment.id)
+          .eq('outerbox_barcode', normalizedCode);
 
-        // If RPC doesn't exist, do a manual two-step query
-        if (dbFyco === null || dbFyco === undefined) {
-          const { data: mpRows } = await supabase
-            .from('manifest_parcels')
+        if (mpRows && mpRows.length > 0) {
+          const mpIds = mpRows.map(r => r.id);
+          const { data: unscannedInsp } = await supabase
+            .from('inspections')
             .select('id, parcel_barcode')
             .eq('shipment_id', shipment.id)
-            .eq('outerbox_barcode', normalizedCode);
-
-          if (mpRows && mpRows.length > 0) {
-            const mpIds = mpRows.map(r => r.id);
-            const { data: unscannedInsp } = await supabase
-              .from('inspections')
-              .select('id, parcel_barcode')
-              .eq('shipment_id', shipment.id)
-              .in('manifest_parcel_id', mpIds)
-              .is('scan_time', null);
-            if (unscannedInsp && unscannedInsp.length > 0) {
-              console.log('[SCAN] Fyco blocked (DB fallback)', { barcode: normalizedCode, unscanned: unscannedInsp.map(f => f.parcel_barcode) });
-              return { isPreAlerted: true, fycoBlocked: true, isParcelScan: false };
-            }
+            .in('manifest_parcel_id', mpIds)
+            .is('scan_time', null);
+          if (unscannedInsp && unscannedInsp.length > 0) {
+            console.log('[SCAN] Fyco blocked (DB fallback)', { barcode: normalizedCode, unscanned: unscannedInsp.map(f => f.parcel_barcode) });
+            return { isPreAlerted: true, fycoBlocked: true, isParcelScan: false };
           }
-        } else if (Array.isArray(dbFyco) && dbFyco.length > 0) {
-          console.log('[SCAN] Fyco blocked (RPC)', { barcode: normalizedCode, unscanned: dbFyco });
-          return { isPreAlerted: true, fycoBlocked: true, isParcelScan: false };
         }
       }
 
@@ -727,7 +715,7 @@ export default function InboundScanning() {
 
   const unloadMutation = useMutation({
     mutationFn: async () => {
-      const scannedCount = scannedBoxes.filter((b: any) => b.status !== 'deleted').length;
+      const scannedCount = scannedBoxes.filter((b: any) => b.status !== 'deleted' && b.status !== 'fyco' && !b.isFyco).length;
       const { data, error } = await supabase
         .from('shipments')
         .update({
@@ -779,7 +767,7 @@ export default function InboundScanning() {
   }, [shipment, scanningBlocked]);
 
   const totalExpected = shipment?.colli_expected ?? 0;
-  const totalScanned = scannedBoxes.filter((b: any) => b.status !== 'deleted' && !b.isFyco).length;
+  const totalScanned = scannedBoxes.filter((b: any) => b.status !== 'deleted' && b.status !== 'fyco' && !b.isFyco).length;
   const subklant = shipment?.subklant_name || shipment?.customer_short || shipment?.customer_name || '—';
 
   // Print Label logic — hub is auto-set from current session hub
@@ -891,9 +879,9 @@ export default function InboundScanning() {
               onChange={e => setMawbInput(e.target.value)}
               onKeyDown={handleMawbKeyDown}
               placeholder="Enter full or last digits of MAWB (e.g. 2772)"
-              className="font-mono"
+              className="font-mono min-w-0 flex-1"
             />
-            <Button onClick={handleMawbSearch} disabled={searching}>
+            <Button aria-label="Find shipment" title="Find shipment" className="shrink-0" onClick={handleMawbSearch} disabled={searching}>
               {searching ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
             </Button>
           </div>
@@ -953,11 +941,11 @@ export default function InboundScanning() {
                       value={barcode}
                       onChange={e => setBarcode(e.target.value)}
                       placeholder={scanningBlocked ? 'Scanning disabled' : 'Scan or type barcode...'}
-                      className="text-lg h-14 font-mono"
+                      className="text-base sm:text-lg h-14 font-mono min-w-0 flex-1"
                       autoFocus
                       disabled={!!scanningBlocked}
                     />
-                    <Button type="submit" size="lg" className="h-14" disabled={scanMutation.isPending || !!scanningBlocked}>
+                    <Button type="submit" size="icon" aria-label="Scan barcode" title="Scan barcode" className="h-14 w-14 shrink-0" disabled={scanMutation.isPending || !!scanningBlocked}>
                       <ScanBarcode className="h-5 w-5" />
                     </Button>
                   </div>
@@ -978,7 +966,7 @@ export default function InboundScanning() {
                     style={{ width: `${totalExpected > 0 ? Math.min((totalScanned / totalExpected) * 100, 100) : 0}%` }}
                   />
                 </div>
-                <div className="flex gap-2 mt-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-4 w-full">
                   <Button
                     variant="outline"
                     onClick={() => unloadMutation.mutate()}
@@ -1034,8 +1022,8 @@ export default function InboundScanning() {
                           {p.created_at ? new Date(p.created_at).toLocaleDateString('nl-NL', { day: '2-digit', month: '2-digit', year: '2-digit' }) + ' ' + new Date(p.created_at).toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' }) : '—'}
                         </TableCell>
                         <TableCell className={isDeletedPallet ? 'line-through' : ''}>{p.hub_code || '—'}</TableCell>
-                        <TableCell className={isDeletedPallet ? 'line-through' : ''}>{p.pieces ?? p.colli_count ?? '—'}</TableCell>
-                        <TableCell className={isDeletedPallet ? 'line-through' : ''}>{(p.weight ?? p.weight_kg) != null ? `${Number(p.weight ?? p.weight_kg).toFixed(2)} kg` : '—'}</TableCell>
+                        <TableCell className={isDeletedPallet ? 'line-through' : ''}>{p.pieces ?? '—'}</TableCell>
+                        <TableCell className={isDeletedPallet ? 'line-through' : ''}>{p.weight != null ? `${Number(p.weight).toFixed(2)} kg` : '—'}</TableCell>
                         <TableCell className={statusColor}>{p.displayStatus}</TableCell>
                         <TableCell className="font-mono text-sm text-muted-foreground">{p.outboundLabel || '—'}</TableCell>
                       </TableRow>
@@ -1083,7 +1071,7 @@ export default function InboundScanning() {
                         {box.barcode}
                       </TableCell>
                       <TableCell className={`font-mono ${isDeleted ? 'line-through' : ''}`}>{box.hub || '—'}</TableCell>
-                      <TableCell className={isDeleted ? 'line-through' : ''}>{new Date(box.scanned_in_at).toLocaleTimeString()}</TableCell>
+                      <TableCell className={isDeleted ? 'line-through' : ''}>{box.scanned_in_at ? new Date(box.scanned_in_at).toLocaleTimeString() : '—'}</TableCell>
                       <TableCell className={`font-mono ${isDeleted ? 'line-through' : ''}`}>{box.pallet_number || '—'}</TableCell>
                       <TableCell>
                         {isDeleted ? (

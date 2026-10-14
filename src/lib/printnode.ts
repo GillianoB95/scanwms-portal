@@ -1,3 +1,5 @@
+import { htmlToPdfBase64 } from './html-to-pdf';
+
 export interface PalletLabelData {
   palletId: string;
   subklant: string;
@@ -6,6 +8,12 @@ export interface PalletLabelData {
   weight: number;
   hub: string;
   printedAt?: Date;
+}
+
+function escapeHtml(value: string): string {
+  return value.replace(/[&<>"']/g, char => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+  })[char]!);
 }
 
 // Minimal Code128B barcode SVG generator
@@ -63,7 +71,7 @@ function generateCode128Svg(text: string, width = 280, height = 70): string {
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" width="${width}" height="${height}">${bars}</svg>`;
 }
 
-// Generate pallet label HTML as base64 for PrintNode (10x15cm thermal label, B&W)
+// Generate pallet label HTML as base64 (10x15cm thermal label, B&W).
 export function generatePalletLabelHtml(data: PalletLabelData): string {
   const printedAt = data.printedAt || new Date();
   const dateStr = printedAt.toLocaleDateString('nl-NL', { day: '2-digit', month: '2-digit', year: 'numeric' });
@@ -76,13 +84,12 @@ export function generatePalletLabelHtml(data: PalletLabelData): string {
 <head>
 <style>
   @page { size: 100mm 150mm; margin: 0; }
-  * { box-sizing: border-box; }
-  body {
+  .label-page, .label-page * { box-sizing: border-box; }
+  .label-page {
     font-family: Arial, Helvetica, sans-serif;
-    margin: 0;
     padding: 4mm;
     width: 100mm;
-    height: 150mm;
+    height: 148mm;
     color: #000;
     display: flex;
     flex-direction: column;
@@ -141,15 +148,17 @@ export function generatePalletLabelHtml(data: PalletLabelData): string {
 </style>
 </head>
 <body>
-  <div class="subklant">${data.subklant}</div>
-  <div class="pallet-id">${data.palletId}</div>
+<div class="label-page">
+  <div class="subklant">${escapeHtml(data.subklant)}</div>
+  <div class="pallet-id">${escapeHtml(data.palletId)}</div>
   <div class="datetime">${dateStr} ${timeStr}</div>
   <div class="barcode-area">
     ${barcodeSvg}
   </div>
-  <div class="mawb">MAWB: ${data.mawb}</div>
+  <div class="mawb">MAWB: ${escapeHtml(data.mawb)}</div>
   <div class="cargo">${data.colli} CTN | ${data.weight.toFixed(2)} KG</div>
-  <div class="hub">${data.hub}</div>
+  <div class="hub">${escapeHtml(data.hub)}</div>
+</div>
 </body>
 </html>`;
 
@@ -163,12 +172,21 @@ export async function printPalletLabel(
   printnodeId: string,
 ): Promise<{ success: boolean; jobId?: number; error?: string }> {
   try {
-    const contentBase64 = generatePalletLabelHtml(data);
+    const html = new TextDecoder().decode(
+      Uint8Array.from(atob(generatePalletLabelHtml(data)), char => char.charCodeAt(0)),
+    );
+    const labelDocument = new DOMParser().parseFromString(html, 'text/html');
+    const content = document.createElement('div');
+    const style = labelDocument.querySelector('style');
+    const label = labelDocument.querySelector('.label-page');
+    if (!style || !label) throw new Error('Invalid pallet label HTML');
+    content.append(style, label);
+    const contentBase64 = await htmlToPdfBase64(content, [100, 150]);
 
     const printJob = {
       printerId: parseInt(printnodeId),
       title: `Pallet Label ${data.palletId}`,
-      contentType: 'raw_base64',
+      contentType: 'pdf_base64',
       content: contentBase64,
       source: 'SCANWMS',
       options: {

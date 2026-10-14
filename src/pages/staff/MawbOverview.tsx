@@ -26,7 +26,7 @@ import { cn } from '@/lib/utils';
 import { CalendarIcon } from 'lucide-react';
 import { toast } from 'sonner';
 
-const ALL_STATUSES = ['Awaiting NOA', 'Partial NOA', 'NOA Complete', 'In Transit', 'In Stock', 'Outbound', 'Needs Action'];
+const ALL_STATUSES = ['Awaiting NOA', 'Partial NOA', 'NOA Complete', 'NOA Received', 'At Warehouse', 'Pickup Planned', 'In Transit', 'In Stock', 'Outbound', 'Needs Action'];
 
 /* ─── Block Modal ─── */
 function BlockModal({ shipment, open, onOpenChange }: { shipment: any; open: boolean; onOpenChange: (v: boolean) => void }) {
@@ -261,7 +261,12 @@ export default function MawbOverview() {
       if (search && !s.mawb?.toLowerCase().includes(search.toLowerCase())) return false;
       if (customerFilter !== 'all' && s.customers?.name !== customerFilter) return false;
       if (warehouseFilter !== 'all' && s.warehouse_id !== warehouseFilter) return false;
-      if (statusFilter !== 'all' && s.status !== statusFilter) return false;
+      if (statusFilter !== 'all') {
+        // Filter on display status (latest NOA part status or shipment status)
+        const parts = (s.noas ?? []).sort((a: any, b: any) => (b.noa_part_id ?? 0) - (a.noa_part_id ?? 0));
+        const latestStatus = parts.length > 0 ? parts[0].noa_status : s.status;
+        if ((latestStatus ?? s.status) !== statusFilter) return false;
+      }
       if (dateFrom && new Date(s.created_at) < dateFrom) return false;
       if (dateTo) {
         const to = new Date(dateTo);
@@ -415,6 +420,11 @@ function ShipmentRow({ shipment, blocks, inspectionCount, warehouseMap }: { ship
   const outboundBlock = blocks.find((b: any) => b.block_type === 'outbound');
   const hasNotes = !!shipment.notes;
 
+  // Derive display status from the latest NOA part (highest noa_part_id)
+  const noaParts = (shipment.noas ?? []).sort((a: any, b: any) => (b.noa_part_id ?? 0) - (a.noa_part_id ?? 0));
+  const latestNoaStatus = noaParts.length > 0 ? noaParts[0].noa_status : null;
+  const displayStatus = latestNoaStatus ?? shipment.status;
+
   const handleEtaChange = (date: Date | undefined) => {
     updateShipment.mutate({ id: shipment.id, eta: date ? format(date, 'yyyy-MM-dd') : null });
     setEtaOpen(false);
@@ -442,7 +452,7 @@ function ShipmentRow({ shipment, blocks, inspectionCount, warehouseMap }: { ship
         <TableCell className="text-right">{shipment.colli_expected ?? 0}</TableCell>
         <TableCell>
           <div className="flex items-center gap-1 flex-wrap">
-            <StatusBadge status={shipment.status} />
+            <StatusBadge status={displayStatus} />
             {inboundBlock && (
               <Badge variant="destructive" className="text-[10px] px-1.5 py-0 cursor-pointer" onClick={() => setUnblockTarget(inboundBlock)}>
                 Inbound Block
@@ -490,7 +500,7 @@ function ShipmentRow({ shipment, blocks, inspectionCount, warehouseMap }: { ship
           <Switch checked={!!shipment.customs_cleared} onCheckedChange={() => {}} className="scale-90" disabled />
         </TableCell>
         <TableCell className="text-sm text-muted-foreground">
-          {shipment.unloaded_date ? format(new Date(shipment.unloaded_date), 'dd/MM/yy') : '—'}
+          {shipment.unloaded_at ? format(new Date(shipment.unloaded_at), 'dd/MM/yy') : '—'}
         </TableCell>
         <TableCell>
           <div className="flex items-center justify-end gap-1">

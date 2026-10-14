@@ -28,11 +28,30 @@ function useAllOutbounds() {
         .select('*, hubs(name, code, carrier)')
         .order('pickup_date', { ascending: false });
       if (error) throw error;
+      const outboundIds = (data ?? []).map(o => o.id);
+      const palletTotals = new Map<string, { pallets: number; pieces: number; weight: number }>();
+      if (outboundIds.length > 0) {
+        const { data: pallets, error: palletsError } = await supabase
+          .from('pallets')
+          .select('outbound_id, pieces, weight')
+          .in('outbound_id', outboundIds);
+        if (palletsError) throw palletsError;
+        for (const pallet of pallets ?? []) {
+          const totals = palletTotals.get(pallet.outbound_id) ?? { pallets: 0, pieces: 0, weight: 0 };
+          totals.pallets += 1;
+          totals.pieces += Number(pallet.pieces) || 0;
+          totals.weight += Number(pallet.weight) || 0;
+          palletTotals.set(pallet.outbound_id, totals);
+        }
+      }
       return (data ?? []).map((o: any) => ({
         ...o,
         hub_name: o.hubs?.name ?? '—',
         hub_code: o.hubs?.code ?? '—',
         carrier: o.hubs?.carrier ?? '—',
+        pallets_count: palletTotals.get(o.id)?.pallets ?? 0,
+        total_pieces: palletTotals.get(o.id)?.pieces ?? 0,
+        total_weight: palletTotals.get(o.id)?.weight ?? 0,
       }));
     },
   });
@@ -42,7 +61,7 @@ function useMarkPickedUp() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from('outbounds').update({ status: 'Picked Up' }).eq('id', id);
+      const { error } = await supabase.from('outbounds').update({ status: 'departed' }).eq('id', id);
       if (error) throw error;
     },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['staff-all-outbounds'] }); toast.success('Outbound marked as picked up'); },
@@ -53,7 +72,7 @@ function useUndoPickedUp() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from('outbounds').update({ status: 'Pending' }).eq('id', id);
+      const { error } = await supabase.from('outbounds').update({ status: 'preparing' }).eq('id', id);
       if (error) throw error;
     },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['staff-all-outbounds'] }); toast.success('Pickup status reverted'); },
@@ -364,13 +383,13 @@ export default function OutboundShipment() {
                           <TableCell className="text-sm text-muted-foreground">{o.pickup_time || '—'}</TableCell>
                           <TableCell className="text-right">{o.total_pieces ?? 0}</TableCell>
                           <TableCell className="text-right">{o.total_weight ? `${o.total_weight} kg` : '—'}</TableCell>
-                          <TableCell><StatusBadge status={o.status || 'Pending'} /></TableCell>
+                          <TableCell><StatusBadge status={o.status || 'preparing'} /></TableCell>
                           <TableCell>
                             <div className="flex items-center justify-end gap-1">
                               <Button variant="ghost" size="icon" className="h-8 w-8" title="View Pallets">
                                 <Eye className="h-3.5 w-3.5" />
                               </Button>
-                              {o.status === 'Picked Up' ? (
+                              {o.status === 'departed' ? (
                                 <Button variant="ghost" size="icon" className="h-8 w-8" title="Undo Picked Up" onClick={() => undoPickedUp.mutate(o.id)}>
                                   <Undo2 className="h-3.5 w-3.5 text-destructive" />
                                 </Button>
