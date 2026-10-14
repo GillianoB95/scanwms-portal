@@ -48,46 +48,8 @@ export default function Outbounds() {
   }, [customer?.id]);
 
   const handleDownloadCmr = async (outboundId: string) => {
-    if (!customer?.id) return;
-    setDownloadingId(outboundId);
-
-    try {
-      const { data: cmrRecords } = await supabase
-        .from('cmr_records')
-        .select('file_path, file_name')
-        .eq('outbound_id', outboundId);
-
-      if (!cmrRecords || cmrRecords.length === 0) {
-        alert('No CMR file available for this outbound.');
-        return;
-      }
-
-      for (const cmr of cmrRecords) {
-        const { data: fileData, error: dlError } = await supabase.storage
-          .from('cmr-files')
-          .download(cmr.file_path);
-
-        if (dlError || !fileData) {
-          console.error('CMR download error:', dlError);
-          alert('Failed to download CMR file.');
-          continue;
-        }
-
-        const url = URL.createObjectURL(fileData);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = cmr.file_name || 'CMR.pdf';
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-      }
-    } catch (err) {
-      console.error('CMR download failed:', err);
-      alert('Failed to download CMR.');
-    } finally {
-      setDownloadingId(null);
-    }
+    // cmr_records table has no file_path/file_name columns; CMR download removed.
+    alert('CMR download is not available for this outbound.');
   };
 
   if (loading) {

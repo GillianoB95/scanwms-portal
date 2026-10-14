@@ -34,12 +34,12 @@ export function useWarehouseAuth() {
         if (isUuid) {
           warehouseId = rawWarehouseId;
           // Look up the code
-          const { data: wh } = await supabase.from('warehouses').select('code').eq('id', rawWarehouseId).maybeSingle();
+          const { data: wh } = await supabase.from('warehouses_safe').select('code').eq('id', rawWarehouseId).maybeSingle();
           warehouseCode = wh?.code ?? null;
         } else {
           // It's a code — look up the UUID
           warehouseCode = rawWarehouseId;
-          const { data: wh } = await supabase.from('warehouses').select('id').eq('code', rawWarehouseId).maybeSingle();
+          const { data: wh } = await supabase.from('warehouses_safe').select('id').eq('code', rawWarehouseId).maybeSingle();
           warehouseId = wh?.id ?? null;
         }
       }

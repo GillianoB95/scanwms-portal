@@ -365,7 +365,7 @@ function OutboundSection({ shipmentId }: { shipmentId: string }) {
       const palletIds = [...new Set(boxes.map(b => b.pallet_id))];
       const { data: pallets } = await supabase
         .from('pallets')
-        .select('id, outbound_id, hub')
+        .select('id, outbound_id, hub_code')
         .in('id', palletIds)
         .not('outbound_id', 'is', null);
 
@@ -375,12 +375,12 @@ function OutboundSection({ shipmentId }: { shipmentId: string }) {
       const hubsByOutbound: Record<string, Set<string>> = {};
       for (const p of pallets) {
         if (!hubsByOutbound[p.outbound_id]) hubsByOutbound[p.outbound_id] = new Set();
-        if (p.hub) hubsByOutbound[p.outbound_id].add(p.hub);
+        if (p.hub_code) hubsByOutbound[p.outbound_id].add(p.hub_code);
       }
 
       const { data: obData } = await supabase
         .from('outbounds')
-        .select('id, outbound_number, pickup_date, truck_reference, license_plate, seal_number, status, departed_at, prepared_at')
+        .select('id, outbound_number, pickup_date, truck_reference, license_plate, status')
         .in('id', outboundIds)
         .in('status', ['prepared', 'departed'])
         .order('pickup_date', { ascending: false });
@@ -394,30 +394,8 @@ function OutboundSection({ shipmentId }: { shipmentId: string }) {
   });
 
   const handleDownloadCmr = async (outboundId: string) => {
-    if (!customer?.id) return;
-    setDownloadingId(outboundId);
-    try {
-      const { data: ids } = await supabase.rpc('get_accessible_customer_ids');
-      const customerIds = (ids as string[]) ?? [customer.id];
-      const { data: cmrRecords } = await supabase
-        .from('cmr_records')
-        .select('file_path, file_name')
-        .eq('outbound_id', outboundId)
-        .in('subclient_id', customerIds);
-
-      if (!cmrRecords || cmrRecords.length === 0) { alert('No CMR file available.'); return; }
-
-      for (const cmr of cmrRecords) {
-        const { data: fileData } = await supabase.storage.from('cmr-files').download(cmr.file_path);
-        if (!fileData) continue;
-        const url = URL.createObjectURL(fileData);
-        const a = document.createElement('a');
-        a.href = url; a.download = cmr.file_name || 'CMR.pdf';
-        document.body.appendChild(a); a.click(); document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-      }
-    } catch { alert('Failed to download CMR.'); }
-    finally { setDownloadingId(null); }
+    // cmr_records table has no file_path/file_name columns; CMR download removed.
+    alert('CMR download is not available for this outbound.');
   };
 
   if (isLoading || outbounds.length === 0) return null;
@@ -443,8 +421,8 @@ function OutboundSection({ shipmentId }: { shipmentId: string }) {
           </thead>
           <tbody>
             {outbounds.map((ob: any) => {
-              const displayDate = ob.status === 'departed' && ob.departed_at
-                ? new Date(ob.departed_at).toLocaleString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+              const displayDate = ob.status === 'departed'
+                ? ob.pickup_date ? new Date(ob.pickup_date).toLocaleString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—'
                 : ob.pickup_date ? new Date(ob.pickup_date).toLocaleDateString('en-GB') : '—';
               return (
                 <tr key={ob.id} className="border-b last:border-0">
@@ -452,7 +430,7 @@ function OutboundSection({ shipmentId }: { shipmentId: string }) {
                   <td className="px-5 py-3 font-medium">{ob.hub}</td>
                   <td className="px-5 py-3 font-mono">{ob.truck_reference || '—'}</td>
                   <td className="px-5 py-3 font-mono">{ob.license_plate || '—'}</td>
-                  <td className="px-5 py-3 font-mono">{ob.seal_number || '—'}</td>
+                  <td className="px-5 py-3 font-mono">—</td>
                   <td className="px-5 py-3"><StatusBadge status={ob.status === 'departed' ? 'Departed' : 'Prepared'} /></td>
                   <td className="px-5 py-3 text-center">
                     <button onClick={() => handleDownloadCmr(ob.id)} disabled={downloadingId === ob.id}

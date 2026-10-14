@@ -150,7 +150,7 @@ function useFycoData() {
           ? supabase.from('subklanten').select('id, name').in('id', subklantIds)
           : Promise.resolve({ data: [] }),
         warehouseIds.length > 0
-          ? supabase.from('warehouses').select('id, code, name').in('id', warehouseIds)
+          ? supabase.from('warehouses_safe').select('id, code, name').in('id', warehouseIds)
           : Promise.resolve({ data: [] }),
       ]);
 

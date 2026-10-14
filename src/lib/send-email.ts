@@ -104,15 +104,6 @@ export async function sendConvertedManifestEmail(params: {
     return { success: false, error: data.error };
   }
 
-  // 7. Update shipment_files record
-  if (userEmail) {
-    await supabase
-      .from('shipment_files')
-      .update({ email_sent_at: new Date().toISOString(), email_sent_by: userEmail })
-      .eq('shipment_id', shipmentId)
-      .eq('file_type', 'manifest_converted');
-  }
-
   console.log('[sendConvertedManifestEmail] ✅ Email sent', { id: data?.id });
   return { success: true, id: data?.id };
 }

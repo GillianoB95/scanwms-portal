@@ -83,9 +83,26 @@ function useAlarmData() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('shipments')
-        .select('id, mawb, status, eta, created_at, noa_received_at, unloaded_at, customers(name)')
+        .select('id, mawb, status, eta, created_at, unloaded_at, customers(name)')
         .not('status', 'eq', 'Outbound');
       if (error) throw error;
+
+      // Fetch earliest NOA received_at per shipment (shipments has no noa_received_at column)
+      const shipmentIds = (data ?? []).map((s: any) => s.id);
+      let noaReceivedMap: Record<string, string> = {};
+      if (shipmentIds.length > 0) {
+        const { data: noaData } = await supabase
+          .from('noas')
+          .select('shipment_id, received_at')
+          .in('shipment_id', shipmentIds)
+          .order('received_at', { ascending: true });
+        for (const n of (noaData ?? [])) {
+          const sid = (n as any).shipment_id;
+          if (!noaReceivedMap[sid] && (n as any).received_at) {
+            noaReceivedMap[sid] = (n as any).received_at;
+          }
+        }
+      }
 
       const alarms: ShipmentAlarmRow[] = [];
       for (const s of data ?? []) {
@@ -95,7 +112,7 @@ function useAlarmData() {
           status: s.status,
           eta: s.eta,
           created_at: (s as any).created_at,
-          noa_received_at: (s as any).noa_received_at,
+          noa_received_at: noaReceivedMap[s.id] || null,
           unloaded_at: (s as any).unloaded_at,
           customer_name: (s as any).customers?.name ?? null,
         }, settings);

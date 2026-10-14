@@ -157,11 +157,11 @@ export default function WarehouseOutbound() {
     queryKey: ['warehouse-cmr-data', warehouseId],
     queryFn: async () => {
       if (warehouseId) {
-        const { data } = await supabase.from('warehouses').select('*').eq('id', warehouseId).maybeSingle();
+        const { data } = await supabase.from('warehouses_safe').select('*').eq('id', warehouseId).maybeSingle();
         if (data) return data;
       }
       // Fallback: fetch first warehouse if no warehouse_id assigned
-      const { data } = await supabase.from('warehouses').select('*').order('code').limit(1).maybeSingle();
+      const { data } = await supabase.from('warehouses_safe').select('*').order('code').limit(1).maybeSingle();
       return data;
     },
     enabled: !!auth?.isWarehouse,
@@ -283,7 +283,7 @@ export default function WarehouseOutbound() {
         .from('inspections')
         .select('*', { count: 'exact', head: true })
         .eq('shipment_id', pallet.shipment_id)
-        .eq('status', 'Under Inspection');
+        .eq('status', 'under_inspection');
       if (inspCount && inspCount > 0) {
         throw new Error('Shipment has open inspections — cannot add to outbound');
       }
@@ -296,13 +296,13 @@ export default function WarehouseOutbound() {
         .neq('status', 'deleted');
       if (palletBoxes && palletBoxes.length > 0) {
         const boxBarcodes = palletBoxes.map(b => b.barcode);
-        const { data: unscannedFyco } = await supabase
+        const { count } = await supabase
           .from('inspections')
           .select('id', { count: 'exact', head: true })
           .eq('shipment_id', pallet.shipment_id)
           .in('parcel_barcode', boxBarcodes)
           .is('scan_time', null);
-        if (unscannedFyco && unscannedFyco.length > 0) {
+        if (count && count > 0) {
           throw new Error('Fyco parcels on this pallet have not been scanned yet.');
         }
       }
@@ -497,7 +497,7 @@ export default function WarehouseOutbound() {
   };
 
   const handlePrintCmr = async () => {
-    if (!warehouseData?.cmr_printer_id || !warehouseData?.cmr_printer_key) {
+    if (!warehouseData?.cmr_printer_id) {
       toast({ title: 'No CMR printer configured', description: 'Set CMR printer in warehouse settings', variant: 'destructive' });
       return;
     }
@@ -514,7 +514,7 @@ export default function WarehouseOutbound() {
         const result = await printCmrViaPrintNode(
           wb,
           warehouseData.cmr_printer_id,
-          warehouseData.cmr_printer_key,
+          '',
           `CMR ${subClient} - ${cmrOutbound?.outbound_number || ''}`,
           4,
         );

@@ -37,8 +37,8 @@ export default function PrintLabels() {
     queryFn: async () => {
       if (!warehouseId) return null;
       const { data } = await supabase
-        .from('warehouses')
-        .select('id, code, name, printnode_id, printnode_key, printnode_name')
+        .from('warehouses_safe')
+        .select('id, code, name, printnode_id, printnode_name')
         .eq('id', warehouseId)
         .single();
       return data;
@@ -139,13 +139,13 @@ export default function PrintLabels() {
   };
 
   const handlePrint = async () => {
-    if (!previewData || !warehouse?.printnode_key || !warehouse?.printnode_id) {
+    if (!previewData || !warehouse?.printnode_id) {
       toast({ title: 'PrintNode not configured for this warehouse', variant: 'destructive' });
       return;
     }
     setPrinting(true);
     try {
-      const result = await printPalletLabel(previewData, warehouse.printnode_key, warehouse.printnode_id);
+      const result = await printPalletLabel(previewData, '', warehouse.printnode_id);
       if (result.success) {
         toast({ title: 'Sent to printer', description: `${pendingPalletNumber} (Job #${result.jobId})` });
         setPreviewOpen(false);
