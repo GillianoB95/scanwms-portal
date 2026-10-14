@@ -294,22 +294,24 @@ function CustomerFormDialog({ open, onOpenChange, customer, parentId, isAdmin, a
 function NotificationSettingsDialog({ customer, open, onOpenChange }: {
   customer: any; open: boolean; onOpenChange: (v: boolean) => void;
 }) {
-  const { data: settings = [] } = useNotificationSettings(customer?.id);
+  const { data: settings } = useNotificationSettings(customer?.id);
   const upsert = useUpsertNotificationSetting();
 
-  const ccCleared = settings.find((s: any) => s.notification_type === 'cc_cleared');
-  const inspection = settings.find((s: any) => s.notification_type === 'inspection');
-
-  const [ccEnabled, setCcEnabled] = useState(ccCleared?.enabled ?? false);
-  const [ccEmail, setCcEmail] = useState(ccCleared?.email ?? customer?.email ?? '');
-  const [inspEnabled, setInspEnabled] = useState(inspection?.enabled ?? false);
-  const [inspEmail, setInspEmail] = useState(inspection?.email ?? customer?.email ?? '');
+  const [ccEnabled, setCcEnabled] = useState(false);
+  const [ccEmail, setCcEmail] = useState(customer?.email ?? '');
+  const [inspEnabled, setInspEnabled] = useState(false);
+  const [inspEmail, setInspEmail] = useState(customer?.email ?? '');
 
   // Sync when settings load
   useEffect(() => {
-    if (ccCleared) { setCcEnabled(ccCleared.enabled); setCcEmail(ccCleared.email); }
-    if (inspection) { setInspEnabled(inspection.enabled); setInspEmail(inspection.email); }
-  }, [ccCleared, inspection]);
+    if (!settings) return;
+    const ccCleared = settings.find((s: any) => s.notification_type === 'cc_cleared');
+    const inspection = settings.find((s: any) => s.notification_type === 'inspection');
+    setCcEnabled(ccCleared?.enabled ?? false);
+    setCcEmail(ccCleared?.email ?? customer?.email ?? '');
+    setInspEnabled(inspection?.enabled ?? false);
+    setInspEmail(inspection?.email ?? customer?.email ?? '');
+  }, [settings, customer?.email]);
 
   const handleSave = async () => {
     await upsert.mutateAsync({ customer_id: customer.id, notification_type: 'cc_cleared', enabled: ccEnabled, email: ccEmail || '' });

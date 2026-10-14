@@ -268,13 +268,13 @@ export default function KpiDashboard() {
           title="SLA 24h Compliance"
           value={loading ? '…' : kpis.sla24 === null ? '—' : `${kpis.sla24.toFixed(1)}%`}
           icon={<ShieldCheck className="h-5 w-5 text-primary" />}
-          subtitle="Shipments unloaded within 24h"
+          subtitle="NOA → inbound scan within 24h"
         />
         <KpiCard
           title="SLA 48h Compliance"
           value={loading ? '…' : kpis.sla48 === null ? '—' : `${kpis.sla48.toFixed(1)}%`}
           icon={<Timer className="h-5 w-5 text-primary" />}
-          subtitle="Shipments unloaded within 48h"
+          subtitle="NOA → inbound scan within 48h"
         />
       </div>
 

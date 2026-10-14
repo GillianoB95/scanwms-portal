@@ -33,19 +33,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   const fetchCustomer = async (email: string) => {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('customer_users')
       .select('role, customer_id, customers(id, name, warehouse_id, parent_id)')
       .eq('email', email)
       .maybeSingle();
 
-    if (data) {
-      setRole(data.role ?? null);
-      if (data.customers) {
-        const c = data.customers as unknown as Customer;
-        setCustomer(c);
-      }
+    if (error) throw error;
+    if (!data) {
+      setRole(null);
+      setCustomer(null);
+      return;
     }
+
+    setRole(data.role ?? null);
+    setCustomer(data.customers ? data.customers as unknown as Customer : null);
   };
 
   useEffect(() => {

@@ -1083,7 +1083,7 @@ export default function InboundScanning() {
                         {box.barcode}
                       </TableCell>
                       <TableCell className={`font-mono ${isDeleted ? 'line-through' : ''}`}>{box.hub || '—'}</TableCell>
-                      <TableCell className={isDeleted ? 'line-through' : ''}>{new Date(box.scanned_in_at).toLocaleTimeString()}</TableCell>
+                      <TableCell className={isDeleted ? 'line-through' : ''}>{box.scanned_in_at ? new Date(box.scanned_in_at).toLocaleTimeString() : '—'}</TableCell>
                       <TableCell className={`font-mono ${isDeleted ? 'line-through' : ''}`}>{box.pallet_number || '—'}</TableCell>
                       <TableCell>
                         {isDeleted ? (
