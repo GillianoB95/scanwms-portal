@@ -6,6 +6,7 @@ import {
   PackageSearch, LogOut, Menu, X, Warehouse, ShieldCheck
 } from 'lucide-react';
 import { WarehouseAlarmPanel } from '@/components/warehouse/WarehouseAlarmPanel';
+import { WarehouseMobileContent } from '@/components/warehouse/WarehouseMobileContent';
 
 const navItems = [
   { to: '/warehouse', label: 'Dashboard', icon: LayoutDashboard, exact: true },
@@ -97,8 +98,8 @@ export function WarehouseLayout({ children }: { children: ReactNode }) {
           </div>
         </header>
 
-        <main className="flex-1 p-4 lg:p-8 overflow-auto">
-          {children}
+        <main className="flex-1 min-w-0 p-3 sm:p-4 lg:p-8">
+          <WarehouseMobileContent>{children}</WarehouseMobileContent>
         </main>
       </div>
 

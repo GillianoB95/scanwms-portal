@@ -295,8 +295,8 @@ export default function WarehouseDashboard() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
+      <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-3">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3">
           <h1 className="text-2xl font-bold">Warehouse Dashboard</h1>
           <div className="flex items-center gap-1 bg-muted rounded-lg p-1">
             {(['today', 'week', 'month'] as const).map(p => (
@@ -314,7 +314,7 @@ export default function WarehouseDashboard() {
             ))}
           </div>
         </div>
-        <div className="flex gap-2">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
           <Button asChild>
             <Link to="/warehouse/inbound"><ScanBarcode className="mr-2 h-4 w-4" />Start Scanning</Link>
           </Button>
@@ -342,7 +342,7 @@ export default function WarehouseDashboard() {
       </div>
 
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+        <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 space-y-0 pb-4">
           <CardTitle className="text-lg">Shipments</CardTitle>
           <div className="flex flex-wrap gap-1.5">
             {allStatuses.map(status => (
