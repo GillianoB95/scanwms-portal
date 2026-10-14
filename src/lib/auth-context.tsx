@@ -14,6 +14,7 @@ interface AuthContextType {
   customer: Customer | null;
   role: string | null;
   loading: boolean;
+  profileLoaded: boolean;
   login: (email: string, password: string) => Promise<string | null>;
   logout: () => Promise<void>;
 }
@@ -31,20 +32,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [customer, setCustomer] = useState<Customer | null>(null);
   const [role, setRole] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [profileLoaded, setProfileLoaded] = useState(false);
 
   const fetchCustomer = async (email: string) => {
-    const { data } = await supabase
-      .from('customer_users')
-      .select('role, customer_id, customers(id, name, warehouse_id, parent_id)')
-      .eq('email', email)
-      .maybeSingle();
+    try {
+      const { data } = await supabase
+        .from('customer_users')
+        .select('role, customer_id, customers(id, name, warehouse_id, parent_id)')
+        .eq('email', email)
+        .maybeSingle();
 
-    if (data) {
-      setRole(data.role ?? null);
-      if (data.customers) {
-        const c = data.customers as unknown as Customer;
-        setCustomer(c);
+      if (data) {
+        setRole(data.role ?? null);
+        if (data.customers) {
+          const c = data.customers as unknown as Customer;
+          setCustomer(c);
+        }
       }
+    } finally {
+      setProfileLoaded(true);
     }
   };
 
@@ -95,7 +101,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, customer, role, loading, login, logout }}>
+    <AuthContext.Provider value={{ user, customer, role, loading, profileLoaded, login, logout }}>
       {children}
     </AuthContext.Provider>
   );

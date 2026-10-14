@@ -36,43 +36,66 @@ import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
 
+const LoadingScreen = () => <div className="min-h-screen flex items-center justify-center text-muted-foreground">Loading...</div>;
+
+function NotLinkedScreen() {
+  const { user, logout } = useAuth();
+  return (
+    <div className="min-h-screen flex items-center justify-center p-4">
+      <div className="max-w-sm text-center space-y-3 bg-card border rounded-xl p-6">
+        <h1 className="text-lg font-semibold">Account not linked</h1>
+        <p className="text-sm text-muted-foreground">
+          {user?.email} is signed in, but is not linked to a portal yet. Please contact an administrator.
+        </p>
+        <button onClick={() => logout()} className="h-9 px-4 rounded-lg bg-accent text-accent-foreground text-sm font-semibold">
+          Sign out
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/** Returns a screen to show while role is unknown, or null when ready. */
+function useRoleGate() {
+  const { user, customer, role, loading, profileLoaded } = useAuth();
+  if (loading) return <LoadingScreen />;
+  if (user && !role && !customer) return profileLoaded ? <NotLinkedScreen /> : <LoadingScreen />;
+  return null;
+}
+
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { user, customer, role, loading } = useAuth();
-  if (loading) return <div className="min-h-screen flex items-center justify-center text-muted-foreground">Loading...</div>;
+  const { user, role } = useAuth();
+  const gate = useRoleGate();
+  if (gate) return gate;
   if (!user) return <Navigate to="/login" replace />;
-  // Wait for role to be fetched before redirecting
-  if (user && !role && !customer) return <div className="min-h-screen flex items-center justify-center text-muted-foreground">Loading...</div>;
   if (role === 'staff' || role === 'admin') return <Navigate to="/staff" replace />;
   if (role === 'warehouse') return <Navigate to="/warehouse" replace />;
   return <AppLayout>{children}</AppLayout>;
 }
 
 function StaffRoute({ children }: { children: React.ReactNode }) {
-  const { user, customer, role, loading } = useAuth();
-
-  if (loading) return <div className="min-h-screen flex items-center justify-center text-muted-foreground">Loading...</div>;
+  const { user, role } = useAuth();
+  const gate = useRoleGate();
+  if (gate) return gate;
   if (!user) return <Navigate to="/login" replace />;
-  if (user && !role && !customer) return <div className="min-h-screen flex items-center justify-center text-muted-foreground">Loading...</div>;
   if (role !== 'staff' && role !== 'admin') return <Navigate to="/dashboard" replace />;
   return <StaffLayout>{children}</StaffLayout>;
 }
 
 function WarehouseRoute({ children }: { children: React.ReactNode }) {
-  const { user, customer, role, loading } = useAuth();
-
-  if (loading) return <div className="min-h-screen flex items-center justify-center text-muted-foreground">Loading...</div>;
+  const { user, role } = useAuth();
+  const gate = useRoleGate();
+  if (gate) return gate;
   if (!user) return <Navigate to="/login" replace />;
-  if (user && !role && !customer) return <div className="min-h-screen flex items-center justify-center text-muted-foreground">Loading...</div>;
   if (role !== 'warehouse' && role !== 'staff' && role !== 'admin') return <Navigate to="/dashboard" replace />;
   return <WarehouseLayout>{children}</WarehouseLayout>;
 }
 
 function AuthRoute({ children }: { children: React.ReactNode }) {
-  const { user, customer, role, loading } = useAuth();
-  if (loading) return <div className="min-h-screen flex items-center justify-center text-muted-foreground">Loading...</div>;
+  const { user, role } = useAuth();
+  const gate = useRoleGate();
+  if (gate) return gate;
   if (user) {
-    // Wait for role to be fetched before redirecting
-    if (!role && !customer) return <div className="min-h-screen flex items-center justify-center text-muted-foreground">Loading...</div>;
     if (role === 'staff' || role === 'admin') return <Navigate to="/staff" replace />;
     if (role === 'warehouse') return <Navigate to="/warehouse" replace />;
     return <Navigate to="/dashboard" replace />;
