@@ -7,11 +7,28 @@ import { useAuth } from '@/lib/auth-context';
 import { useAccessibleCustomerIds } from '@/hooks/use-accessible-customers';
 import { supabase } from '@/lib/supabase';
 import { StatusBadge } from '@/components/StatusBadge';
+import { Badge } from '@/components/ui/badge';
 import { getStatusClass } from '@/lib/mock-data';
 import { sendConvertedManifestEmail } from '@/lib/send-email';
 import { useState } from 'react';
 
 const statusOrder = ['Created', 'Awaiting NOA', 'Partial NOA', 'NOA Complete', 'In Transit', 'In Stock', 'Outbound'];
+
+/* ── NOA status colour mapping ── */
+const noaStatusColors: Record<string, string> = {
+  'Received': 'bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-900/40 dark:text-blue-300 dark:border-blue-800',
+  'At Warehouse': 'bg-yellow-100 text-yellow-800 border-yellow-200 dark:bg-yellow-900/40 dark:text-yellow-300 dark:border-yellow-800',
+  'Scanning': 'bg-orange-100 text-orange-800 border-orange-200 dark:bg-orange-900/40 dark:text-orange-300 dark:border-orange-800',
+  'Scanned': 'bg-green-100 text-green-800 border-green-200 dark:bg-green-900/40 dark:text-green-300 dark:border-green-800',
+  'Pick up Planned': 'bg-purple-100 text-purple-800 border-purple-200 dark:bg-purple-900/40 dark:text-purple-300 dark:border-purple-800',
+  'Partly Outbounded': 'bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-900/40 dark:text-amber-300 dark:border-amber-800',
+  'Outbounded': 'bg-green-100 text-green-800 border-green-200 dark:bg-green-900/40 dark:text-green-300 dark:border-green-800',
+};
+
+/** Statuses that mean scanning is complete (or beyond) */
+const SCANNED_OR_BEYOND = new Set(['Scanned', 'Pick up Planned', 'Partly Outbounded', 'Outbounded']);
+/** Statuses that mean the NOA has been processed (warehouse / scanning / beyond) */
+const AT_WAREHOUSE_OR_BEYOND = new Set(['At Warehouse', 'Scanning', 'Scanned', 'Pick up Planned', 'Partly Outbounded', 'Outbounded']);
 
 function getMilestoneStatus(shipment: any, history: any[], noaEntries: any[], outerboxes: any[], outboundData: any[]) {
   const results: { key: string; label: string; reached: boolean; date?: string; sub?: { label: string; date?: string }[] }[] = [];
@@ -19,9 +36,12 @@ function getMilestoneStatus(shipment: any, history: any[], noaEntries: any[], ou
   // Created
   results.push({ key: 'created', label: 'Shipment Created', reached: true, date: shipment.created_at });
 
-  // NOA entries
+  // ── NOA entries — prefer noa_status when available ──
   const totalNoaColli = noaEntries.reduce((sum: number, n: any) => sum + (n.colli || 0), 0);
-  const noaComplete = noaEntries.length > 0 && totalNoaColli >= (shipment.colli_expected || 0);
+  const hasNoaStatus = noaEntries.some((n: any) => n.noa_status);
+  // NOA Complete: every NOA part is Scanned or beyond (via noa_status), or colli-based fallback
+  const allScannedByStatus = hasNoaStatus && noaEntries.every((n: any) => n.noa_status && SCANNED_OR_BEYOND.has(n.noa_status));
+  const noaComplete = allScannedByStatus || (!hasNoaStatus && noaEntries.length > 0 && totalNoaColli >= (shipment.colli_expected || 0));
 
   if (noaEntries.length === 0) {
     results.push({ key: 'noa', label: 'NOA Received', reached: false });
@@ -40,13 +60,15 @@ function getMilestoneStatus(shipment: any, history: any[], noaEntries: any[], ou
     for (let i = 0; i < noaEntries.length; i++) {
       const n = noaEntries[i];
       runningTotal += n.colli || 0;
-      const isLast = runningTotal >= (shipment.colli_expected || 0);
+      const isLast = hasNoaStatus
+        ? !!(n.noa_status && SCANNED_OR_BEYOND.has(n.noa_status)) && noaEntries.slice(i + 1).every((nn: any) => nn.noa_status && SCANNED_OR_BEYOND.has(nn.noa_status))
+        : runningTotal >= (shipment.colli_expected || 0);
       results.push({
         key: `noa_${i}`,
         label: isLast ? 'NOA Complete' : `Partial NOA #${i + 1}`,
         reached: true,
         date: n.received_at || n.created_at,
-        sub: [{ label: `${n.colli} colli`, date: n.received_at || n.created_at }],
+        sub: [{ label: `${n.colli} colli${n.noa_status ? ` · ${n.noa_status}` : ''}`, date: n.received_at || n.created_at }],
       });
     }
   }
@@ -56,20 +78,23 @@ function getMilestoneStatus(shipment: any, history: any[], noaEntries: any[], ou
     results.push({ key: 'noa_complete', label: 'NOA Complete', reached: false });
   }
 
-  // Unloaded
-  const isUnloaded = !!shipment.unloaded_at;
+  // Unloaded — also consider noa_status "At Warehouse" as evidence of arrival
+  const isUnloaded = !!shipment.unloaded_at || noaEntries.some((n: any) => n.noa_status && AT_WAREHOUSE_OR_BEYOND.has(n.noa_status));
   results.push({ key: 'unloaded', label: 'Unloaded at Warehouse', reached: isUnloaded, date: shipment.unloaded_at });
 
-  // Scanning in progress
-  const hasScanned = outerboxes.some((b: any) => ['scanned_in', 'palletized', 'scanned_out'].includes(b.status));
+  // Scanning in progress — check noa_status "Scanning" or outerbox statuses
+  const hasScannedByNoa = noaEntries.some((n: any) => n.noa_status === 'Scanning' || n.scanning_status === 'scanning');
+  const hasScanned = hasScannedByNoa || outerboxes.some((b: any) => ['scanned_in', 'palletized', 'scanned_out'].includes(b.status));
   results.push({ key: 'scanning', label: 'Scanning in Progress', reached: hasScanned });
 
-  // Outbound prepared
-  const hasOutbound = outboundData.length > 0;
+  // Outbound prepared — check noa_status for outbound-related statuses too
+  const hasOutboundByNoa = noaEntries.some((n: any) => ['Pick up Planned', 'Partly Outbounded', 'Outbounded'].includes(n.noa_status));
+  const hasOutbound = outboundData.length > 0 || hasOutboundByNoa;
   results.push({ key: 'outbound', label: 'Outbound Prepared', reached: hasOutbound });
 
-  // Departed
-  const hasDeparted = shipment.status === 'Outbound';
+  // Departed — check if all NOAs are fully outbounded
+  const allOutbounded = hasNoaStatus && noaEntries.every((n: any) => n.noa_status === 'Outbounded');
+  const hasDeparted = shipment.status === 'Outbound' || allOutbounded;
   results.push({ key: 'departed', label: 'Departed', reached: hasDeparted });
 
   return results;
@@ -472,40 +497,80 @@ function NoaHistorySection({ shipmentId, noaEntries, colliExpected }: { shipment
     } catch { alert('Failed to download NOA file.'); }
   };
 
+  const totalColli = noaEntries.reduce((sum: number, n: any) => sum + (n.colli || 0), 0);
+  const totalScanned = noaEntries.reduce((sum: number, n: any) => sum + (n.scanned_count || 0), 0);
+  const totalInboundWeight = noaEntries.reduce((sum: number, n: any) => sum + Number(n.inbound_weight || 0), 0);
+  const totalNoaWeight = noaEntries.reduce((sum: number, n: any) => sum + Number(n.weight || 0), 0);
+
   return (
     <div className="bg-card rounded-xl border animate-fade-in" style={{ animationDelay: '200ms' }}>
-      <div className="px-5 py-4 border-b"><h2 className="font-semibold">NOA History</h2></div>
+      <div className="px-5 py-4 border-b flex items-center gap-2">
+        <Package className="h-4.5 w-4.5 text-muted-foreground" />
+        <h2 className="font-semibold">NOA Parts</h2>
+        {noaEntries.length > 0 && (
+          <Badge variant="secondary" className="ml-auto">{noaEntries.length} part{noaEntries.length !== 1 ? 's' : ''}</Badge>
+        )}
+      </div>
       {noaEntries.length === 0 ? (
         <div className="px-5 py-8 text-center">
-          <span className="text-muted-foreground text-sm">No NOA received yet</span>
+          <span className="text-muted-foreground text-sm">No NOA parts yet</span>
         </div>
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b text-muted-foreground">
-                <th className="text-left px-5 py-3 font-medium">NOA #</th>
-                <th className="text-left px-5 py-3 font-medium">Date Received</th>
-                <th className="text-right px-5 py-3 font-medium">Colli</th>
-                <th className="text-right px-5 py-3 font-medium">Weight (kg)</th>
+                <th className="text-left px-5 py-3 font-medium">NOA Part ID</th>
+                <th className="text-right px-5 py-3 font-medium">Colli (expected)</th>
+                <th className="text-right px-5 py-3 font-medium">Inbound Scanned</th>
+                <th className="text-right px-5 py-3 font-medium">Inbound Weight</th>
+                <th className="text-right px-5 py-3 font-medium">NOA Weight</th>
+                <th className="text-left px-5 py-3 font-medium">Scanning</th>
+                <th className="text-left px-5 py-3 font-medium">Status</th>
                 <th className="text-right px-5 py-3 font-medium">PDF</th>
               </tr>
             </thead>
             <tbody>
               {noaEntries.map((n: any, idx: number) => {
-                // Try to match a NOA file by index
                 const noaFile = noaFiles[idx] || null;
+                const scannedCount = n.scanned_count || 0;
+                const colli = n.colli || 0;
+                const statusColor = n.noa_status ? noaStatusColors[n.noa_status] : 'bg-muted text-muted-foreground border-border';
+                const scanningLabel = n.finish_method ? n.finish_method : (n.noa_status === 'Scanning' || n.scanning_status === 'scanning' ? 'In progress' : '—');
+
                 return (
-                  <tr key={n.id} className="border-b last:border-0">
-                    <td className="px-5 py-3 font-medium">NOA {n.noa_number}</td>
-                    <td className="px-5 py-3 text-muted-foreground">{n.received_at ? new Date(n.received_at).toLocaleString('en-GB') : new Date(n.created_at).toLocaleString('en-GB')}</td>
-                    <td className="px-5 py-3 text-right tabular-nums">{n.colli}</td>
-                    <td className="px-5 py-3 text-right tabular-nums">{Number(n.weight).toLocaleString()}</td>
+                  <tr key={n.id} className="border-b last:border-0 hover:bg-muted/20 transition-colors">
+                    <td className="px-5 py-3 font-medium tabular-nums">
+                      {n.noa_part_id ?? `NOA ${n.noa_number}`}
+                      <span className="block text-xs text-muted-foreground font-normal">NOA {n.noa_number}</span>
+                    </td>
+                    <td className="px-5 py-3 text-right tabular-nums">{colli}</td>
+                    <td className="px-5 py-3 text-right tabular-nums">
+                      <span className={scannedCount >= colli && colli > 0 ? 'text-green-600 font-medium' : ''}>
+                        {scannedCount}/{colli}
+                      </span>
+                    </td>
+                    <td className="px-5 py-3 text-right tabular-nums">
+                      {n.inbound_weight != null ? Number(n.inbound_weight).toLocaleString() : '—'}
+                    </td>
+                    <td className="px-5 py-3 text-right tabular-nums">
+                      {Number(n.weight || 0).toLocaleString()}
+                    </td>
+                    <td className="px-5 py-3 text-muted-foreground">{scanningLabel}</td>
+                    <td className="px-5 py-3">
+                      {n.noa_status ? (
+                        <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold ${statusColor}`}>
+                          {n.noa_status}
+                        </span>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">—</span>
+                      )}
+                    </td>
                     <td className="px-5 py-3 text-right">
                       {noaFile ? (
                         <button onClick={() => handleDownloadNoa(noaFile.storage_path, idx)}
                           className="inline-flex items-center gap-1 text-xs text-accent hover:underline">
-                          <Download className="h-3.5 w-3.5" /> Download
+                          <Download className="h-3.5 w-3.5" /> PDF
                         </button>
                       ) : (
                         <span className="text-xs text-muted-foreground">—</span>
@@ -518,13 +583,12 @@ function NoaHistorySection({ shipmentId, noaEntries, colliExpected }: { shipment
             <tfoot>
               <tr className="bg-muted/30 font-medium border-t">
                 <td className="px-5 py-3">Total</td>
+                <td className="px-5 py-3 text-right tabular-nums">{totalColli} / {colliExpected ?? '?'}</td>
+                <td className="px-5 py-3 text-right tabular-nums">{totalScanned} / {totalColli}</td>
+                <td className="px-5 py-3 text-right tabular-nums">{totalInboundWeight.toLocaleString()} kg</td>
+                <td className="px-5 py-3 text-right tabular-nums">{totalNoaWeight.toLocaleString()} kg</td>
                 <td className="px-5 py-3"></td>
-                <td className="px-5 py-3 text-right tabular-nums">
-                  {noaEntries.reduce((sum: number, n: any) => sum + n.colli, 0)} / {colliExpected ?? '?'}
-                </td>
-                <td className="px-5 py-3 text-right tabular-nums">
-                  {noaEntries.reduce((sum: number, n: any) => sum + Number(n.weight), 0).toLocaleString()} kg
-                </td>
+                <td className="px-5 py-3"></td>
                 <td className="px-5 py-3"></td>
               </tr>
             </tfoot>
